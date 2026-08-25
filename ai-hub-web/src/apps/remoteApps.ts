@@ -187,3 +187,51 @@ export async function deleteRemoteApp(id: string): Promise<{ ok: boolean; error?
     return { ok: false, error: e instanceof Error ? e.message : String(e) }
   }
 }
+
+// ── 앱 이식 (내보내기 / 가져오기) ────────────────────────────────────────────
+//
+// 한 조직에서 만든 앱을 파일 하나로 내보내면, 다른 조직이 그 파일만으로 그대로
+// 가져다 쓸 수 있다. 메타데이터와 번들 코드가 함께 들어 있어 따로 입력할 것이 없다.
+
+/** 앱을 .aihubapp.json 파일로 내려받는다. */
+export async function exportRemoteApp(id: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await api(`/remote/${encodeURIComponent(id)}/export`)
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { error?: string }
+      return { ok: false, error: body.error ?? `내보내기 실패 (${res.status})` }
+    }
+    const cd = res.headers.get('Content-Disposition') ?? ''
+    const m = cd.match(/filename\*=UTF-8''([^;\r\n]+)/i) ?? cd.match(/filename="?([^";\r\n]+)"?/i)
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = m ? decodeURIComponent(m[1]) : `${id}.aihubapp.json`
+    a.click()
+    URL.revokeObjectURL(url)
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  }
+}
+
+/** 내보낸 앱 파일을 그대로 가져온다. 메타데이터 입력이 필요 없다. */
+export async function importRemoteApp(
+  file: File,
+): Promise<{ ok: boolean; name?: string; tampered?: boolean; error?: string }> {
+  try {
+    const form = new FormData()
+    form.append('file', file)
+    const res = await api('/remote/import', { method: 'POST', body: form })
+    const body = (await res.json().catch(() => ({}))) as {
+      error?: string
+      tampered?: boolean
+      app?: { name?: string }
+    }
+    if (!res.ok) return { ok: false, error: body.error ?? `가져오기 실패 (${res.status})` }
+    return { ok: true, name: body.app?.name, tampered: body.tampered }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  }
+}

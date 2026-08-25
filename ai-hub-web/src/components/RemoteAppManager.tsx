@@ -6,7 +6,12 @@
 import { useState } from 'react'
 import { Icon } from './Icon'
 import { useAppCatalog } from '../context/AppCatalogContext'
-import { deleteRemoteApp, uploadRemoteApp } from '../apps/remoteApps'
+import {
+  deleteRemoteApp,
+  exportRemoteApp,
+  importRemoteApp,
+  uploadRemoteApp,
+} from '../apps/remoteApps'
 
 const CATEGORIES = ['생산성', '운영', 'AI', '코어'] as const
 
@@ -44,6 +49,39 @@ export default function RemoteAppManager() {
     }
   }
 
+  /** 앱을 파일 하나로 내려받는다 — 다른 조직이 그대로 가져다 쓸 수 있다. */
+  const exportApp = async (id: string, name: string) => {
+    setBusy(true)
+    try {
+      const res = await exportRemoteApp(id)
+      setMsg(res.ok
+        ? { tone: 'ok', text: `${name} 내보내기 완료 — 다른 허브에서 가져오기로 바로 설치할 수 있습니다.` }
+        : { tone: 'error', text: res.error ?? '내보내기 실패' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** 내보낸 앱 파일을 그대로 가져온다 — 메타데이터 입력이 필요 없다. */
+  const importApp = async (file: File | null) => {
+    if (!file) return
+    setBusy(true)
+    setMsg(null)
+    try {
+      const res = await importRemoteApp(file)
+      if (!res.ok) { setMsg({ tone: 'error', text: res.error ?? '가져오기 실패' }); return }
+      setMsg({
+        tone: res.tampered ? 'error' : 'ok',
+        text: res.tampered
+          ? `${res.name} 가져왔지만 파일의 해시가 기록과 다릅니다. 출처를 확인하세요.`
+          : `${res.name} 가져오기 완료 — 마켓플레이스에 등록되었습니다.`,
+      })
+      await reloadRemoteApps()
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const remove = async (id: string, name: string) => {
     if (!window.confirm(`${name} 앱을 마켓플레이스에서 삭제할까요?\n\n설치한 사용자의 화면에서도 사라집니다.`)) return
     setBusy(true)
@@ -68,12 +106,20 @@ export default function RemoteAppManager() {
           <h2 className="font-body-sm text-body-sm font-semibold text-on-surface">원격 앱 (공동 마켓플레이스)</h2>
           <p className="text-caption text-on-surface-variant">
             앱 번들을 올리면 허브를 다시 빌드하지 않고 실행 중에 등록됩니다.
+            내보내기로 파일 하나를 만들면 다른 조직의 허브에 그대로 붙일 수 있습니다.
           </p>
         </div>
         <button type="button" onClick={() => void reloadRemoteApps()} disabled={remoteLoading}
           className="shrink-0 rounded-lg border border-outline-variant px-2.5 py-1.5 text-label hover:bg-surface-container-high disabled:opacity-50">
           <Icon name={remoteLoading ? 'progress_activity' : 'refresh'} className={`text-[16px] ${remoteLoading ? 'animate-spin' : ''}`} />
         </button>
+        <label className="shrink-0 cursor-pointer rounded-lg border border-outline-variant px-3 py-1.5 text-label text-on-surface-variant hover:bg-surface-container-high"
+          title="다른 허브에서 내보낸 앱 파일(.aihubapp.json)을 가져옵니다">
+          <Icon name="download" className="mr-1 text-[16px]" />
+          가져오기
+          <input type="file" accept=".json,.aihubapp.json" className="hidden" disabled={busy}
+            onChange={(e) => { const f = e.target.files?.[0] ?? null; e.target.value = ''; void importApp(f) }} />
+        </label>
         <button type="button" onClick={() => setOpen((v) => !v)}
           className="shrink-0 rounded-lg bg-primary px-3 py-1.5 text-label text-on-primary hover:bg-primary/90">
           <Icon name={open ? 'close' : 'add'} className="mr-1 text-[16px]" />
@@ -176,6 +222,11 @@ export default function RemoteAppManager() {
               <span className="shrink-0 font-mono text-[10px] text-on-surface-variant/60" title={`SHA-256 ${meta.sha256}`}>
                 {meta.sha256.slice(0, 8)}
               </span>
+              <button type="button" onClick={() => void exportApp(meta.id, meta.name)} disabled={busy}
+                title="앱 파일로 내보내기 — 다른 허브에 그대로 붙일 수 있습니다"
+                className="shrink-0 rounded p-1 text-on-surface-variant hover:bg-primary/10 hover:text-primary disabled:opacity-50">
+                <Icon name="ios_share" className="text-[18px]" />
+              </button>
               <button type="button" onClick={() => void remove(meta.id, meta.name)} disabled={busy}
                 title="마켓플레이스에서 삭제"
                 className="shrink-0 rounded p-1 text-on-surface-variant hover:bg-error/10 hover:text-error disabled:opacity-50">

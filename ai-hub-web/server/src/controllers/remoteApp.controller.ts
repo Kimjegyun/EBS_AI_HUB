@@ -181,3 +181,157 @@ export async function deleteRemoteApp(req: AuthRequest, res: Response): Promise<
   await dbRun('DELETE FROM published_apps WHERE app_id = ?', [row.app_id])
   res.json({ ok: true, id: row.app_id })
 }
+
+// ── 앱 내보내기 / 가져오기 ───────────────────────────────────────────────────
+//
+// 한 조직에서 만든 앱을 파일 하나로 내보내, 다른 조직이 그대로 가져다 쓸 수 있게 한다.
+// 내보낸 파일에는 메타데이터와 번들 코드가 함께 들어 있어 따로 입력할 것이 없다.
+
+const EXPORT_FORMAT = 'ebs-ai-hub-app'
+const EXPORT_FORMAT_VERSION = 1
+
+interface AppExportFile {
+  format: string
+  formatVersion: number
+  exportedAt: string
+  app: {
+    id: string
+    name: string
+    icon: string
+    description: string
+    category: string
+    version: string
+    author: string | null
+    license: string | null
+    sourceUrl: string | null
+  }
+  sha256: string
+  code: string
+}
+
+/** GET /api/apps/remote/:id/export — 앱을 파일 하나로 내보낸다 */
+export async function exportRemoteApp(req: AuthRequest, res: Response): Promise<void> {
+  const row = (await dbGet('SELECT * FROM remote_apps WHERE app_id = ?', [req.params.id])) as
+    | RemoteAppRow
+    | undefined
+  if (!row) {
+    res.status(404).json({ error: '앱을 찾을 수 없습니다.' })
+    return
+  }
+  const full = bundlePath(row)
+  if (!fs.existsSync(full)) {
+    res.status(410).json({ error: '앱 번들이 서버에 없습니다.' })
+    return
+  }
+
+  const payload: AppExportFile = {
+    format: EXPORT_FORMAT,
+    formatVersion: EXPORT_FORMAT_VERSION,
+    exportedAt: new Date().toISOString(),
+    app: {
+      id: row.app_id,
+      name: row.name,
+      icon: row.icon,
+      description: row.description,
+      category: row.category,
+      version: row.version,
+      author: row.author,
+      license: row.license,
+      sourceUrl: row.source_url,
+    },
+    sha256: row.sha256,
+    code: fs.readFileSync(full, 'utf8'),
+  }
+
+  const fileName = `${row.app_id}-${row.version}.aihubapp.json`
+  res.setHeader('Content-Type', 'application/json; charset=utf-8')
+  res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`)
+  res.send(JSON.stringify(payload, null, 2))
+}
+
+/**
+ * POST /api/apps/remote/import — 내보낸 파일을 그대로 가져온다 (관리자)
+ *
+ * 메타데이터가 파일 안에 들어 있으므로 받는 쪽에서 따로 입력할 것이 없다.
+ * 번들 검증은 업로드와 똑같이 거친다.
+ */
+export async function importRemoteApp(req: AuthRequest, res: Response): Promise<void> {
+  const file = (req as any).file as Express.Multer.File | undefined
+  if (!file) {
+    res.status(400).json({ error: '내보낸 앱 파일(.aihubapp.json)이 필요합니다.' })
+    return
+  }
+
+  let parsed: AppExportFile
+  try {
+    parsed = JSON.parse(file.buffer.toString('utf8')) as AppExportFile
+  } catch {
+    res.status(400).json({ error: '앱 파일을 읽을 수 없습니다. JSON 형식이 아닙니다.' })
+    return
+  }
+
+  if (parsed.format !== EXPORT_FORMAT) {
+    res.status(400).json({ error: 'EBS AI HUB 앱 파일이 아닙니다.' })
+    return
+  }
+  if (parsed.formatVersion > EXPORT_FORMAT_VERSION) {
+    res.status(400).json({
+      error: `이 허브보다 새로운 형식입니다 (v${parsed.formatVersion}). 허브를 업데이트하세요.`,
+    })
+    return
+  }
+
+  const meta = parsed.app
+  const appId = (meta?.id ?? '').trim().toLowerCase()
+  if (!APP_ID_RE.test(appId)) {
+    res.status(400).json({ error: '앱 파일의 id가 올바르지 않습니다.' })
+    return
+  }
+  if (typeof parsed.code !== 'string') {
+    res.status(400).json({ error: '앱 파일에 번들 코드가 없습니다.' })
+    return
+  }
+
+  const problem = validateBundle(parsed.code)
+  if (problem) {
+    res.status(400).json({ error: problem })
+    return
+  }
+
+  const buffer = Buffer.from(parsed.code, 'utf8')
+  const sha256 = crypto.createHash('sha256').update(buffer).digest('hex')
+  // 내보낸 쪽이 기록한 해시와 다르면 파일이 손상됐거나 변조된 것이다.
+  const tampered = Boolean(parsed.sha256) && parsed.sha256 !== sha256
+
+  fs.mkdirSync(APP_DIR, { recursive: true })
+  const bundleName = `${appId}.js`
+  fs.writeFileSync(path.join(APP_DIR, bundleName), buffer)
+
+  await dbRun(
+    `INSERT INTO remote_apps
+       (app_id, name, icon, description, category, version, author, license, source_url,
+        bundle_name, size, sha256, uploaded_by, uploaded_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+     ON CONFLICT(app_id) DO UPDATE SET
+       name = excluded.name, icon = excluded.icon, description = excluded.description,
+       category = excluded.category, version = excluded.version, author = excluded.author,
+       license = excluded.license, source_url = excluded.source_url,
+       bundle_name = excluded.bundle_name, size = excluded.size, sha256 = excluded.sha256,
+       uploaded_by = excluded.uploaded_by, uploaded_at = CURRENT_TIMESTAMP`,
+    [
+      appId,
+      (meta.name ?? '').trim() || appId,
+      (meta.icon ?? '').trim() || 'extension',
+      (meta.description ?? '').trim(),
+      CATEGORIES.includes(meta.category as (typeof CATEGORIES)[number]) ? meta.category : '생산성',
+      (meta.version ?? '').trim() || '1.0.0',
+      (meta.author ?? '') || null,
+      (meta.license ?? '') || null,
+      (meta.sourceUrl ?? '') || null,
+      bundleName, buffer.length, sha256, req.user?.id ?? null,
+    ],
+  )
+
+  const row = (await dbGet('SELECT * FROM remote_apps WHERE app_id = ?', [appId])) as RemoteAppRow
+  res.status(201).json({ ok: true, app: toDto(row), tampered })
+}

@@ -7,6 +7,8 @@ import {
   uploadRemoteApp,
   getRemoteAppBundle,
   deleteRemoteApp,
+  exportRemoteApp,
+  importRemoteApp,
 } from '../controllers/remoteApp.controller'
 
 const router = Router()
@@ -40,6 +42,12 @@ router.post('/remote', authenticate, authorize('admin'), upload.single('bundle')
 )
 router.delete('/remote/:id', authenticate, authorize('admin'), (req, res) =>
   void deleteRemoteApp(req as any, res),
+)
+
+// 앱 이식 — 한 조직에서 만든 앱을 파일로 내보내 다른 조직이 그대로 가져다 쓴다.
+router.get('/remote/:id/export', authenticate, (req, res) => void exportRemoteApp(req as any, res))
+router.post('/remote/import', authenticate, authorize('admin'), upload.single('file'), (req, res) =>
+  void importRemoteApp(req as any, res),
 )
 
 export default router
