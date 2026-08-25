@@ -99,6 +99,25 @@ export const initDatabase = async (): Promise<void> => {
     `);
 
     await run(`
+      CREATE TABLE IF NOT EXISTS remote_apps (
+        app_id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        icon TEXT NOT NULL DEFAULT 'extension',
+        description TEXT NOT NULL DEFAULT '',
+        category TEXT NOT NULL DEFAULT '생산성',
+        version TEXT NOT NULL DEFAULT '1.0.0',
+        author TEXT,
+        license TEXT,
+        source_url TEXT,
+        bundle_name TEXT NOT NULL,
+        size INTEGER NOT NULL DEFAULT 0,
+        sha256 TEXT NOT NULL DEFAULT '',
+        uploaded_by TEXT,
+        uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await run(`
       CREATE TABLE IF NOT EXISTS published_apps (
         app_id TEXT PRIMARY KEY,
         published_at DATETIME DEFAULT CURRENT_TIMESTAMP

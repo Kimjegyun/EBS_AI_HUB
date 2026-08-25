@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Icon } from '../components/Icon'
 import { useAppCatalog } from '../context/AppCatalogContext'
 import { APP_REGISTRY } from '../apps/registry'
+import RemoteAppManager from '../components/RemoteAppManager'
 import type { AppCategory } from '../apps/types'
 
 export default function AppRegistryPage() {
@@ -110,6 +111,8 @@ export default function AppRegistryPage() {
             )
           })}
         </div>
+
+        <RemoteAppManager />
 
         <div className="mt-8 flex items-center gap-3 rounded-xl border border-outline-variant bg-surface-container px-4 py-3">
           <Icon name="info" className="shrink-0 text-[20px] text-primary" />

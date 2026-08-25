@@ -1,10 +1,14 @@
-// Central app registry for the EBS AI 허브 plugin hub.
+// 앱 레지스트리 — 허브에 올라가는 모든 앱의 단일 출처.
 //
-// This is the SINGLE source of truth for every installable app. The dashboard,
-// the marketplace, and the "설치된 앱" page all derive from it. To add a new app:
-//   1. Create `apps/<yourApp>.tsx` exporting an `AppPlugin`.
-//   2. Import it here and add it to `APP_REGISTRY`.
-// That's it — no other file needs to change.
+// 앱은 두 갈래로 들어온다.
+//   1) 내장 앱  — 이 파일에 import 하고 BUILTIN_APPS 에 한 줄 추가한다.
+//                 (파일 하나 + 한 줄, 셸 코드는 건드리지 않는다)
+//   2) 원격 앱  — 관리자가 마켓플레이스에 올린 번들을 실행 중에 내려받아 등록한다.
+//                 setRemoteApps() 로 들어오며 허브를 다시 빌드할 필요가 없다.
+//
+// APP_REGISTRY 와 APP_MAP 은 두 갈래를 합친 결과이며 원격 앱이 로드되면 갱신된다.
+// ESM 라이브 바인딩이라 import 한 쪽도 새 값을 본다. 다만 React 가 다시 그리려면
+// subscribeRegistry() 로 변경을 구독해야 한다.
 
 import type { AppPlugin } from './types'
 import { calendarApp } from './calendarApp'
@@ -23,7 +27,8 @@ import {
   setUserScopedItem,
 } from '../lib/userScopedStorage'
 
-export const APP_REGISTRY: AppPlugin[] = [
+/** 빌드에 포함되어 함께 배포되는 앱들. */
+const BUILTIN_APPS: AppPlugin[] = [
   calendarApp,
   myLlmApp,
   emailWriterApp,
@@ -36,17 +41,53 @@ export const APP_REGISTRY: AppPlugin[] = [
   bookmarksApp,
 ]
 
-export const APP_MAP: Record<string, AppPlugin> = Object.fromEntries(
+/** 마켓플레이스에서 실행 중에 불러온 앱들. */
+let remoteApps: AppPlugin[] = []
+
+export let APP_REGISTRY: AppPlugin[] = [...BUILTIN_APPS]
+export let APP_MAP: Record<string, AppPlugin> = Object.fromEntries(
   APP_REGISTRY.map((a) => [a.id, a]),
 )
 
+type RegistryListener = () => void
+const listeners = new Set<RegistryListener>()
+
+function rebuild(): void {
+  // 같은 id 면 내장 앱이 이긴다 — 원격 앱이 내장 앱을 덮어쓰지 못하게.
+  const builtinIds = new Set(BUILTIN_APPS.map((a) => a.id))
+  APP_REGISTRY = [...BUILTIN_APPS, ...remoteApps.filter((a) => !builtinIds.has(a.id))]
+  APP_MAP = Object.fromEntries(APP_REGISTRY.map((a) => [a.id, a]))
+  for (const listen of listeners) listen()
+}
+
+/** 마켓플레이스에서 불러온 앱들을 레지스트리에 반영한다. */
+export function setRemoteApps(apps: AppPlugin[]): void {
+  remoteApps = apps
+  rebuild()
+}
+
+export function getRemoteApps(): AppPlugin[] {
+  return remoteApps
+}
+
+export function isRemoteApp(id: string): boolean {
+  return remoteApps.some((a) => a.id === id)
+}
+
+/** 레지스트리가 바뀔 때 알림을 받는다 (React 재렌더용). 해제 함수를 돌려준다. */
+export function subscribeRegistry(listener: RegistryListener): () => void {
+  listeners.add(listener)
+  return () => listeners.delete(listener)
+}
+
 export const getApp = (id: string): AppPlugin | undefined => APP_MAP[id]
 
-export const CORE_APP_IDS = APP_REGISTRY.filter((a) => a.core).map((a) => a.id)
-export const DEFAULT_INSTALLED = APP_REGISTRY.filter((a) => a.defaultInstalled !== false).map(
+// 새 계정의 기본값은 내장 앱만으로 정한다. 원격 앱은 항상 사용자가 직접 설치한다.
+export const CORE_APP_IDS = BUILTIN_APPS.filter((a) => a.core).map((a) => a.id)
+export const DEFAULT_INSTALLED = BUILTIN_APPS.filter((a) => a.defaultInstalled !== false).map(
   (a) => a.id,
 )
-export const DEFAULT_ACTIVE = APP_REGISTRY.filter((a) => a.defaultActive).map((a) => a.id)
+export const DEFAULT_ACTIVE = BUILTIN_APPS.filter((a) => a.defaultActive).map((a) => a.id)
 
 export const ACTIVE_WIDGETS_KEY = 'dashboard-active-widgets'
 export const INSTALLED_APPS_KEY = 'dashboard-installed-apps'
