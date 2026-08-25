@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EBS AI 허브 - 로컬 데이터 삭제</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            border-left: 4px solid #2196f3;
+        }
+        .warning {
+            background: #fff3e0;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            border-left: 4px solid #ff9800;
+        }
+        button {
+            background: #f44336;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #d32f2f;
+        }
+        button.secondary {
+            background: #2196f3;
+        }
+        button.secondary:hover {
+            background: #1976d2;
+        }
+        button.success {
+            background: #4caf50;
+        }
+        button.success:hover {
+            background: #388e3c;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            display: none;
+        }
+        .result.success {
+            background: #c8e6c9;
+            border-left: 4px solid #4caf50;
+            display: block;
+        }
+        .result.error {
+            background: #ffcdd2;
+            border-left: 4px solid #f44336;
+            display: block;
+        }
+        .data-info {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 15px 0;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .button-group {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗑️ EBS AI 허브 로컬 데이터 삭제</h1>
+        
+        <div class="info">
+            <strong>ℹ️ 정보</strong><br>
+            이 페이지는 브라우저에 저장된 EBS AI 허브의 로컬 계정 정보와 세션 데이터를 삭제합니다.
+        </div>
+
+        <div class="warning">
+            <strong>⚠️ 주의</strong><br>
+            삭제 후에는 복구할 수 없습니다. 모든 관리자 및 사용자 계정 정보가 삭제됩니다.
+        </div>
+
+        <div id="currentData" class="data-info">
+            <strong>현재 저장된 데이터:</strong><br>
+            <div id="dataContent">확인 중...</div>
+        </div>
+
+        <div class="button-group">
+            <button onclick="clearAllData()">🗑️ 모든 데이터 삭제</button>
+            <button class="secondary" onclick="viewData()">🔍 데이터 새로고침</button>
+            <button class="success" onclick="location.href='/'">🏠 메인으로 돌아가기</button>
+        </div>
+
+        <div id="result" class="result"></div>
+    </div>
+
+    <script>
+        const STORAGE_KEYS = {
+            localAccounts: 'ai-hub-local-accounts-v1',
+            authSession: 'ai-hub-auth',
+            adminUI: 'ai-hub-admin-ui-revealed'
+        };
+
+        function checkCurrentData() {
+            const data = {};
+            let hasData = false;
+
+            // localStorage 확인
+            for (const [key, storageKey] of Object.entries(STORAGE_KEYS)) {
+                const localValue = localStorage.getItem(storageKey);
+                const sessionValue = sessionStorage.getItem(storageKey);
+                
+                if (localValue) {
+                    data[key + ' (localStorage)'] = '존재함';
+                    hasData = true;
+                }
+                if (sessionValue) {
+                    data[key + ' (sessionStorage)'] = '존재함';
+                    hasData = true;
+                }
+            }
+
+            return { data, hasData };
+        }
+
+        function viewData() {
+            const { data, hasData } = checkCurrentData();
+            const dataContent = document.getElementById('dataContent');
+            
+            if (!hasData) {
+                dataContent.innerHTML = '<span style="color: #4caf50;">✅ 저장된 데이터가 없습니다. 깨끗한 상태입니다!</span>';
+                return;
+            }
+
+            let html = '<ul style="margin: 10px 0; padding-left: 20px;">';
+            for (const [key, value] of Object.entries(data)) {
+                html += `<li>${key}: <strong>${value}</strong></li>`;
+            }
+            html += '</ul>';
+            dataContent.innerHTML = html;
+        }
+
+        function clearAllData() {
+            if (!confirm('정말로 모든 로컬 데이터를 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.')) {
+                return;
+            }
+
+            try {
+                let deletedCount = 0;
+                const deletedItems = [];
+
+                // localStorage 삭제
+                for (const [key, storageKey] of Object.entries(STORAGE_KEYS)) {
+                    if (localStorage.getItem(storageKey)) {
+                        localStorage.removeItem(storageKey);
+                        deletedItems.push(`${key} (localStorage)`);
+                        deletedCount++;
+                    }
+                }
+
+                // sessionStorage 삭제
+                for (const [key, storageKey] of Object.entries(STORAGE_KEYS)) {
+                    if (sessionStorage.getItem(storageKey)) {
+                        sessionStorage.removeItem(storageKey);
+                        deletedItems.push(`${key} (sessionStorage)`);
+                        deletedCount++;
+                    }
+                }
+
+                const result = document.getElementById('result');
+                result.className = 'result success';
+                
+                if (deletedCount === 0) {
+                    result.innerHTML = `
+                        <strong>ℹ️ 알림</strong><br>
+                        삭제할 데이터가 없습니다. 이미 깨끗한 상태입니다.
+                    `;
+                } else {
+                    result.innerHTML = `
+                        <strong>✅ 삭제 완료</strong><br>
+                        ${deletedCount}개의 데이터 항목이 삭제되었습니다.<br>
+                        <br>
+                        <strong>삭제된 항목:</strong>
+                        <ul style="margin: 10px 0; padding-left: 20px;">
+                            ${deletedItems.map(item => `<li>${item}</li>`).join('')}
+                        </ul>
+                        <br>
+                        이제 새로운 관리자와 사용자를 등록할 수 있습니다.
+                    `;
+                }
+
+                // 데이터 표시 업데이트
+                viewData();
+
+            } catch (error) {
+                const result = document.getElementById('result');
+                result.className = 'result error';
+                result.innerHTML = `
+                    <strong>❌ 오류 발생</strong><br>
+                    ${error.message}
+                `;
+            }
+        }
+
+        // 페이지 로드 시 현재 데이터 확인
+        window.addEventListener('DOMContentLoaded', viewData);
+    </script>
+</body>
+</html>

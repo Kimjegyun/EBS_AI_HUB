@@ -1,0 +1,28 @@
+{
+  "name": "재물조사",
+  "short_name": "재물조사",
+  "description": "QR 스캔으로 자산을 실사하고 결과를 서버에 등록하는 재물조사 앱",
+  "start_url": "/inventory.html",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#7e14ff",
+  "lang": "ko",
+  "icons": [
+    {
+      "src": "/pwa-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "조사 시작",
+      "url": "/inventory",
+      "description": "재물조사 목록으로 바로 이동"
+    }
+  ],
+  "categories": ["utilities", "business"]
+}

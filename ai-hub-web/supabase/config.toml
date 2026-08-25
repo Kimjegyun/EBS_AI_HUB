@@ -1,0 +1,13 @@
+# Minimal config so function JWT policy is explicit.
+
+[functions.approve-user]
+verify_jwt = false
+
+[functions.verify-admin-gate]
+verify_jwt = false
+
+[functions.notify-admin-signup]
+verify_jwt = true
+
+[functions.ai-proxy]
+verify_jwt = true

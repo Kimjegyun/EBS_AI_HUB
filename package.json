@@ -1,0 +1,9 @@
+{
+  "name": "ai-hub",
+  "private": true,
+  "scripts": {
+    "dev": "npm run dev --prefix ai-hub-web",
+    "build": "npm run build --prefix ai-hub-web",
+    "preview": "npm run preview --prefix ai-hub-web"
+  }
+}

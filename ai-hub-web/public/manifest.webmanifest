@@ -1,0 +1,20 @@
+{
+  "name": "EBS AI 허브",
+  "short_name": "EBS AI 허브",
+  "description": "EBS AI 허브 포털 - 업무 앱을 설치해 PC, 태블릿, 휴대폰에서 사용하세요.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#ffffff",
+  "theme_color": "#7e14ff",
+  "lang": "ko",
+  "icons": [
+    {
+      "src": "/pwa-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
