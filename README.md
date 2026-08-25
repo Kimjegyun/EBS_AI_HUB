@@ -120,7 +120,6 @@ export default ({ React }) => ({
 │   └── inventory.html   재물조사 PWA 단독 진입점
 ├── doc/                 문서
 │   ├── apps/            앱별 실행 순서·메뉴얼 (앱마다 1개)
-│   ├── contest/         대회 제출 문서
 │   ├── design/          디자인 시스템 정의
 │   └── legacy/          과거 설계 메모
 ├── specs/               기능 명세
