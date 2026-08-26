@@ -1,4 +1,5 @@
 import type { ChatMessage, ChatResult } from './openaiClient'
+import { authHeaders, describeAuthStatus } from './authHeaders'
 import { appendIoLog, formatChatMessages } from './ioLog'
 import { getLocalApiBaseUrl } from './localApi'
 import { supabase } from './supabase'
@@ -95,13 +96,16 @@ async function postLocalComplete(url: string, request: GatewayRequest): Promise<
   try {
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(request),
     })
     const payload = await res.json().catch(() => null)
     if (!res.ok) {
+      const authMessage = describeAuthStatus(res.status)
       const message =
-        payload && typeof payload === 'object' && 'error' in payload
+        authMessage
+          ? authMessage
+          : payload && typeof payload === 'object' && 'error' in payload
           ? String((payload as { error: unknown }).error)
           : res.status === 502
             ? '로컬 AI 서버가 꺼져 있거나 아직 시작되지 않았습니다. server 폴더에서 npm run dev를 실행하세요.'

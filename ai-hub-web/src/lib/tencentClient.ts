@@ -1,4 +1,5 @@
 import { completeViaGateway } from './aiGateway'
+import { authHeaders } from './authHeaders'
 import { consumeMyAiUsage } from './aiUsageService'
 import { supabase } from './supabase'
 import type { ChatMessage, ChatResult } from './openaiClient'
@@ -73,7 +74,7 @@ export async function tencentComplete(
 
 export async function testTencentConnection(): Promise<ChatResult> {
   try {
-    const res = await fetch('/api/ai/tencent-test', { method: 'POST' })
+    const res = await fetch('/api/ai/tencent-test', { method: 'POST', headers: authHeaders() })
     const payload = await res.json().catch(() => null)
     return asChatResult(payload)
   } catch (err) {

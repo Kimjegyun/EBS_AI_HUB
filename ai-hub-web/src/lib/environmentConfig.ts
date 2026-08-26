@@ -1,9 +1,14 @@
 import type { EnvironmentPublicConfig } from '../types/environment'
+import { authHeaders, describeAuthStatus } from './authHeaders'
 import { getLocalApiBaseUrl } from './localApi'
 import { publicEnvironmentData } from './secretFields'
 import { supabase } from './supabase'
 
 const LOCAL_ENV_API_URL = `${getLocalApiBaseUrl()}/api/environment`
+
+function describeStatus(status: number): string {
+  return describeAuthStatus(status) ?? `Local environment API failed: ${status}`
+}
 
 type FetchResult = {
   config: EnvironmentPublicConfig
@@ -17,9 +22,9 @@ function normalizeConfig(raw: unknown): EnvironmentPublicConfig {
 
 async function fetchLocalEnvironmentConfig(): Promise<FetchResult> {
   try {
-    const res = await fetch(LOCAL_ENV_API_URL)
+    const res = await fetch(LOCAL_ENV_API_URL, { headers: authHeaders() })
     if (!res.ok) {
-      return { config: {}, updatedAt: null, error: new Error(`Local environment API failed: ${res.status}`) }
+      return { config: {}, updatedAt: null, error: new Error(describeStatus(res.status)) }
     }
     const row = await res.json() as { data?: unknown; updated_at?: unknown }
     return {
@@ -42,11 +47,11 @@ async function saveLocalEnvironmentConfig(
   try {
     const res = await fetch(LOCAL_ENV_API_URL, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ data: config }),
     })
     if (!res.ok) {
-      return { error: new Error(`Local environment API failed: ${res.status}`) }
+      return { error: new Error(describeStatus(res.status)) }
     }
     return { error: null }
   } catch (err) {

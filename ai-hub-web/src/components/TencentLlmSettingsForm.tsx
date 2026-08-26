@@ -82,9 +82,11 @@ export default function TencentLlmSettingsForm({ config, onSaved }: Props) {
     const normalizedModels = mergeTencentModels(models)
     const nextBaseUrl = baseUrl.trim().replace(/\/+$/, '') || DEFAULT_TENCENT_BASE_URL
     persistLocal(Boolean(key) || configured, normalizedModels, nextBaseUrl)
-    const { config: latest } = await fetchEnvironmentConfig()
+    const current = await fetchEnvironmentConfig()
+    // 읽기가 실패하면 저장하지 않는다. 빈 설정 위에 덮어쓰면 다른 앱의 설정이 지워진다.
+    if (current.error) return { ok: false, error: `기존 설정을 읽지 못했습니다: ${current.error.message}` }
     const result = await saveEnvironmentConfig(
-      patchAppAiSettings(latest, MY_LLM_APP_ID, {
+      patchAppAiSettings(current.config, MY_LLM_APP_ID, {
         ...(key ? { ai_tencent_api_key: key } : {}),
         ai_tencent_base_url: nextBaseUrl,
         ai_tencent_models: normalizedModels,
@@ -110,9 +112,13 @@ export default function TencentLlmSettingsForm({ config, onSaved }: Props) {
 
   const handleClear = async () => {
     persistLocal(false, models, baseUrl)
-    const { config: latest } = await fetchEnvironmentConfig()
+    const current = await fetchEnvironmentConfig()
+    if (current.error) {
+      setSaveError(`기존 설정을 읽지 못했습니다: ${current.error.message}`)
+      return
+    }
     const result = await saveEnvironmentConfig(
-      patchAppAiSettings(latest, MY_LLM_APP_ID, { ai_tencent_api_key_clear: true }),
+      patchAppAiSettings(current.config, MY_LLM_APP_ID, { ai_tencent_api_key_clear: true }),
     )
     if (result.error) {
       setSaveError(`Tencent 키 삭제 실패: ${result.error.message}`)
