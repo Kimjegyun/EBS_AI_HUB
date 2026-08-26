@@ -701,7 +701,8 @@ export default function LoginPage() {
                     <input
                       className="w-full h-12 bg-white border-outline-variant text-on-surface font-h3 text-h3 rounded-lg px-4 border focus:ring-0 focus:border-primary-light transition-all placeholder:text-on-surface-variant/50 font-mono tracking-wide"
                       id="adminAccessCode"
-                      placeholder="인증 코드"
+                      placeholder="••••••••"
+                      type="password"
                       value={adminAccessCode}
                       onChange={(ev) => setAdminAccessCode(ev.target.value)}
                       autoComplete="off"
