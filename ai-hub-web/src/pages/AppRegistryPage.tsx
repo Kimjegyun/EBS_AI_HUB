@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Icon } from '../components/Icon'
 import { useAppCatalog } from '../context/AppCatalogContext'
 import { APP_REGISTRY } from '../apps/registry'
+import AppReviewQueue from '../components/AppReviewQueue'
 import RemoteAppManager from '../components/RemoteAppManager'
 import type { AppCategory } from '../apps/types'
 
@@ -111,6 +112,8 @@ export default function AppRegistryPage() {
             )
           })}
         </div>
+
+        <AppReviewQueue />
 
         <RemoteAppManager />
 

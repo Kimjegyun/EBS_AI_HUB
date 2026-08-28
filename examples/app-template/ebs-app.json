@@ -1,0 +1,12 @@
+{
+  "id": "my-app",
+  "name": "내 앱",
+  "icon": "widgets",
+  "description": "무엇을 하는 앱인지 한 줄로 적으세요",
+  "category": "생산성",
+  "version": "1.0.0",
+  "author": "",
+  "license": "MIT",
+  "sourceUrl": "",
+  "permissions": []
+}

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Icon } from '../components/Icon'
 import { useAuth } from '../auth/AuthContext'
 import { useAppCatalog } from '../context/AppCatalogContext'
+import AppSubmitPanel from '../components/AppSubmitPanel'
 import { catalogApps } from '../apps/appAccess'
 import type { AppCategory } from '../apps/types'
 
@@ -155,6 +156,8 @@ export default function MarketplacePage() {
             })}
           </div>
         )}
+
+        <AppSubmitPanel />
       </div>
     </main>
   )

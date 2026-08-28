@@ -10,6 +10,7 @@ import {
   deleteRemoteApp,
   exportRemoteApp,
   importRemoteApp,
+  setAppSuspended,
   uploadRemoteApp,
 } from '../apps/remoteApps'
 
@@ -82,6 +83,30 @@ export default function RemoteAppManager() {
     }
   }
 
+  /**
+   * 배포를 멈춘다. 삭제와 달리 코드와 이력이 남아 되돌릴 수 있다.
+   * 승인 후 문제가 드러났을 때 쓰는 수단이다.
+   */
+  const suspend = async (id: string, name: string) => {
+    const note = window.prompt(
+      `${name} 배포를 정지합니다.
+
+사용자 화면에서 즉시 사라지며, 나중에 되돌릴 수 있습니다.
+정지 사유(선택):`,
+    )
+    if (note === null) return
+    setBusy(true)
+    try {
+      const res = await setAppSuspended(id, true, note)
+      setMsg(res.ok
+        ? { tone: 'ok', text: `${name} 배포를 정지했습니다.` }
+        : { tone: 'error', text: res.error ?? '정지 실패' })
+      await reloadRemoteApps()
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const remove = async (id: string, name: string) => {
     if (!window.confirm(`${name} 앱을 마켓플레이스에서 삭제할까요?\n\n설치한 사용자의 화면에서도 사라집니다.`)) return
     setBusy(true)
@@ -105,7 +130,8 @@ export default function RemoteAppManager() {
         <div className="min-w-0 flex-1">
           <h2 className="font-body-sm text-body-sm font-semibold text-on-surface">원격 앱 (공동 마켓플레이스)</h2>
           <p className="text-caption text-on-surface-variant">
-            앱 번들을 올리면 허브를 다시 빌드하지 않고 실행 중에 등록됩니다.
+            여기서 올린 앱은 심사를 거치지 않고 바로 배포됩니다 — 관리자가 이미 확인한 것으로 봅니다.
+            사용자가 제출한 앱은 위 «앱 심사»에서 처리하세요.
             내보내기로 파일 하나를 만들면 다른 조직의 허브에 그대로 붙일 수 있습니다.
           </p>
         </div>
@@ -222,6 +248,11 @@ export default function RemoteAppManager() {
               <span className="shrink-0 font-mono text-[10px] text-on-surface-variant/60" title={`SHA-256 ${meta.sha256}`}>
                 {meta.sha256.slice(0, 8)}
               </span>
+              <button type="button" onClick={() => void suspend(meta.id, meta.name)} disabled={busy}
+                title="배포 정지 — 삭제하지 않고 사용자 화면에서만 내립니다"
+                className="shrink-0 rounded p-1 text-on-surface-variant hover:bg-warning/10 hover:text-warning disabled:opacity-50">
+                <Icon name="pause_circle" className="text-[18px]" />
+              </button>
               <button type="button" onClick={() => void exportApp(meta.id, meta.name)} disabled={busy}
                 title="앱 파일로 내보내기 — 다른 허브에 그대로 붙일 수 있습니다"
                 className="shrink-0 rounded p-1 text-on-surface-variant hover:bg-primary/10 hover:text-primary disabled:opacity-50">

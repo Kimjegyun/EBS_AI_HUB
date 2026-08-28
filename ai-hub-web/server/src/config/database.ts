@@ -43,6 +43,52 @@ export const all = (sql: string, params: any[] = []): Promise<any[]> => {
   });
 };
 
+/** 이미 있는 테이블에 컬럼을 더한다. 여러 번 실행해도 안전하다. */
+async function addColumnIfMissing(table: string, column: string, ddl: string): Promise<void> {
+  const cols = await all(`PRAGMA table_info(${table})`) as Array<{ name: string }>;
+  if (cols.some((c) => c.name === column)) return;
+  await run(`ALTER TABLE ${table} ADD COLUMN ${column} ${ddl}`);
+}
+
+/**
+ * 승인 절차가 생기기 전에 올라간 원격 앱을 버전 이력으로 옮긴다.
+ *
+ * 이미 배포되어 쓰이던 앱이므로 승인된 것으로 본다. 그렇게 하지 않으면
+ * 업데이트하는 순간 사용자 화면에서 앱이 사라진다.
+ */
+async function migrateLegacyRemoteApps(): Promise<void> {
+  const legacy = await all(
+    'SELECT * FROM remote_apps WHERE current_version_id IS NULL',
+  ) as Array<Record<string, any>>;
+  for (const row of legacy) {
+    const existing = await get(
+      'SELECT id FROM remote_app_versions WHERE app_id = ? AND version = ?',
+      [row.app_id, row.version],
+    ) as { id: number } | undefined;
+
+    let versionId = existing?.id;
+    if (!versionId) {
+      const inserted = await run(
+        `INSERT INTO remote_app_versions
+           (app_id, version, name, icon, description, category, author, license, source_url,
+            permissions, submit_note, bundle_name, size, sha256, status,
+            submitted_by, submitted_at, reviewed_by, reviewed_at, review_note)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '[]', '', ?, ?, ?, 'approved', ?, ?, ?, CURRENT_TIMESTAMP, ?)`,
+        [
+          row.app_id, row.version, row.name, row.icon, row.description, row.category,
+          row.author, row.license, row.source_url,
+          row.bundle_name, row.size, row.sha256,
+          row.uploaded_by, row.uploaded_at, row.uploaded_by,
+          '승인 절차 도입 전에 등록된 앱입니다.',
+        ],
+      );
+      versionId = inserted.lastID as number;
+    }
+    await run('UPDATE remote_apps SET current_version_id = ?, owner_id = COALESCE(owner_id, uploaded_by) WHERE app_id = ?', [versionId, row.app_id]);
+    logger.info(`remote app migrated to version history: ${row.app_id}`);
+  }
+}
+
 export const initDatabase = async (): Promise<void> => {
   try {
     await run('PRAGMA foreign_keys = ON');
@@ -236,6 +282,48 @@ export const initDatabase = async (): Promise<void> => {
     `);
     await run('CREATE INDEX IF NOT EXISTS idx_device_pairs_code ON device_pairs(pair_code)');
     await run('CREATE INDEX IF NOT EXISTS idx_device_pairs_status ON device_pairs(status)');
+    // ─────────────────────────────────────────────────────────────────
+
+    // ── 원격 앱 버전·승인 테이블 ────────────────────────────────────
+    // 승인은 앱이 아니라 "버전" 단위다. 제출할 때마다 새 행이 생기고,
+    // 관리자가 승인한 버전만 remote_apps.current_version_id 가 가리킨다.
+    // 그래서 승인받은 앱을 나중에 다른 코드로 바꿔치기할 수 없다.
+    await run(`
+      CREATE TABLE IF NOT EXISTS remote_app_versions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        app_id TEXT NOT NULL,
+        version TEXT NOT NULL,
+        name TEXT NOT NULL,
+        icon TEXT NOT NULL DEFAULT 'extension',
+        description TEXT NOT NULL DEFAULT '',
+        category TEXT NOT NULL DEFAULT '생산성',
+        author TEXT,
+        license TEXT,
+        source_url TEXT,
+        permissions TEXT NOT NULL DEFAULT '[]',
+        submit_note TEXT NOT NULL DEFAULT '',
+        bundle_name TEXT NOT NULL,
+        size INTEGER NOT NULL DEFAULT 0,
+        sha256 TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL CHECK(status IN ('pending','approved','rejected','suspended')) DEFAULT 'pending',
+        submitted_by TEXT,
+        submitted_by_name TEXT,
+        submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        reviewed_by TEXT,
+        reviewed_by_name TEXT,
+        reviewed_at DATETIME,
+        review_note TEXT NOT NULL DEFAULT ''
+      )
+    `);
+    await run('CREATE INDEX IF NOT EXISTS idx_rav_app ON remote_app_versions(app_id, submitted_at DESC)');
+    await run('CREATE INDEX IF NOT EXISTS idx_rav_status ON remote_app_versions(status)');
+
+    // remote_apps 에 소유자와 "현재 배포 중인 버전" 포인터를 더한다.
+    await addColumnIfMissing('remote_apps', 'owner_id', 'TEXT');
+    await addColumnIfMissing('remote_apps', 'current_version_id', 'INTEGER');
+
+    // 기존 설치본 이관 — 버전 이력이 없는 앱은 지금 배포 중인 것을 승인된 v1 로 본다.
+    await migrateLegacyRemoteApps();
     // ─────────────────────────────────────────────────────────────────
 
     await run('CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)');
