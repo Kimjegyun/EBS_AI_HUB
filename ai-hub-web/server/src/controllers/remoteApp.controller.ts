@@ -21,6 +21,7 @@ import * as path from 'path'
 import * as crypto from 'crypto'
 import { AuthRequest } from '../middleware/auth'
 import { run as dbRun, get as dbGet, all as dbAll } from '../config/database'
+import { setPublishedApp } from '../lib/publishedAppStore'
 
 const APP_DIR = path.join(process.cwd(), 'uploads', 'apps')
 const MAX_BUNDLE_BYTES = 2 * 1024 * 1024
@@ -307,7 +308,13 @@ async function createVersion(
   return { version: await getVersion(versionId) }
 }
 
-/** 배포 포인터를 이 버전으로 옮기고, remote_apps 의 표시용 값도 맞춘다. */
+/**
+ * 배포 포인터를 이 버전으로 옮기고, 마켓플레이스에도 등록한다.
+ *
+ * published_apps 는 사용자 마켓플레이스에 보이는지를 가른다. 승인과 등록을 따로 두면
+ * 승인해 놓고도 사용자 화면에 안 나타나므로, 승인 시 함께 등록한다.
+ * 등록만 따로 내리고 싶으면 앱 등록 화면에서 «등록 해제»를 쓰면 된다.
+ */
 async function publishVersion(appId: string, versionId: number): Promise<void> {
   const v = await getVersion(versionId)
   if (!v) return
@@ -333,20 +340,28 @@ async function publishVersion(appId: string, versionId: number): Promise<void> {
       appId,
     ],
   )
+  await setPublishedApp(appId, true)
 }
 
 /** POST /api/apps/remote/submit — 누구나 제출할 수 있다. 심사를 거쳐야 배포된다. */
 export async function submitRemoteApp(req: AuthRequest, res: Response): Promise<void> {
   const file = (req as any).file as Express.Multer.File | undefined
   if (!file) {
-    res.status(400).json({ error: '앱 번들 파일(.js)이 필요합니다.' })
+    res.status(400).json({ error: '앱 파일(.aihubapp.json 또는 .js)이 필요합니다.' })
     return
   }
+
   const body = req.body as Record<string, string>
+  // 패키지 파일 하나로 냈으면 그 안의 메타데이터를 쓰고, 폼으로 낸 값이 있으면 그쪽이 이긴다.
+  const pkg = readPackageFile(file.buffer)
+  const buffer = pkg ? Buffer.from(pkg.code, 'utf8') : file.buffer
+  const meta = pkg ? { ...pkg.app, ...stripEmpty(body) } : body
+  const appId = String(meta.id ?? '').trim().toLowerCase()
+
   const result = await createVersion(req, {
-    appId: (body.id ?? '').trim().toLowerCase(),
-    buffer: file.buffer,
-    meta: body,
+    appId,
+    buffer,
+    meta: meta as Record<string, unknown>,
     autoApprove: false,
   })
   if (result.error) {
@@ -354,6 +369,15 @@ export async function submitRemoteApp(req: AuthRequest, res: Response): Promise<
     return
   }
   res.status(201).json({ ok: true, version: toDto(result.version!) })
+}
+
+/** 폼에서 비어 온 값이 패키지 메타데이터를 덮어쓰지 않게 걸러 낸다. */
+function stripEmpty(body: Record<string, string>): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const [k, v] of Object.entries(body ?? {})) {
+    if (typeof v === 'string' && v.trim()) out[k] = v
+  }
+  return out
 }
 
 /** POST /api/apps/remote — 관리자 직접 등록. 심사를 건너뛴다. */
@@ -480,6 +504,7 @@ export async function reviewVersion(req: AuthRequest, res: Response): Promise<vo
     const app = await getApp(v.app_id)
     if (app?.current_version_id === v.id) {
       await dbRun('UPDATE remote_apps SET current_version_id = NULL WHERE app_id = ?', [v.app_id])
+      await setPublishedApp(v.app_id, false)
     }
   }
 
@@ -506,6 +531,7 @@ export async function suspendApp(req: AuthRequest, res: Response): Promise<void>
       WHERE id = ?`,
     [req.user?.id ?? null, req.user?.email ?? null, note || '관리자가 배포를 정지했습니다.', live.id],
   )
+  await setPublishedApp(req.params.id, false)
   res.json({ ok: true, id: req.params.id })
 }
 
@@ -621,6 +647,27 @@ interface AppExportFile {
   }
   sha256: string
   code: string
+}
+
+/**
+ * 파일이 «패키지 한 장»(.aihubapp.json) 인지 보고, 맞으면 메타데이터와 코드를 꺼낸다.
+ *
+ * 제출자가 폼을 채우지 않고 파일 하나만 내도 되게 하려는 것이다.
+ * 그냥 .js 번들이면 null 을 돌려주고 호출한 쪽이 폼 값을 쓴다.
+ */
+function readPackageFile(buffer: Buffer): AppExportFile | null {
+  const text = buffer.toString('utf8').trim()
+  if (!text.startsWith('{')) return null
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(text)
+  } catch {
+    return null
+  }
+  const pkg = parsed as Partial<AppExportFile>
+  if (pkg?.format !== EXPORT_FORMAT) return null
+  if (typeof pkg.code !== 'string' || !pkg.app) return null
+  return pkg as AppExportFile
 }
 
 /** GET /api/apps/remote/:id/export — 배포 중인 버전을 파일 하나로 내보낸다 */

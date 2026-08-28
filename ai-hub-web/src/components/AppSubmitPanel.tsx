@@ -11,6 +11,7 @@ import { useAppCatalog } from '../context/AppCatalogContext'
 import {
   fetchMySubmissions,
   loadLocalPreview,
+  parseAppPackage,
   submitRemoteApp,
   PERMISSION_LABELS,
   REMOTE_APP_PERMISSIONS,
@@ -46,6 +47,8 @@ export default function AppSubmitPanel() {
     submitNote: '',
   })
   const [permissions, setPermissions] = useState<RemoteAppPermission[]>([])
+  /** 제출용 패키지를 골랐으면 폼을 채울 필요가 없다. */
+  const [fromPackage, setFromPackage] = useState(false)
   const [mine, setMine] = useState<RemoteAppMeta[]>([])
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
@@ -61,6 +64,36 @@ export default function AppSubmitPanel() {
   // setState 는 await 이후에 일어나지만 규칙이 호출을 따라 들어가 오탐합니다.
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void loadMine() }, [loadMine])
+
+  /**
+   * 번들 파일을 고른다.
+   *
+   * 제출용 패키지(.aihubapp.json)면 안의 메타데이터로 폼을 채운다 —
+   * 빌드가 만들어 준 값이라 사람이 다시 옮겨 적을 이유가 없다.
+   */
+  const pickBundle = async (file: File | null) => {
+    setBundle(file)
+    setFromPackage(false)
+    if (!file) return
+    const pkg = parseAppPackage(await file.text())
+    if (!pkg) return
+    const a = pkg.app
+    setForm((f) => ({
+      ...f,
+      id: a.id ?? f.id,
+      name: a.name ?? f.name,
+      icon: a.icon || f.icon,
+      description: a.description ?? f.description,
+      category: a.category ?? f.category,
+      version: a.version ?? f.version,
+      author: a.author ?? f.author,
+      license: a.license ?? f.license,
+      sourceUrl: a.sourceUrl ?? f.sourceUrl,
+    }))
+    setPermissions(a.permissions ?? [])
+    setFromPackage(true)
+    setMsg({ tone: 'ok', text: '파일에 담긴 정보로 아래 항목을 채웠습니다. 필요하면 고치세요.' })
+  }
 
   const togglePermission = (p: RemoteAppPermission) =>
     setPermissions((list) => (list.includes(p) ? list.filter((x) => x !== p) : [...list, p]))
@@ -82,7 +115,7 @@ export default function AppSubmitPanel() {
   }
 
   const submit = async () => {
-    if (!bundle) { setMsg({ tone: 'error', text: '앱 번들(.js) 파일을 선택하세요.' }); return }
+    if (!bundle) { setMsg({ tone: 'error', text: '앱 파일을 선택하세요.' }); return }
     if (!form.id.trim() || !form.name.trim()) {
       setMsg({ tone: 'error', text: '앱 id와 이름은 필수입니다.' }); return
     }
@@ -93,9 +126,10 @@ export default function AppSubmitPanel() {
       if (!res.ok) { setMsg({ tone: 'error', text: res.error ?? '제출 실패' }); return }
       setMsg({
         tone: 'ok',
-        text: `${form.name} 제출 완료 — 관리자 승인 후 마켓플레이스에 올라갑니다.`,
+        text: `${form.name} 제출 완료 — 관리자가 승인하면 마켓플레이스에 등록됩니다.`,
       })
       setBundle(null)
+      setFromPackage(false)
       setForm((f) => ({ ...f, id: '', name: '', description: '', submitNote: '' }))
       setPermissions([])
       setOpen(false)
@@ -122,7 +156,7 @@ export default function AppSubmitPanel() {
           title="제출하지 않고 내 화면에서만 띄워 봅니다">
           <Icon name="visibility" className="mr-1 text-[16px]" />
           로컬 미리보기
-          <input type="file" accept=".js,.mjs" className="hidden"
+          <input type="file" accept=".json,.aihubapp.json,.js,.mjs" className="hidden"
             onChange={(e) => { const f = e.target.files?.[0] ?? null; e.target.value = ''; void preview(f) }} />
         </label>
         <button type="button" onClick={() => setOpen((v) => !v)}
@@ -157,10 +191,12 @@ export default function AppSubmitPanel() {
           <label className="flex cursor-pointer items-center gap-2 rounded-lg border-2 border-dashed border-outline-variant px-3 py-3 hover:border-primary/50">
             <Icon name="code" className="text-[20px] text-on-surface-variant" />
             <span className="min-w-0 flex-1 truncate text-body-sm text-on-surface">
-              {bundle ? `${bundle.name} · ${(bundle.size / 1024).toFixed(0)} KB` : '앱 번들 파일 선택 (.js)'}
+              {bundle
+                ? `${bundle.name} · ${(bundle.size / 1024).toFixed(0)} KB`
+                : '앱 파일 선택 (.aihubapp.json 또는 .js)'}
             </span>
-            <input type="file" accept=".js,.mjs" className="hidden"
-              onChange={(e) => { setBundle(e.target.files?.[0] ?? null); e.target.value = '' }} />
+            <input type="file" accept=".json,.aihubapp.json,.js,.mjs" className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0] ?? null; e.target.value = ''; void pickBundle(f) }} />
           </label>
 
           <div className="grid grid-cols-2 gap-2">
@@ -230,9 +266,17 @@ export default function AppSubmitPanel() {
               placeholder="예: 사내 공지를 모아 보여 줍니다. 공지 API를 읽기 위해 허브 API 호출이 필요합니다." />
           </label>
 
+          {fromPackage && (
+            <p className="flex items-start gap-1.5 rounded-lg bg-success/10 px-2.5 py-1.5 text-[11px] leading-relaxed text-success">
+              <Icon name="task_alt" className="mt-0.5 shrink-0 text-[13px]" />
+              제출용 파일에서 정보를 읽었습니다. 그대로 «심사 요청»을 누르시면 됩니다.
+            </p>
+          )}
+
           <p className="flex items-start gap-1.5 text-[11px] leading-relaxed text-on-surface-variant">
             <Icon name="info" className="mt-0.5 shrink-0 text-[13px]" />
-            제출한 코드는 관리자가 전부 읽습니다. 승인 전까지 다른 사용자에게 배포되지 않습니다.
+            제출한 코드는 관리자가 전부 읽습니다. 승인되면 마켓플레이스에 등록되어
+            다른 사용자가 설치할 수 있게 됩니다.
           </p>
 
           <button type="button" onClick={() => void submit()} disabled={busy}

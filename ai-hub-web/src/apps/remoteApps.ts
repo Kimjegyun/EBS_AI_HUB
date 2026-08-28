@@ -396,15 +396,63 @@ export async function setAppSuspended(
 
 export const PREVIEW_PREFIX = 'preview-'
 
+/** 제출용 패키지 — 메타데이터와 코드가 한 파일에 들어 있다. */
+export interface AppPackage {
+  app: {
+    id?: string
+    name?: string
+    icon?: string
+    description?: string
+    category?: string
+    version?: string
+    author?: string | null
+    license?: string | null
+    sourceUrl?: string | null
+    permissions?: RemoteAppPermission[]
+  }
+  code: string
+  sha256?: string
+}
+
+/**
+ * .aihubapp.json 이면 내용을 꺼내고, 그냥 .js 번들이면 null 을 돌려준다.
+ * 제출 화면과 미리보기가 같은 판정을 쓰도록 한곳에 둔다.
+ */
+export function parseAppPackage(text: string): AppPackage | null {
+  const trimmed = text.trim()
+  if (!trimmed.startsWith('{')) return null
+  try {
+    const parsed = JSON.parse(trimmed) as {
+      format?: string
+      app?: unknown
+      code?: unknown
+      sha256?: unknown
+    }
+    if (parsed.format !== 'ebs-ai-hub-app') return null
+    if (typeof parsed.code !== 'string' || !parsed.app) return null
+    return {
+      app: parsed.app as AppPackage['app'],
+      code: parsed.code,
+      sha256: typeof parsed.sha256 === 'string' ? parsed.sha256 : undefined,
+    }
+  } catch {
+    return null
+  }
+}
+
 /** 로컬 파일을 그 자리에서 플러그인으로 만든다. 서버를 거치지 않는다. */
 export async function loadLocalPreview(file: File): Promise<RemoteAppLoadResult> {
-  const code = await file.text()
+  const text = await file.text()
+  // 제출용 패키지면 그 안의 코드를 꺼내 쓴다. 그냥 .js 번들이면 파일 내용이 곧 코드다.
+  const pkg = parseAppPackage(text)
+  const code = pkg ? pkg.code : text
+  const baseName = pkg?.app.id || file.name.replace(/\.(m?js|aihubapp\.json|json)$/i, '')
   const meta: RemoteAppMeta = {
-    id: `${PREVIEW_PREFIX}${file.name.replace(/\.(m?js)$/i, '').replace(/[^a-z0-9-]/gi, '-').toLowerCase()}`,
-    name: `[미리보기] ${file.name}`,
-    icon: 'visibility',
+    id: `${PREVIEW_PREFIX}${baseName.replace(/[^a-z0-9-]/gi, '-').toLowerCase()}`,
+    name: `[미리보기] ${pkg?.app.name || file.name}`,
+    icon: pkg?.app.icon || 'visibility',
     description: '로컬 파일 미리보기 — 서버에 올라가지 않았습니다.',
-    category: 'AI',
+    category: pkg?.app.category || 'AI',
     version: 'preview',
     author: null,
     license: null,

@@ -85,7 +85,7 @@ export default function AppReviewQueue() {
       return
     }
     if (action === 'approve' && !window.confirm(
-      '이 버전을 승인하면 모든 사용자에게 배포됩니다.\n\n' +
+      '이 버전을 승인하면 마켓플레이스에 등록되어 모든 사용자가 설치할 수 있게 됩니다.\n\n' +
       '원격 앱 코드는 허브와 같은 권한으로 실행되며 샌드박스가 없습니다.\n' +
       '코드를 직접 확인하셨습니까?',
     )) return
@@ -96,7 +96,9 @@ export default function AppReviewQueue() {
       if (!res.ok) { setMsg({ tone: 'error', text: res.error ?? '처리 실패' }); return }
       setMsg({
         tone: 'ok',
-        text: action === 'approve' ? '승인되었습니다 — 마켓플레이스에 배포됩니다.' : '반려했습니다.',
+        text: action === 'approve'
+          ? '승인 완료 — 마켓플레이스에 등록되었습니다. 사용자가 «사용하기»로 설치합니다.'
+          : '반려했습니다. 제출자에게 사유가 전달됩니다.',
       })
       setOpenId(null)
       setDetail(null)
@@ -124,7 +126,8 @@ export default function AppReviewQueue() {
             )}
           </h2>
           <p className="text-caption text-on-surface-variant">
-            사용자가 제출한 앱입니다. 승인해야 배포됩니다. 승인 전 코드는 아무에게도 나가지 않습니다.
+            사용자가 제출한 앱입니다. 승인하면 마켓플레이스에 등록됩니다.
+            승인 전 코드는 아무에게도 나가지 않습니다.
           </p>
         </div>
         <button type="button" onClick={() => void load()} disabled={loading}
@@ -255,7 +258,7 @@ export default function AppReviewQueue() {
                             <button type="button" disabled={busy}
                               onClick={() => void decide(r.versionId!, 'approve')}
                               className="flex-1 rounded-lg bg-primary py-2 text-body-sm font-medium text-on-primary hover:bg-primary/90 disabled:opacity-50">
-                              승인하고 배포
+                              승인 · 마켓플레이스 등록
                             </button>
                             <button type="button" disabled={busy}
                               onClick={() => void decide(r.versionId!, 'reject')}
