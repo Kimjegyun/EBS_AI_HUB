@@ -1,0 +1,16 @@
+name = "ebs-inventory-api"
+main = "src/index.ts"
+compatibility_date = "2026-08-29"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "ebs-inventory"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+
+[[r2_buckets]]
+binding = "FILES"
+bucket_name = "ebs-inventory-files"
+
+[vars]
+# Comma-separated Vercel production/preview origins. Use "*" only for local testing.
+ALLOWED_ORIGINS = "http://localhost:5173,http://localhost:5174"

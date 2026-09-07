@@ -36,6 +36,7 @@ export default function MarketplacePage() {
   const { isAdmin } = useAuth()
   const { publishedIds, installedIds, selectApp, loading, refresh } = useAppCatalog()
   const [active, setActive] = useState<string>('전체')
+  const [query, setQuery] = useState('')
   const userCatalog = useMemo(() => catalogApps(false, publishedIds), [publishedIds])
 
   useEffect(() => {
@@ -48,9 +49,14 @@ export default function MarketplacePage() {
   }, [userCatalog])
 
   const visible = userCatalog.filter((app) => {
-    if (active === '전체') return true
-    if (active === '사용 중') return installedIds.includes(app.id)
-    return app.category === active
+    const categoryMatches =
+      active === '전체' ||
+      (active === '사용 중' ? installedIds.includes(app.id) : app.category === active)
+    const term = query.trim().toLocaleLowerCase('ko')
+    const searchMatches = !term || [app.name, app.description, app.author, app.category]
+      .filter(Boolean)
+      .some((value) => String(value).toLocaleLowerCase('ko').includes(term))
+    return categoryMatches && searchMatches
   })
 
   return (
@@ -101,6 +107,22 @@ export default function MarketplacePage() {
           </div>
         </div>
 
+        <label className="mb-5 flex items-center gap-2 rounded-xl border border-outline-variant bg-white px-4 py-2.5 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10">
+          <Icon name="search" className="shrink-0 text-[21px] text-on-surface-variant" />
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="앱 이름, 기능 또는 제작자로 검색"
+            className="min-w-0 flex-1 border-0 bg-transparent p-0 text-body text-on-surface placeholder:text-outline focus:ring-0"
+          />
+          {query && (
+            <button type="button" onClick={() => setQuery('')} aria-label="검색어 지우기" className="rounded-full p-1 text-on-surface-variant hover:bg-surface-container">
+              <Icon name="close" className="text-[18px]" />
+            </button>
+          )}
+        </label>
+
         {loading && userCatalog.length === 0 ? (
           <p className="text-body-sm text-on-surface-variant">등록된 앱을 불러오는 중입니다.</p>
         ) : visible.length === 0 ? (
@@ -109,7 +131,9 @@ export default function MarketplacePage() {
             <p className="text-body text-on-surface-variant">
               {userCatalog.length === 0
                 ? '아직 등록된 앱이 없습니다. 관리자가 앱을 테스트한 뒤 등록하면 여기에 표시됩니다.'
-                : '이 분류에 해당하는 앱이 없습니다.'}
+                : query.trim()
+                  ? `“${query.trim()}” 검색 결과가 없습니다.`
+                  : '이 분류에 해당하는 앱이 없습니다.'}
             </p>
           </section>
         ) : (
@@ -148,7 +172,7 @@ export default function MarketplacePage() {
                           : 'bg-primary text-white hover:opacity-90'
                       }`}
                     >
-                      {selected ? '사용 안 함' : '사용하기'}
+                      {selected ? '설치됨 · 제거' : '설치'}
                     </button>
                   </div>
                 </article>

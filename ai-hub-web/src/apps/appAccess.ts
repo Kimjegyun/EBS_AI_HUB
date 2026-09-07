@@ -2,8 +2,7 @@ import { APP_MAP, APP_REGISTRY, getActiveApps, getInstalledApps } from './regist
 import type { AppPlugin } from './types'
 
 export function resolvePublishedAppIds(publishedIds: string[]): string[] {
-  const known = publishedIds.filter((id) => Boolean(APP_MAP[id]))
-  return known.length > 0 ? known : APP_REGISTRY.map((app) => app.id)
+  return publishedIds.filter((id) => Boolean(APP_MAP[id]))
 }
 
 export function isPublishedApp(appId: string, publishedIds: string[]): boolean {

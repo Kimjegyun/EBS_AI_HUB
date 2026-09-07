@@ -18,6 +18,13 @@ export const authenticate = (req: AuthRequest, res: Response, next: NextFunction
       return next();
     }
 
+    // Vercel에 공개되는 현장 PWA용 제한 토큰. 관리자 권한을 부여하지 않는다.
+    const inventoryCode = process.env.INVENTORY_ACCESS_CODE?.trim();
+    if (inventoryCode && secretsEqual(token, inventoryCode)) {
+      req.user = { id: 'inventory-field', email: 'inventory-field@local', role: 'user' };
+      return next();
+    }
+
     const secret = process.env.JWT_SECRET?.trim();
     if (!secret || secret === 'default-secret') {
       return res.status(500).json({ error: 'JWT_SECRET is not configured' });

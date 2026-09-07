@@ -926,6 +926,7 @@ export async function ngrokTokenHandler(req: AuthRequest, res: Response): Promis
 // 파일 본문은 uploads/inventory 아래 디스크에 두고 DB에는 메타데이터만 둡니다.
 
 const INVENTORY_FILE_DIR = path.join(process.cwd(), 'uploads', 'inventory')
+const INVENTORY_PHOTO_DIR = path.join(process.cwd(), 'uploads', 'inventory-photos')
 const INVENTORY_FILE_KINDS = ['erp-inspection', 'dept-comparison'] as const
 const XLSX_MIME_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
@@ -975,6 +976,29 @@ export async function uploadInventoryFile(req: AuthRequest, res: Response): Prom
     ],
   )
   res.json({ ok: true, id, fileName: originalName, size: file.size })
+}
+
+/** POST /sessions/:id/results/:assetNo/photo — 오프라인 촬영 사진을 서버 디스크에 동기화 */
+export async function uploadSurveyPhoto(req: AuthRequest, res: Response): Promise<void> {
+  const file = (req as any).file as Express.Multer.File | undefined
+  if (!file) { res.status(400).json({ error: '사진 파일이 없습니다.' }); return }
+  if (!file.mimetype.startsWith('image/')) { res.status(415).json({ error: '이미지 파일만 등록할 수 있습니다.' }); return }
+  const session = await getSession(req.params.id)
+  if (!session) { res.status(404).json({ error: '조사 회차를 찾을 수 없습니다.' }); return }
+
+  fs.mkdirSync(INVENTORY_PHOTO_DIR, { recursive: true })
+  const id = uuidv4()
+  const extension = file.mimetype === 'image/png' ? '.png' : '.jpg'
+  const storedName = `${id}${extension}`
+  fs.writeFileSync(path.join(INVENTORY_PHOTO_DIR, storedName), file.buffer)
+  const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8')
+  await dbRun(
+    `INSERT INTO inventory_photos
+       (id, session_id, asset_no, file_name, stored_name, content_type, size, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, req.params.id, decodeURIComponent(req.params.assetNo), originalName, storedName, file.mimetype, file.size, req.user?.id ?? null],
+  )
+  res.status(201).json({ id, fileName: originalName, size: file.size })
 }
 
 /** GET /files — 보관된 산출물 목록 (kind / parentDept 로 필터) */

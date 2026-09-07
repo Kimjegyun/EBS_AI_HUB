@@ -31,3 +31,9 @@ dist-ssr
 
 # ngrok
 ngrok-token.env
+
+# Cloudflare Tunnel binary, credentials reference and local config
+.cloudflared/
+
+# Azure onboarding session artifacts
+.copilot-azure/

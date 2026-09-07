@@ -74,33 +74,6 @@ function findFirstGap(item: Layout, placed: Layout[], cols: number): Layout {
   return { ...base, x: 0, y }
 }
 
-function closeColumnGaps(items: Layout[], cols: number): Layout[] {
-  if (items.length === 0) return items
-
-  const occupied = Array.from({ length: cols }, () => false)
-  for (const item of items) {
-    for (let col = item.x; col < item.x + item.w && col < cols; col++) {
-      if (col >= 0) occupied[col] = true
-    }
-  }
-
-  const gapsBefore = Array.from({ length: cols + 1 }, () => 0)
-  for (let col = 0; col < cols; col++) {
-    gapsBefore[col + 1] = gapsBefore[col] + (occupied[col] ? 0 : 1)
-  }
-
-  const closed = items.map((item) =>
-    clampLayoutItem({ ...item, x: item.x - gapsBefore[item.x] }, cols),
-  )
-  const maxRight = Math.max(...closed.map((item) => item.x + item.w))
-  const fill = cols - maxRight
-  if (fill <= 0) return closed
-
-  return closed.map((item) =>
-    item.x + item.w === maxRight ? clampLayoutItem({ ...item, w: item.w + fill }, cols) : item,
-  )
-}
-
 function preserveFreeLayout(items: Layout[], cols: number): Layout[] {
   const sorted = [...items].sort((a, b) => a.y - b.y || a.x - b.x)
   const placed: Layout[] = []
@@ -116,86 +89,46 @@ function preserveFreeLayout(items: Layout[], cols: number): Layout[] {
 }
 
 function alignTopLeft(items: Layout[], cols: number): Layout[] {
-  return closeColumnGaps(packRow(items, cols), cols)
+  return compactMasonry(items, cols)
+}
+
+// 가장 위쪽의 빈 사각형부터 채우는 masonry 배치입니다. 현재 너비로 위쪽
+// 공간에 들어가지 않는 위젯은 minW까지만 자동 축소합니다. 예를 들어 상단
+// 오른쪽 위젯이 더 길면 전체 폭 캘린더를 왼쪽 하단 폭에 맞춰 끌어올립니다.
+function compactMasonry(items: Layout[], cols: number): Layout[] {
+  const sorted = [...items].sort((a, b) => a.y - b.y || a.x - b.x)
+  const placed: Layout[] = []
+
+  for (const raw of sorted) {
+    const base = clampLayoutItem(raw, cols)
+    const minW = Math.min(base.w, Math.max(1, base.minW ?? 1))
+    let best: Layout | null = null
+
+    for (let width = base.w; width >= minW; width -= 1) {
+      for (let y = 0; y < 240; y += 1) {
+        let foundAtWidth = false
+        for (let x = 0; x <= cols - width; x += 1) {
+          const candidate = { ...base, x, y, w: width }
+          if (placed.some((other) => collides(candidate, other))) continue
+          foundAtWidth = true
+          if (!best || y < best.y || (y === best.y && width > best.w) || (y === best.y && width === best.w && x < best.x)) best = candidate
+          break
+        }
+        if (foundAtWidth) break
+      }
+    }
+
+    placed.push(best ?? findFirstGap(base, placed, cols))
+  }
+  return placed
 }
 
 // Pack items to the left so no widget is stranded against the right edge with
 // empty columns to its left. This lets a lone/edge widget grow rightward freely.
-function compactLeft(items: Layout[], cols: number): Layout[] {
-  const sorted = [...items].sort((a, b) => a.y - b.y || a.x - b.x)
-  const placed: Layout[] = []
-  for (const it of sorted) {
-    const w = Math.min(Math.max(it.w, it.minW ?? 1), cols)
-    const y = Math.max(0, it.y)
-    const vOverlap = (p: Layout) => y < p.y + p.h && y + it.h > p.y
-    let x = 0
-    for (;;) {
-      const blockers = placed.filter((p) => vOverlap(p) && x < p.x + p.w && x + w > p.x)
-      if (blockers.length === 0) break
-      const nextX = Math.max(...blockers.map((p) => p.x + p.w))
-      if (nextX + w > cols) break
-      x = nextX
-    }
-    placed.push({ ...it, x, y, w })
-  }
-  return placed
-}
-
 // Pull every widget upward as far as it can go without colliding, so nothing is
 // ever stranded below an empty gap — the grid always packs to the top edge.
-function compactVertical(items: Layout[]): Layout[] {
-  const sorted = [...items].sort((a, b) => a.y - b.y || a.x - b.x)
-  const placed: Layout[] = []
-  for (const it of sorted) {
-    const item = { ...it, y: Math.max(0, it.y), h: Math.max(it.h, it.minH ?? 1) }
-    const collidesAt = (y: number) =>
-      placed.some(
-        (p) => item.x < p.x + p.w && item.x + item.w > p.x && y < p.y + p.h && y + item.h > p.y,
-      )
-    let y = 0
-    while (collidesAt(y)) y++
-    placed.push({ ...item, y })
-  }
-  return placed
-}
-
 // Full top-left normalisation: pack left, pull up, then stretch the last widget
 // in each row to fill the width — no empty space at the top-left or right edge.
-function packRow(items: Layout[], cols: number): Layout[] {
-  const sorted = compactVertical(compactLeft(items, cols)).sort((a, b) => a.y - b.y || a.x - b.x)
-  const packed: Layout[] = []
-  let x = 0
-  let y = 0
-  let rowH = 0
-
-  for (const item of sorted) {
-    const w = Math.min(Math.max(item.w, item.minW ?? 1), cols)
-    const h = Math.max(item.h, item.minH ?? 1)
-    if (x > 0 && x + w > cols) {
-      y += rowH
-      x = 0
-      rowH = 0
-    }
-    packed.push({ ...item, x, y, w, h })
-    x += w
-    rowH = Math.max(rowH, h)
-  }
-
-  const rows = new Map<number, Layout[]>()
-  for (const item of packed) {
-    const row = rows.get(item.y) ?? []
-    row.push(item)
-    rows.set(item.y, row)
-  }
-  for (const row of rows.values()) {
-    row.sort((a, b) => a.x - b.x)
-    const last = row[row.length - 1]
-    const fill = cols - (last.x + last.w)
-    if (fill > 0) last.w += fill
-  }
-  return packed
-}
-
 function normalizeLayouts<T extends Record<string, Layout[]>>(ls: T): T {
   const out: Record<string, Layout[]> = {}
   for (const [bp, items] of Object.entries(ls)) {
@@ -207,7 +140,9 @@ function normalizeLayouts<T extends Record<string, Layout[]>>(ls: T): T {
 function repairIdleLayouts<T extends Record<string, Layout[]>>(ls: T): T {
   const out: Record<string, Layout[]> = {}
   for (const [bp, items] of Object.entries(ls)) {
-    out[bp] = preserveFreeLayout(items ?? [], GRID_COLS)
+    // 대시보드가 유휴 상태가 되면 모든 위젯을 좌상단부터 다시 배치해
+    // 위젯 사이와 하단에 불필요한 빈 영역이 남지 않도록 합니다.
+    out[bp] = alignTopLeft(items ?? [], GRID_COLS)
   }
   return out as T
 }
@@ -981,7 +916,7 @@ export default function DashboardPage() {
     // RGL's callback layout only contains its own resize result. Recompute from
     // the gesture snapshot so the linked neighbours are also retained after the
     // pointer is released, then persist that exact shared-boundary layout.
-    const next = linkedLayout(newItem) ?? preserveFreeLayout(layout, GRID_COLS)
+    const next = alignTopLeft(linkedLayout(newItem) ?? layout, GRID_COLS)
     setLayouts((prev) => persistLayouts({ ...prev, lg: next }))
     // RGL can emit a raw onLayoutChange after React has committed this linked
     // layout. A zero-delay timer is too early: that late event then treats the
@@ -1017,9 +952,8 @@ export default function DashboardPage() {
     setActiveSnapPreset(getSnapPreset(rect, newItem, e.clientX, e.clientY, adaptiveRowHeight))
   }
 
-  // After a move, keep the user's chosen position. Collisions are resolved
-  // minimally, but empty space is preserved so widgets can live left, right, or
-  // lower on the dashboard.
+  // 이동이 끝나면 위젯을 좌상단부터 밀착 배치합니다. 사용자가 놓은 상대적
+  // 순서는 유지하면서 행·열 사이에 큰 공란이 생기는 것을 방지합니다.
   const handleDragStop = (
     layout: Layout[],
     _oldItem: Layout,
@@ -1032,7 +966,10 @@ export default function DashboardPage() {
     const preset =
       activeSnapPreset ??
       (rect ? getSnapPreset(rect, newItem, e.clientX, e.clientY, adaptiveRowHeight) : null)
-    const packed = preset ? applySnapPreset(layout, newItem.i, preset) : preserveFreeLayout(layout, GRID_COLS)
+    const packed = alignTopLeft(
+      preset ? applySnapPreset(layout, newItem.i, preset) : layout,
+      GRID_COLS,
+    )
     setLayouts((prev) => persistLayouts({ ...prev, lg: packed }))
     setActiveSnapPreset(null)
     setTimeout(() => {
@@ -1295,7 +1232,7 @@ export default function DashboardPage() {
             resizeHandles={['s', 'w', 'e', 'n', 'sw', 'nw', 'se', 'ne']}
             margin={[0, 0]}
             containerPadding={[0, 0]}
-            compactType={null}
+            compactType="vertical"
             allowOverlap={isResizing}
             preventCollision={isResizing}
             useCSSTransforms={false}

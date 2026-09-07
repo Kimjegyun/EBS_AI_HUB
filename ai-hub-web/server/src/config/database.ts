@@ -258,8 +258,24 @@ export const initDatabase = async (): Promise<void> => {
       )
     `);
 
+    // 현장 촬영 사진은 Excel 산출물과 분리해 원본 MIME/확장자를 보존한다.
+    await run(`
+      CREATE TABLE IF NOT EXISTS inventory_photos (
+        id TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL,
+        asset_no TEXT NOT NULL,
+        file_name TEXT NOT NULL,
+        stored_name TEXT NOT NULL,
+        content_type TEXT NOT NULL,
+        size INTEGER NOT NULL DEFAULT 0,
+        created_by TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     await run('CREATE INDEX IF NOT EXISTS idx_inv_sessions_updated ON inventory_sessions(updated_at)');
     await run('CREATE INDEX IF NOT EXISTS idx_inv_files_created ON inventory_files(created_at)');
+    await run('CREATE INDEX IF NOT EXISTS idx_inv_photos_result ON inventory_photos(session_id, asset_no)');
     await run('CREATE INDEX IF NOT EXISTS idx_inv_sync_session ON inventory_sync_log(session_id, synced_at)');
 
     // ── 모바일 기기 페어링 테이블 ──────────────────────────────────────

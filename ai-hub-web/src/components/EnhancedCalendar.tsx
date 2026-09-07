@@ -266,6 +266,10 @@ export default function EnhancedCalendar({
               <div
                 key={`${currentYear}-${currentMonth}-${dayInfo.day}`}
                 onClick={() => {
+                  if (personalEvents.length === 1 && onEventClick) {
+                    onEventClick(personalEvents[0]);
+                    return;
+                  }
                   if (onDateClick) {
                     onDateClick(dateStr);
                   }
@@ -332,10 +336,12 @@ export default function EnhancedCalendar({
                               e.stopPropagation();
                               if (onEventClick) onEventClick(event);
                             }}
-                            className="h-1.5 w-full rounded-full bg-secondary hover:opacity-80 transition-opacity"
+                            className="w-full truncate rounded bg-secondary px-1 py-0.5 text-left text-[8px] font-medium leading-tight text-on-secondary hover:opacity-80 transition-opacity"
                             title={event.name}
-                            aria-label={`개인 일정: ${event.name}`}
-                          />
+                            aria-label={`개인 일정 수정: ${event.name}`}
+                          >
+                            {event.time ? `${event.time} ` : ''}{event.name}
+                          </button>
                         ))}
                         {personalEvents.length > 3 && (
                           <span className="text-[8px] leading-none text-secondary font-medium">

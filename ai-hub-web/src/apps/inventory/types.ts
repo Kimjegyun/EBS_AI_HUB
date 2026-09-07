@@ -109,6 +109,7 @@ export interface SurveyResult {
   surveyedAt: string // 조사일 (ISO)
   matched: boolean // 마스터에서 자산번호가 조회되었는지
   photoIds?: string[] // 현물 사진 (IndexedDB photo ids)
+  serverPhotoIds?: string[] // final synchronization uploads these files to R2/server
   // Optional AI cross-check
   aiChecked?: boolean
   aiVerdict?: string

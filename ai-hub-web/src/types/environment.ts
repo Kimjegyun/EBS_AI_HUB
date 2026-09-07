@@ -32,6 +32,12 @@ export type AppAiSettings = {
     apiUrl: string
     enabled: boolean
   }>
+  ai_together_api_key?: string
+  ai_together_api_key_configured?: boolean
+  ai_together_api_key_clear?: boolean
+  ai_together_base_url?: string
+  ai_together_stt_model?: string
+  ai_together_summary_model?: string
 }
 
 /** Supabase `environment_config.data` JSON 스키마 */

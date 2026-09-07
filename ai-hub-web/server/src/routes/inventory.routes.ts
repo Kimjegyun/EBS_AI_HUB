@@ -35,6 +35,7 @@ import {
   unsurveyedAssetsHandler,
   getErpFileMeta,
   downloadErpFile,
+  uploadSurveyPhoto,
 } from '../controllers/inventory.controller'
 
 const router = Router()
@@ -113,6 +114,9 @@ router.get('/sessions', (req, res) => void getSessions(req as any, res))
 router.get('/sessions/:id', (req, res) => void getSessionById(req as any, res))
 router.post('/sessions', (req, res) => void createSessionHandler(req as any, res))
 router.put('/sessions/:id/results/:assetNo', (req, res) => void upsertResultHandler(req as any, res))
+router.post('/sessions/:id/results/:assetNo/photo', upload.single('file'), (req, res) =>
+  void uploadSurveyPhoto(req as any, res),
+)
 router.delete('/sessions/:id/results/:assetNo', (req, res) => void deleteResultHandler(req as any, res))
 router.put('/sessions/:id/complete', (req, res) => void completeSessionHandler(req as any, res))
 router.delete('/sessions/:id', (req, res) => void deleteSessionHandler(req as any, res))

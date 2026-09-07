@@ -1,15 +1,17 @@
-export const SECRET_ENV_KEYS = ['ai_openai_api_key', 'ai_fal_api_key', 'ai_tencent_api_key'] as const
+export const SECRET_ENV_KEYS = ['ai_openai_api_key', 'ai_fal_api_key', 'ai_tencent_api_key', 'ai_together_api_key'] as const
 
 export const SECRET_CONFIGURED_FLAGS = {
   ai_openai_api_key: 'ai_openai_api_key_configured',
   ai_fal_api_key: 'ai_fal_api_key_configured',
   ai_tencent_api_key: 'ai_tencent_api_key_configured',
+  ai_together_api_key: 'ai_together_api_key_configured',
 } as const
 
 export const SECRET_CLEAR_FLAGS = {
   ai_openai_api_key: 'ai_openai_api_key_clear',
   ai_fal_api_key: 'ai_fal_api_key_clear',
   ai_tencent_api_key: 'ai_tencent_api_key_clear',
+  ai_together_api_key: 'ai_together_api_key_clear',
 } as const
 
 export const APP_AI_SETTINGS_KEY = 'ai_app_settings'

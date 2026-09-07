@@ -1,5 +1,6 @@
 import { getLocalApiBaseUrl } from './localApi'
 import { supabase } from './supabase'
+import { authHeaders } from './authHeaders'
 
 const CACHE_KEY = 'ai-hub-org-published-apps-v1'
 const LOCAL_API_URL = `${getLocalApiBaseUrl()}/api/apps/published`
@@ -77,7 +78,7 @@ async function setLocalPublished(appId: string, published: boolean): Promise<str
   try {
     const res = await fetch(`${LOCAL_API_URL}/${encodeURIComponent(appId)}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ published }),
     })
     if (!res.ok) return null

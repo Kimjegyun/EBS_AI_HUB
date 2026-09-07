@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import EnhancedCalendar from '../components/EnhancedCalendar'
 import PersonalEventDialog from '../components/PersonalEventDialog'
 import HolidayManagementDialog from '../components/HolidayManagementDialog'
+import DayEventTableDialog from '../components/DayEventTableDialog'
 import { Icon } from '../components/Icon'
 import type { AppContext, AppPlugin } from './types'
 import type { CalendarEvent, PersonalEvent } from '../types/event'
@@ -13,6 +14,7 @@ interface CalendarApi {
   refreshKey: number
   openAddEvent: (date?: string) => void
   openHolidayDialog: () => void
+  openDateEvents: (date: string) => void
   onEventClick: (event: CalendarEvent) => void
 }
 
@@ -28,6 +30,7 @@ function CalendarProvider({ ctx, children }: { ctx: AppContext; children: ReactN
   const [showEvent, setShowEvent] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<PersonalEvent | undefined>()
   const [selectedDate, setSelectedDate] = useState<string | undefined>()
+  const [showDateEvents, setShowDateEvents] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
 
   const api = useMemo<CalendarApi>(
@@ -39,10 +42,14 @@ function CalendarProvider({ ctx, children }: { ctx: AppContext; children: ReactN
         setShowEvent(true)
       },
       openHolidayDialog: () => setShowHoliday(true),
+      openDateEvents: (date) => {
+        setSelectedDate(date)
+        setShowDateEvents(true)
+      },
       onEventClick: (event) => {
         if (event.type === 'personal') {
-          setSelectedEvent(event as unknown as PersonalEvent)
-          setShowEvent(true)
+          setSelectedDate(event.date)
+          setShowDateEvents(true)
         }
       },
     }),
@@ -62,6 +69,25 @@ function CalendarProvider({ ctx, children }: { ctx: AppContext; children: ReactN
         onEventChange={() => setRefreshKey((k) => k + 1)}
         event={selectedEvent}
         initialDate={selectedDate}
+      />
+      <DayEventTableDialog
+        open={showDateEvents}
+        date={selectedDate}
+        refreshKey={refreshKey}
+        onClose={() => setShowDateEvents(false)}
+        onAdd={(date) => {
+          setShowDateEvents(false)
+          setSelectedEvent(undefined)
+          setSelectedDate(date)
+          setShowEvent(true)
+        }}
+        onEdit={(event) => {
+          setShowDateEvents(false)
+          setSelectedEvent(event)
+          setSelectedDate(event.event_date)
+          setShowEvent(true)
+        }}
+        onEventChange={() => setRefreshKey((k) => k + 1)}
       />
       {ctx.isAdmin && (
         <HolidayManagementDialog
@@ -107,6 +133,7 @@ function CalendarBody(_: AppContext) {
       key={api.refreshKey}
       bare
       onEventClick={api.onEventClick}
+      onDateClick={api.openDateEvents}
       onAddEvent={api.openAddEvent}
     />
   )

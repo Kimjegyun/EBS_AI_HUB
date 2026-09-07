@@ -40,5 +40,9 @@ export function resolveProviderConfig(env: Record<string, unknown>, appId?: stri
       Array.isArray(appConfig.ai_tencent_models) && appConfig.ai_tencent_models.length > 0
         ? appConfig.ai_tencent_models
         : env.ai_tencent_models,
+    ai_together_api_key: pick(appConfig, env, 'ai_together_api_key'),
+    ai_together_base_url: pick(appConfig, env, 'ai_together_base_url'),
+    ai_together_stt_model: pick(appConfig, env, 'ai_together_stt_model'),
+    ai_together_summary_model: pick(appConfig, env, 'ai_together_summary_model'),
   }
 }

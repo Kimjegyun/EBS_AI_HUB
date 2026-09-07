@@ -13,11 +13,27 @@ import { appendIoLog } from '../../lib/ioLog'
  */
 function getStoredToken(): string {
   return (
-    (import.meta.env.VITE_INVENTORY_TOKEN as string | undefined)?.trim() ||
     localStorage.getItem('auth_token') ||
     localStorage.getItem('authToken') ||
+    (import.meta.env.VITE_INVENTORY_TOKEN as string | undefined)?.trim() ||
     ''
   )
+}
+
+/**
+ * Inventory API can live independently from Vercel (Cloudflare Worker).
+ * Keeping this in one place also makes every download/upload use the same host.
+ */
+const INVENTORY_API_ORIGIN = ((import.meta.env.VITE_INVENTORY_API_URL as string | undefined) ?? '')
+  .trim()
+  .replace(/\/$/, '')
+
+function inventoryUrl(path: string): string {
+  return `${INVENTORY_API_ORIGIN}/api/inventory${path}`
+}
+
+function healthUrl(): string {
+  return `${INVENTORY_API_ORIGIN}/health`
 }
 
 /** Shared fetch wrapper — injects JWT and writes every request/response to IoLog. */
@@ -34,7 +50,7 @@ async function apiFetch(path: string, init: RequestInit = {}): Promise<Response>
     body: init.body && typeof init.body === 'string' ? init.body : '',
   })
 
-  const res = await fetch(`/api/inventory${path}`, {
+  const res = await fetch(inventoryUrl(path), {
     ...init,
     headers: {
       'Content-Type': 'application/json',
@@ -64,7 +80,7 @@ async function apiFetch(path: string, init: RequestInit = {}): Promise<Response>
 
 export async function isServerReachable(): Promise<boolean> {
   try {
-    const res = await fetch('/health', { signal: AbortSignal.timeout(3000) })
+    const res = await fetch(healthUrl(), { signal: AbortSignal.timeout(3000) })
     return res.ok
   } catch {
     return false
@@ -104,7 +120,7 @@ export async function fetchServerAssets(datasetId: string): Promise<unknown[]> {
 export async function downloadDatasetExcel(datasetId: string): Promise<{ ok: boolean; error?: string }> {
   try {
     const token = getStoredToken()
-    const res = await fetch(`/api/inventory/datasets/${datasetId}/download`, {
+    const res = await fetch(inventoryUrl(`/datasets/${datasetId}/download`), {
       headers: { Authorization: `Bearer ${token}` },
     })
     if (!res.ok) {
@@ -143,7 +159,7 @@ export async function uploadSurveyResultFile(opts: {
     if (opts.sessionName) form.append('sessionName', opts.sessionName)
     if (opts.dept) form.append('dept', opts.dept)
     if (opts.sessionId) form.append('sessionId', opts.sessionId)
-    const res = await fetch(`/api/inventory/datasets/${opts.datasetId}/survey-upload`, {
+    const res = await fetch(inventoryUrl(`/datasets/${opts.datasetId}/survey-upload`), {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
       body: form,
@@ -172,7 +188,7 @@ export async function uploadDatasetFile(
     form.append('title', title)
     form.append('parentDept', parentDept)
     if (id) form.append('id', id)
-    const res = await fetch('/api/inventory/datasets', {
+    const res = await fetch(inventoryUrl('/datasets'), {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
       body: form,
@@ -203,7 +219,7 @@ export async function uploadSurveyFileToServer(
     const token = getStoredToken()
     const form = new FormData()
     form.append('survey_list', file)
-    const res = await fetch('/api/inventory/datasets/upload-survey', {
+    const res = await fetch(inventoryUrl('/datasets/upload-survey'), {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
       body: form,
@@ -237,7 +253,7 @@ export async function mergeByUploadId(opts: {
     form.append('title', opts.title)
     form.append('parentDept', opts.parentDept)
     if (opts.id) form.append('id', opts.id)
-    const res = await fetch('/api/inventory/datasets/merge-by-id', {
+    const res = await fetch(inventoryUrl('/datasets/merge-by-id'), {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
       body: form,
@@ -271,7 +287,7 @@ export async function mergeDatasetFiles(opts: {
     form.append('parentDept', opts.parentDept)
     if (opts.sheetName) form.append('sheetName', opts.sheetName)
     if (opts.id) form.append('id', opts.id)
-    const res = await fetch('/api/inventory/datasets/merge', {
+    const res = await fetch(inventoryUrl('/datasets/merge'), {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
       body: form,
@@ -300,9 +316,28 @@ export async function submitSurveyResults(
   try {
     let submitted = 0
     for (const r of results) {
+      const serverPhotoIds: string[] = []
+      if (r.photoIds?.length) {
+        const { getPhotos } = await import('./photoService')
+        const photos = await getPhotos(r.photoIds)
+        for (const photo of photos) {
+          const blob = await (await fetch(photo.dataUrl)).blob()
+          const form = new FormData()
+          form.append('file', blob, `${r.assetNo}-${photo.id}.jpg`)
+          const photoRes = await fetch(inventoryUrl(`/sessions/${sessionId}/results/${encodeURIComponent(r.assetNo)}/photo`), {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${getStoredToken()}` },
+            body: form,
+          })
+          if (photoRes.ok) {
+            const uploaded = (await photoRes.json()) as { id: string }
+            serverPhotoIds.push(uploaded.id)
+          }
+        }
+      }
       const res = await apiFetch(`/sessions/${sessionId}/results/${encodeURIComponent(r.assetNo)}`, {
         method: 'PUT',
-        body: JSON.stringify(r),
+        body: JSON.stringify({ ...r, serverPhotoIds }),
       })
       if (res.ok) submitted++
     }
@@ -477,7 +512,7 @@ export function openSseStream(
   onEvent: (type: SseEventType, data: unknown) => void,
 ): () => void {
   const token = getStoredToken()
-  const url = `/api/inventory/sessions/${sessionId}/events`
+  const url = inventoryUrl(`/sessions/${sessionId}/events`)
   let es: EventSource | null = null
   let closed = false
 
@@ -527,7 +562,7 @@ export async function requestPairCode(opts: {
   try {
     // 페어링 요청은 인증 없이도 가능하도록 apiFetch 미사용
     const token = getStoredToken()
-    const res = await fetch('/api/inventory/pair/request', {
+    const res = await fetch(inventoryUrl('/pair/request'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -628,7 +663,7 @@ export async function uploadInventoryFile(opts: {
     form.append('parentDept', opts.parentDept)
     if (opts.sessionId) form.append('sessionId', opts.sessionId)
     if (opts.summary) form.append('summary', opts.summary)
-    const res = await fetch('/api/inventory/files', {
+    const res = await fetch(inventoryUrl('/files'), {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': '1' },
       body: form,
@@ -672,7 +707,7 @@ export function saveBlobAs(blob: Blob, fileName: string): void {
 export async function downloadInventoryFile(id: string): Promise<{ ok: boolean; error?: string }> {
   try {
     const token = getStoredToken()
-    const res = await fetch(`/api/inventory/files/${id}/download`, {
+    const res = await fetch(inventoryUrl(`/files/${id}/download`), {
       headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': '1' },
     })
     if (!res.ok) {
@@ -732,7 +767,7 @@ export async function uploadSurveyForm(
     const token = getStoredToken()
     const form = new FormData()
     form.append('survey_list', file)
-    const res = await fetch('/api/inventory/datasets/survey-form', {
+    const res = await fetch(inventoryUrl('/datasets/survey-form'), {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': '1' },
       body: form,
@@ -893,7 +928,7 @@ export async function fetchAllErpFiles(): Promise<ErpFileMeta[]> {
 export async function downloadErpFileBlob(id: string): Promise<Blob | null> {
   try {
     const token = getStoredToken()
-    const res = await fetch(`/api/inventory/datasets/erp-file/${id}/download`, {
+    const res = await fetch(inventoryUrl(`/datasets/erp-file/${id}/download`), {
       headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': '1' },
     })
     if (!res.ok) return null

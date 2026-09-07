@@ -313,6 +313,16 @@ export function exportToTxt(content: string, filename?: string): void {
   saveAs(blob, `${name}.txt`)
 }
 
+/** 한컴오피스 한글에서 열 수 있는 UTF-8 HTML 기반 HWP 호환 문서입니다. */
+export function exportToHwp(content: string, filename?: string): void {
+  const name = filename ?? makeResponseFilename(content)
+  const escaped = content
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/\n/g, '<br>')
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${name}</title></head><body style="font-family:'함초롬바탕','Malgun Gothic',sans-serif;line-height:1.7"><h1>${name}</h1><p>${escaped}</p></body></html>`
+  saveAs(new Blob([html], { type: 'application/x-hwp;charset=utf-8' }), `${name}.hwp`)
+}
+
 /**
  * 대화 전체를 하나의 Word 문서로 내보냅니다.
  * title이 없으면 대화 내용에서 키워드를 추출합니다.

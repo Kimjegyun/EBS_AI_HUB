@@ -294,6 +294,68 @@ function NgrokTokenSection() {
   )
 }
 
+function MdmCertificateSection() {
+  const serverHost = window.location.hostname || 'localhost'
+  const baseUrl = `http://${serverHost}:3001`
+  return (
+    <div className="overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
+      <div className="flex items-center gap-2 border-b border-outline-variant bg-surface-container-low px-3 py-2.5">
+        <Icon name="admin_panel_settings" className="text-[16px] text-primary" />
+        <span className="flex-1 text-body-sm font-semibold text-on-surface">기관 단말 MDM 인증서 배포</span>
+        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">관리자용</span>
+      </div>
+      <div className="space-y-3 px-3 py-3">
+        <p className="text-caption leading-relaxed text-on-surface-variant">
+          MDM 콘솔에 운영체제별 파일을 등록한 뒤 <b>필수 설치</b> 정책으로 배포하세요. 단말 사용자가 직접 CA 인증서를 설치할 필요가 없습니다.
+        </p>
+        <div className="grid gap-2 sm:grid-cols-3">
+          <a href={`${baseUrl}/rootCA.cer`} className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-outline-variant bg-white px-3 text-caption font-medium text-primary"><Icon name="android" className="text-[15px]" />Android DER</a>
+          <a href={`${baseUrl}/rootCA.mobileconfig`} className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-outline-variant bg-white px-3 text-caption font-medium text-primary"><Icon name="phone_iphone" className="text-[15px]" />iOS 프로파일</a>
+          <a href={`${baseUrl}/mdm-ca-manifest.json`} target="_blank" rel="noreferrer" className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-outline-variant bg-white px-3 text-caption font-medium text-primary"><Icon name="fingerprint" className="text-[15px]" />인증서 지문</a>
+        </div>
+        <ol className="list-decimal space-y-1 pl-5 text-caption text-on-surface-variant">
+          <li>Android는 신뢰할 수 있는 CA 인증서 정책에 DER 파일을 등록합니다.</li>
+          <li>iOS/iPadOS는 구성 프로파일을 업로드하고 감독 대상 기기에 할당합니다.</li>
+          <li>설치 상태를 필수 규정 준수 항목으로 설정한 뒤 단말에 동기화합니다.</li>
+        </ol>
+      </div>
+    </div>
+  )
+}
+
+function CloudflareTunnelSection() {
+  const apiUrl = ((import.meta.env.VITE_INVENTORY_API_URL as string | undefined) ?? '').trim().replace(/\/$/, '')
+  const [state, setState] = useState<'checking' | 'online' | 'offline'>('checking')
+
+  useEffect(() => {
+    if (!apiUrl) { setState('offline'); return }
+    fetch(`${apiUrl}/health`, { signal: AbortSignal.timeout(5000) })
+      .then((response) => setState(response.ok ? 'online' : 'offline'))
+      .catch(() => setState('offline'))
+  }, [apiUrl])
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
+      <div className="flex items-center gap-2 border-b border-outline-variant bg-surface-container-low px-3 py-2.5">
+        <Icon name="cloud_sync" className="text-[16px] text-primary" />
+        <span className="flex-1 text-body-sm font-semibold text-on-surface">외부 재물조사 서버</span>
+        <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${state === 'online' ? 'bg-success/10 text-success' : state === 'checking' ? 'bg-primary/10 text-primary' : 'bg-error/10 text-error'}`}>
+          {state === 'online' ? '연결됨' : state === 'checking' ? '확인 중' : '연결 안 됨'}
+        </span>
+      </div>
+      <div className="space-y-2 px-3 py-3 text-caption text-on-surface-variant">
+        <p>Vercel 앱이 Cloudflare Tunnel을 통해 기관 PC의 Express·SQLite·파일 저장소에 연결됩니다. 휴대폰 CA 인증서와 동일 Wi-Fi가 필요하지 않습니다.</p>
+        <div className="rounded-lg bg-surface-container px-3 py-2 font-mono text-[11px] break-all">
+          {apiUrl || 'VITE_INVENTORY_API_URL이 설정되지 않았습니다.'}
+        </div>
+        {state === 'offline' && (
+          <p className="text-error">기관 PC에서 <code>npm run tunnel:start</code>를 실행하고 PC 절전 모드를 해제해 주세요.</p>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // 메인 패널
 // ══════════════════════════════════════════════════════════════════════════════
@@ -496,7 +558,9 @@ export default function InventorySettingsPanel() {
       </div>
 
       {/* ngrok 토큰 */}
-      <NgrokTokenSection />
+      <CloudflareTunnelSection />
+      {false && <NgrokTokenSection />}
+      {false && <MdmCertificateSection />}
     </div>
   )
 }

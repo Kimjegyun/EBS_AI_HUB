@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
 import https from 'https';
+import { randomUUID, X509Certificate } from 'crypto';
 import { initDatabase } from './config/database';
 import { logger } from './utils/logger';
 import { errorHandler } from './middleware/errorHandler';
@@ -48,7 +49,7 @@ const helmetWithCsp = helmet();
 const helmetNoCsp = helmet({ contentSecurityPolicy: false });
 
 app.use((req, res, next) => {
-  if (req.path === '/install' || req.path === '/rootCA.pem') return next();
+  if (req.path === '/install' || req.path === '/rootCA.pem' || req.path === '/rootCA.crt' || req.path === '/rootCA.cer' || req.path === '/rootCA.mobileconfig') return next();
   const isNgrokViteReq =
     !SERVE_STATIC &&
     (req.headers.host ?? '').includes('ngrok') &&
@@ -120,6 +121,91 @@ app.get('/rootCA.pem', (_req, res) => {
   }
 });
 
+// 모바일 운영체제가 인증서 설치 파일로 바로 인식하도록 .crt 형식과
+// 표준 X.509 MIME 타입으로 제공합니다. 최종 신뢰 승인은 OS 보안 화면에서
+// 사용자가 수행해야 하며 웹 페이지가 이를 우회할 수는 없습니다.
+app.get('/rootCA.crt', (_req, res) => {
+  const caPath = path.join(require('os').homedir(), '.vite-plugin-mkcert', 'rootCA.pem');
+  if (!fs.existsSync(caPath)) {
+    res.status(404).json({ error: 'CA 인증서를 찾을 수 없습니다.' });
+    return;
+  }
+  // attachment는 Android Chrome에서 HTTP 위험 다운로드로 차단될 수 있어
+  // inline으로 전달합니다. X.509 MIME 타입을 보고 OS 인증서 설치기가 엽니다.
+  res.setHeader('Content-Disposition', 'inline; filename="EBS-AI-HUB-RootCA.crt"');
+  res.setHeader('Content-Type', 'application/x-x509-ca-cert');
+  res.setHeader('Cache-Control', 'no-store');
+  res.sendFile(caPath);
+});
+
+function readRootCaDer(): Buffer | null {
+  const caPath = path.join(require('os').homedir(), '.vite-plugin-mkcert', 'rootCA.pem');
+  if (!fs.existsSync(caPath)) return null;
+  return Buffer.from(new X509Certificate(fs.readFileSync(caPath)).raw);
+}
+
+// Android 인증서 설치기는 PEM 텍스트보다 DER 바이너리 인증서를 안정적으로
+// 인식합니다. HTTP 다운로드 경고를 피하도록 attachment가 아닌 inline입니다.
+app.get('/rootCA.cer', (_req, res) => {
+  const der = readRootCaDer();
+  if (!der) { res.status(404).json({ error: 'CA 인증서를 찾을 수 없습니다.' }); return; }
+  res.setHeader('Content-Type', 'application/pkix-cert');
+  res.setHeader('Content-Disposition', 'inline; filename="EBS-AI-HUB-RootCA.cer"');
+  res.setHeader('Cache-Control', 'no-store');
+  res.send(der);
+});
+
+// iOS는 인증서 파일 자체보다 구성 프로파일을 통해 설치하는 흐름이 더
+// 안정적입니다. 사용자는 설정 앱에서 프로파일 설치와 인증서 신뢰를 승인합니다.
+app.get('/rootCA.mobileconfig', (_req, res) => {
+  const der = readRootCaDer();
+  if (!der) { res.status(404).json({ error: 'CA 인증서를 찾을 수 없습니다.' }); return; }
+  const profileId = randomUUID().toUpperCase();
+  const certId = randomUUID().toUpperCase();
+  const profile = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>PayloadContent</key><array><dict>
+<key>PayloadCertificateFileName</key><string>EBS-AI-HUB-RootCA.cer</string>
+<key>PayloadContent</key><data>${der.toString('base64')}</data>
+<key>PayloadDescription</key><string>EBS AI HUB local HTTPS root certificate</string>
+<key>PayloadDisplayName</key><string>EBS AI HUB Root CA</string>
+<key>PayloadIdentifier</key><string>kr.ebs.aihub.rootca.${certId}</string>
+<key>PayloadType</key><string>com.apple.security.root</string>
+<key>PayloadUUID</key><string>${certId}</string><key>PayloadVersion</key><integer>1</integer>
+</dict></array>
+<key>PayloadDisplayName</key><string>EBS AI HUB 보안 인증서</string>
+<key>PayloadIdentifier</key><string>kr.ebs.aihub.profile.${profileId}</string>
+<key>PayloadOrganization</key><string>EBS AI HUB</string>
+<key>PayloadRemovalDisallowed</key><false/>
+<key>PayloadType</key><string>Configuration</string>
+<key>PayloadUUID</key><string>${profileId}</string><key>PayloadVersion</key><integer>1</integer>
+</dict></plist>`;
+  res.setHeader('Content-Type', 'application/x-apple-aspen-config');
+  res.setHeader('Content-Disposition', 'attachment; filename="EBS-AI-HUB.mobileconfig"');
+  res.setHeader('Cache-Control', 'no-store');
+  res.send(profile);
+});
+
+app.get('/mdm-ca-manifest.json', (_req, res) => {
+  const caPath = path.join(require('os').homedir(), '.vite-plugin-mkcert', 'rootCA.pem');
+  if (!fs.existsSync(caPath)) { res.status(404).json({ error: 'CA 인증서를 찾을 수 없습니다.' }); return; }
+  const certificate = new X509Certificate(fs.readFileSync(caPath));
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({
+    displayName: 'EBS AI HUB Root CA',
+    subject: certificate.subject,
+    issuer: certificate.issuer,
+    validFrom: certificate.validFrom,
+    validTo: certificate.validTo,
+    sha256Fingerprint: certificate.fingerprint256,
+    androidPayload: '/rootCA.cer',
+    iosPayload: '/rootCA.mobileconfig',
+    deployment: 'required',
+    removal: 'managed-by-mdm',
+  });
+});
+
 // ── ngrok 경유 시 Vite(5173) 앱 프록시 ────────────────────────────────────────
 // ngrok은 3001만 터널링하므로, /inventory.html 및 앱 번들 요청을 Vite로 중계합니다.
 // /api/*, /health, /install, /rootCA.pem 은 서버가 직접 처리하므로 제외합니다.
@@ -175,7 +261,10 @@ app.get('/install', (req, res) => {
 
   // ngrok: CA 설치 불필요, 앱도 ngrok origin 그대로 사용
   // LAN:   CA 설치 필요, 앱은 Vite(5173)
-  const caUrl  = isNgrok ? `https://${reqHost}/rootCA.pem` : `http://${host}:3001/rootCA.pem`;
+  // LAN에서도 인증서 파일은 HTTPS Vite 프록시를 통해 전달합니다. HTTP에서
+  // .crt를 다운로드할 때 Android Chrome이 표시하는 위험 다운로드 차단을 피합니다.
+  const androidCaUrl = isNgrok ? `https://${reqHost}/rootCA.cer` : `http://${host}:3001/rootCA.cer`;
+  const iosCaUrl = isNgrok ? `https://${reqHost}/rootCA.mobileconfig` : `http://${host}:3001/rootCA.mobileconfig`;
   const appUrl = isNgrok ? `https://${reqHost}/inventory.html` : `https://${host}:5173/inventory.html`;
 
   // ngrok 시 단계 번호 (CA 단계 없음 → 앱 설치가 1번)
@@ -235,9 +324,9 @@ ${isNgrok ? `
     <button class="os-btn" data-os="ios">iPhone (iOS)</button>
   </div>
   <div id="tab-android">
-    <a href="${caUrl}" class="btn btn-primary" download="rootCA.pem">인증서 다운로드 (rootCA.pem)</a>
+    <a href="${androidCaUrl}" class="btn btn-primary">Android 인증서 설치 시작 (.cer)</a>
     <ol class="steps">
-      <li>위 버튼으로 <b>rootCA.pem</b> 다운로드</li>
+      <li>위 버튼을 누르면 <b>인증서 설치 파일</b>이 자동으로 열립니다</li>
       <li>설정 앱 → <b>보안 및 개인정보 보호</b></li>
       <li>→ <b>기타 보안 설정</b> → <b>기기 인증서 설치</b></li>
       <li>→ <b>CA 인증서</b> 선택 → 다운로드한 파일 선택</li>
@@ -247,9 +336,9 @@ ${isNgrok ? `
     <p>설정 → 생체인식 및 보안 → 기타 보안 설정 → 기기 인증서 설치 → CA 인증서</p></details>
   </div>
   <div id="tab-ios" style="display:none">
-    <a href="${caUrl}" class="btn btn-primary">인증서 다운로드 (rootCA.pem)</a>
+    <a href="${iosCaUrl}" class="btn btn-primary">iPhone 인증서 프로파일 설치</a>
     <ol class="steps">
-      <li>위 버튼으로 <b>rootCA.pem</b> 다운로드</li>
+      <li>위 버튼을 눌러 <b>인증서 프로파일</b>을 다운로드</li>
       <li>팝업에서 <b>"허용"</b> 선택</li>
       <li>설정 앱 → <b>일반</b> → <b>VPN 및 기기 관리</b></li>
       <li>다운로드된 프로파일 선택 → <b>설치</b></li>

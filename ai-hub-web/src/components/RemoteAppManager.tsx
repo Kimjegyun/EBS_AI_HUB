@@ -17,7 +17,7 @@ import {
 const CATEGORIES = ['생산성', '운영', 'AI', '코어'] as const
 
 export default function RemoteAppManager() {
-  const { remoteApps, remoteLoading, reloadRemoteApps } = useAppCatalog()
+  const { remoteApps, remoteLoading, reloadRemoteApps, refresh } = useAppCatalog()
   const [open, setOpen] = useState(false)
   const [bundle, setBundle] = useState<File | null>(null)
   const [form, setForm] = useState({
@@ -44,7 +44,7 @@ export default function RemoteAppManager() {
       setBundle(null)
       setForm((f) => ({ ...f, id: '', name: '', description: '' }))
       setOpen(false)
-      await reloadRemoteApps()
+      await Promise.all([reloadRemoteApps(), refresh()])
     } finally {
       setBusy(false)
     }
@@ -77,7 +77,7 @@ export default function RemoteAppManager() {
           ? `${res.name} 가져왔지만 파일의 해시가 기록과 다릅니다. 출처를 확인하세요.`
           : `${res.name} 가져오기 완료 — 마켓플레이스에 등록되었습니다.`,
       })
-      await reloadRemoteApps()
+      await Promise.all([reloadRemoteApps(), refresh()])
     } finally {
       setBusy(false)
     }
@@ -101,7 +101,7 @@ export default function RemoteAppManager() {
       setMsg(res.ok
         ? { tone: 'ok', text: `${name} 배포를 정지했습니다.` }
         : { tone: 'error', text: res.error ?? '정지 실패' })
-      await reloadRemoteApps()
+      await Promise.all([reloadRemoteApps(), refresh()])
     } finally {
       setBusy(false)
     }
@@ -115,7 +115,7 @@ export default function RemoteAppManager() {
       setMsg(res.ok
         ? { tone: 'ok', text: `${name} 삭제됨` }
         : { tone: 'error', text: res.error ?? '삭제 실패' })
-      await reloadRemoteApps()
+      await Promise.all([reloadRemoteApps(), refresh()])
     } finally {
       setBusy(false)
     }

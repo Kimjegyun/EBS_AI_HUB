@@ -21,6 +21,7 @@ import { bookmarksApp } from './bookmarksApp'
 import { inventoryApp } from './inventoryApp'
 import { myLlmApp } from './myLlmApp'
 import { emailWriterApp } from './emailWriterApp'
+import { voiceSummaryApp } from './voiceSummaryApp'
 import {
   getCurrentAuthSession,
   getUserScopedItem,
@@ -32,6 +33,7 @@ const BUILTIN_APPS: AppPlugin[] = [
   calendarApp,
   myLlmApp,
   emailWriterApp,
+  voiceSummaryApp,
   codexApp,
   inventoryApp,
   quickActionsApp,

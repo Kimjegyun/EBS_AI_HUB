@@ -1,0 +1,20 @@
+{
+  "name": "ebs-inventory-cloud-api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "setup": "powershell -ExecutionPolicy Bypass -File scripts/setup-cloudflare.ps1",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:migrate:local": "wrangler d1 execute ebs-inventory --local --file=./schema.sql",
+    "db:migrate": "wrangler d1 execute ebs-inventory --remote --file=./schema.sql"
+  },
+  "dependencies": {
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260902.1",
+    "typescript": "^6.0.2",
+    "wrangler": "^4.128.0"
+  }
+}

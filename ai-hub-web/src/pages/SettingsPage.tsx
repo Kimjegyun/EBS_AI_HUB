@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Icon } from '../components/Icon'
 import TencentLlmSettingsForm from '../components/TencentLlmSettingsForm'
+import TogetherSttSettingsForm from '../components/TogetherSttSettingsForm'
 import { useAuth } from '../auth/AuthContext'
 import { useAppCatalog } from '../context/AppCatalogContext'
 import { useEnvironmentConfig } from '../context/EnvironmentConfigContext'
@@ -12,6 +13,7 @@ import type { EnvironmentPublicConfig } from '../types/environment'
 
 const InventorySettingsPanel = lazy(() => import('../apps/inventory/InventorySettingsPanel'))
 const INVENTORY_APP_ID = 'inventory'
+const VOICE_SUMMARY_APP_ID = 'voice-summary'
 import {
   getGlobalTurnsConfig,
   setGlobalTurnsConfig,
@@ -437,7 +439,7 @@ export default function SettingsPage() {
 }
 
 function hasAppSettings(appId: string): boolean {
-  return appId === MY_LLM_APP_ID || appId === INVENTORY_APP_ID
+  return appId === MY_LLM_APP_ID || appId === INVENTORY_APP_ID || appId === VOICE_SUMMARY_APP_ID
 }
 
 function isAppConfigured(config: EnvironmentPublicConfig, appId: string): boolean {
@@ -450,6 +452,9 @@ function isAppConfigured(config: EnvironmentPublicConfig, appId: string): boolea
       const tabs = JSON.parse(localStorage.getItem('inventory-settings-tabs') ?? '[]') as unknown[]
       return tabs.length > 0
     } catch { return false }
+  }
+  if (appId === VOICE_SUMMARY_APP_ID) {
+    return Boolean(config.ai_app_settings?.[appId]?.ai_together_api_key_configured)
   }
   return false
 }
@@ -491,6 +496,10 @@ function SelectedAppSettings({
             </div>
           </div>
         </>
+      ) : app.id === VOICE_SUMMARY_APP_ID ? (
+        <CollapsibleSection title="Together AI STT 설정" icon="vpn_key" defaultOpen>
+          <TogetherSttSettingsForm config={config} onSaved={onSaved} />
+        </CollapsibleSection>
       ) : app.id === INVENTORY_APP_ID ? (
         <CollapsibleSection title="DB 파일 관리" icon="database" defaultOpen>
           <Suspense fallback={

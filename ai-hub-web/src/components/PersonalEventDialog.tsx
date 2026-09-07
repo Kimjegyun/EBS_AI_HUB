@@ -124,7 +124,7 @@ export default function PersonalEventDialog({
   const handleDelete = async () => {
     if (!event) return;
 
-    if (!confirm('이 일정을 삭제하시겠습니까?')) return;
+    if (!confirm(`'${event.event_name}' 일정을 삭제하시겠습니까?`)) return;
 
     setLoading(true);
     try {
@@ -166,7 +166,7 @@ export default function PersonalEventDialog({
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-outline-variant">
           <h2 className="font-h2 text-h2 text-on-surface">
-            {event ? '일정 수정' : '새 일정 추가'}
+            {event ? '등록 일정 수정' : '새 일정 추가'}
           </h2>
           <button
             onClick={handleClose}
@@ -340,7 +340,7 @@ export default function PersonalEventDialog({
                 disabled={loading}
                 className="px-4 py-2 bg-error text-on-error rounded-lg font-label hover:bg-error/90 disabled:opacity-50 transition-colors"
               >
-                삭제
+                일정 삭제
               </button>
             ) : (
               <div />
@@ -360,7 +360,7 @@ export default function PersonalEventDialog({
                 disabled={loading}
                 className="px-4 py-2 bg-primary text-on-primary rounded-lg font-label hover:bg-primary/90 disabled:opacity-50 transition-colors"
               >
-                {loading ? '저장 중...' : event ? '수정' : '추가'}
+                {loading ? '저장 중...' : event ? '변경사항 저장' : '추가'}
               </button>
             </div>
           </div>

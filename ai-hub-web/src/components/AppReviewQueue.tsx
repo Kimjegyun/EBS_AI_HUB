@@ -39,7 +39,7 @@ function StatusChip({ status }: { status?: RemoteAppStatus }) {
 }
 
 export default function AppReviewQueue() {
-  const { reloadRemoteApps } = useAppCatalog()
+  const { reloadRemoteApps, refresh } = useAppCatalog()
   const [tab, setTab] = useState<RemoteAppStatus | 'all'>('pending')
   const [rows, setRows] = useState<RemoteAppMeta[]>([])
   const [loading, setLoading] = useState(false)
@@ -104,7 +104,7 @@ export default function AppReviewQueue() {
       setDetail(null)
       setNote('')
       await load()
-      await reloadRemoteApps()
+      await Promise.all([reloadRemoteApps(), refresh()])
     } finally {
       setBusy(false)
     }
