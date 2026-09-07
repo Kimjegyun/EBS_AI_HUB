@@ -51,18 +51,14 @@ export function getDatasetSource(id: string): DatasetSource | undefined {
  * Falls back to local-only when server is unreachable.
  */
 export async function getAllDatasetSources(): Promise<DatasetSource[]> {
-  const local = [...DATASET_SOURCES]
   try {
     const reachable = await isServerReachable()
-    if (!reachable) return local
+    if (!reachable) return []
     const serverMetas = await fetchServerDatasets()
-    const localIds = new Set(local.map((d) => d.id))
-    const serverSources: DatasetSource[] = serverMetas
-      .filter((m) => !localIds.has(m.id))
+    return serverMetas
       .map((m) => ({ id: m.id, title: m.title, url: '', parentDept: m.parentDept }))
-    return [...local, ...serverSources]
   } catch {
-    return local
+    return []
   }
 }
 

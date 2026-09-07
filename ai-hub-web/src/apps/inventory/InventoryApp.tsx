@@ -159,10 +159,12 @@ interface InventoryAppProps extends Partial<AppContext> {
   /** standalone 모드: 외부에서 사용자 정보 주입 (인증 없이 사용 시) */
   overrideUserName?: string
   overrideUserDept?: string
+  /** standalone 최초 등록 화면에서 입력한 실제 조사 부서 */
+  overrideSurveyDept?: string
   overrideIsAdmin?: boolean
 }
 
-export default function InventoryApp({ overrideUserName, overrideUserDept, overrideIsAdmin }: InventoryAppProps) {
+export default function InventoryApp({ overrideUserName, overrideUserDept, overrideSurveyDept, overrideIsAdmin }: InventoryAppProps) {
   // useAuthSafe: AuthProvider 없는 standalone(PWA) 환경에서도 안전하게 null 반환
   const authCtx = useAuthSafe()
   const authSession = authCtx?.session ?? null
@@ -257,7 +259,7 @@ export default function InventoryApp({ overrideUserName, overrideUserDept, overr
         <SessionList
           sessions={sessions}
           userName={userName}
-          organization={authSession?.organization ?? ''}
+          organization={overrideSurveyDept ?? authSession?.organization ?? ''}
           onOpen={openSession}
         />
       )}
