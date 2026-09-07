@@ -8,7 +8,7 @@ import { idbGet, idbPut, idbDelete, STORE_ERP } from './idb'
 import { parseErpFile } from './excelService'
 import { indexLookup, looseAssetKey, normalizeAssetNo } from './datasetService'
 import type { ErpAsset } from './types'
-import { downloadErpFileBlob, fetchErpFileMeta } from './inventoryApiClient'
+import { downloadDatasetExcelBlob, downloadErpFileBlob, fetchErpFileMeta } from './inventoryApiClient'
 
 const ERP_KEY = 'erp'
 
@@ -91,9 +91,31 @@ export function lookupErp(assetNo: string): ErpAsset | undefined {
  */
 export async function syncErpFromServer(
   parentDept: string,
+  datasetId?: string,
 ): Promise<{ store: ErpStore | null; status: 'loaded' | 'already' | 'none' | 'failed' }> {
   const meta = await fetchErpFileMeta(parentDept)
-  if (!meta) return { store: await loadErpIndex(), status: 'none' }
+  if (!meta) {
+    // 과거 버전에서 만든 데이터셋은 ERP 원본 보관 메타가 없을 수 있습니다.
+    // 이 경우 서버 데이터셋 자체를 Excel로 내려받아 동일한 대조 인덱스를 자동 구성합니다.
+    if (datasetId) {
+      const current = await loadErpIndex()
+      const fallbackId = `dataset:${datasetId}`
+      if (current?.serverFileId === fallbackId) return { store: current, status: 'already' }
+      const blob = await downloadDatasetExcelBlob(datasetId)
+      if (blob) {
+        try {
+          const file = new File([blob], `${parentDept}_ERP_자산현황.xlsx`, {
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          })
+          const store = await importErpFile(file, fallbackId)
+          return { store, status: 'loaded' }
+        } catch {
+          return { store: current, status: 'failed' }
+        }
+      }
+    }
+    return { store: await loadErpIndex(), status: 'none' }
+  }
 
   const current = await loadErpIndex()
   // 같은 서버 파일을 이미 반영해 뒀으면 다시 받지 않습니다.

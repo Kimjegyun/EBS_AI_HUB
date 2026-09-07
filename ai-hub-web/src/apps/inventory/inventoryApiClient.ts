@@ -155,6 +155,19 @@ export async function downloadDatasetExcel(datasetId: string): Promise<{ ok: boo
   }
 }
 
+/** 서버 데이터셋을 ERP 대조용 Excel Blob으로 받습니다. */
+export async function downloadDatasetExcelBlob(datasetId: string): Promise<Blob | null> {
+  try {
+    const token = getStoredToken()
+    const res = await fetch(inventoryUrl(`/datasets/${datasetId}/download`), {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    return res.ok ? await res.blob() : null
+  } catch {
+    return null
+  }
+}
+
 /** 완성된 재물조사 엑셀 → 서버에 세션 결과로 일괄 업로드 */
 export async function uploadSurveyResultFile(opts: {
   datasetId: string

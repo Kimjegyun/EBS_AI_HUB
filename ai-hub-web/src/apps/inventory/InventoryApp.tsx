@@ -40,7 +40,7 @@ import {
   downloadSessionExcel,
 } from './excelService'
 import { aiAvailable, aiVerifyAsset } from './aiVerify'
-import { deletePhotos, getPhotos, savePhoto, type StoredPhoto } from './photoService'
+import { deletePhotos } from './photoService'
 import {
   confirmPairCode,
   downloadDatasetExcel,
@@ -742,8 +742,6 @@ function SurveyRunner({
   const [continuousScan, setContinuousScan] = useState(false)
   const [manual, setManual] = useState('')
   const [draft, setDraft] = useState<Draft | null>(null)
-  const [draftPhotos, setDraftPhotos] = useState<StoredPhoto[]>([])
-  const [photoBusy, setPhotoBusy] = useState(false)
   const [notFound, setNotFound] = useState(false)
   // ERP 대조 파일 — 마스터 미조회 자산의 자산명을 자동으로 찾아 채웁니다.
   const [erp, setErp] = useState<ErpStore | null>(null)
@@ -794,7 +792,7 @@ function SurveyRunner({
       try {
         // flash()는 아래에서 선언되므로 여기서 부르지 않습니다.
         // 로드 결과는 아래 ERP 줄의 "서버 자동" 배지로 보여줍니다.
-        const { store } = await syncErpFromServer(session.parentDept)
+        const { store } = await syncErpFromServer(session.parentDept, session.datasetId)
         if (!alive) return
         setErp(store)
         setErpFromServer(!!store?.serverFileId)
@@ -812,11 +810,6 @@ function SurveyRunner({
     setTimeout(() => setToast(null), 2500)
   }
 
-  const loadDraftPhotos = (ids: string[]) => {
-    if (ids.length) getPhotos(ids).then(setDraftPhotos)
-    else setDraftPhotos([])
-  }
-
   const doLookup = (raw: string) => {
     const norm = normalizeAssetNo(raw)
     if (!norm) return
@@ -832,7 +825,6 @@ function SurveyRunner({
       if (erpFill?.name) base.name = erpFill.name
       setErpHit(!!erpFill?.name)
       setDraft(base)
-      loadDraftPhotos(prev?.photoIds ?? [])
       if (asset.confirmedInSession && asset.confirmedInSession === session.id) {
         setConfirmedBanner({
           sessionId: asset.confirmedInSession,
@@ -851,34 +843,11 @@ function SurveyRunner({
           ? draftFromErp(erpAsset, norm, userName, userDept, prev)
           : emptyDraft(norm, userName, userDept, prev),
       )
-      loadDraftPhotos(prev?.photoIds ?? [])
     }
-  }
-
-  const addPhotos = async (files: FileList | null) => {
-    if (!files || !files.length || !draft) return
-    setPhotoBusy(true)
-    try {
-      const saved: StoredPhoto[] = []
-      for (const f of Array.from(files)) saved.push(await savePhoto(f))
-      setDraft((d) => (d ? { ...d, photoIds: [...d.photoIds, ...saved.map((s) => s.id)] } : d))
-      setDraftPhotos((p) => [...p, ...saved])
-    } catch (e) {
-      flash(`사진 처리 실패: ${(e as Error).message}`)
-    } finally {
-      setPhotoBusy(false)
-    }
-  }
-
-  const removeDraftPhoto = (id: string) => {
-    setDraft((d) => (d ? { ...d, photoIds: d.photoIds.filter((x) => x !== id) } : d))
-    setDraftPhotos((p) => p.filter((x) => x.id !== id))
-    void deletePhotos([id])
   }
 
   const clearDraft = () => {
     setDraft(null)
-    setDraftPhotos([])
     setAiVerdict(null)
     setConfirmedBanner(null)
     setErpHit(false)
@@ -911,7 +880,7 @@ function SurveyRunner({
   const reloadErpFromServer = async () => {
     setErpBusy(true)
     try {
-      const { store, status } = await syncErpFromServer(session.parentDept)
+      const { store, status } = await syncErpFromServer(session.parentDept, session.datasetId)
       setErp(store)
       setErpFromServer(!!store?.serverFileId)
       flash(
@@ -1150,7 +1119,6 @@ function SurveyRunner({
     setManual(assetNo)
     const asset = r.matched ? lookupAsset(session.datasetId, assetNo) : undefined
     setDraft(asset ? draftFromAsset(asset, userName, userDept, r) : emptyDraft(assetNo, userName, userDept, r))
-    loadDraftPhotos(r.photoIds ?? [])
     setNotFound(!r.matched)
     setAiVerdict(r.aiVerdict ?? null)
   }
@@ -1416,48 +1384,6 @@ function SurveyRunner({
                 />
                 자산스티커 미부착
               </label>
-              {/* 현물 사진 (휴대폰 카메라 / 갤러리) */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-caption text-on-surface-variant">현물 사진 ({draftPhotos.length})</span>
-                  <label className="no-drag inline-flex items-center gap-1.5 rounded-lg border border-outline-variant px-2.5 py-1.5 text-label cursor-pointer hover:bg-surface-container-high">
-                    <Icon name={photoBusy ? 'progress_activity' : 'photo_camera'} className={photoBusy ? 'animate-spin text-[16px]' : 'text-[16px]'} />
-                    사진 촬영
-                    <input
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      multiple
-                      className="hidden"
-                      disabled={photoBusy}
-                      onChange={(e) => {
-                        void addPhotos(e.target.files)
-                        e.target.value = ''
-                      }}
-                    />
-                  </label>
-                </div>
-                {draftPhotos.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {draftPhotos.map((p) => (
-                      <div key={p.id} className="relative w-16 h-16 rounded-lg overflow-hidden border border-outline-variant">
-                        <a href={p.dataUrl} target="_blank" rel="noreferrer" className="no-drag block w-full h-full">
-                          <img src={p.dataUrl} alt="현물 사진" className="w-full h-full object-cover" />
-                        </a>
-                        <button
-                          type="button"
-                          onClick={() => removeDraftPhoto(p.id)}
-                          className="no-drag absolute top-0.5 right-0.5 w-5 h-5 flex items-center justify-center rounded-full bg-black/55 text-white hover:bg-error"
-                          aria-label="사진 삭제"
-                        >
-                          <Icon name="close" className="text-[14px]" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
               {aiVerdict && (
                 <div className="rounded-lg bg-surface-container-high p-2 text-caption text-on-surface flex gap-1.5">
                   <Icon name="smart_toy" className="text-primary text-[16px] shrink-0" />
