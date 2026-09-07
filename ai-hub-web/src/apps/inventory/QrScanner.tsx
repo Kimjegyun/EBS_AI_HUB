@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Html5Qrcode } from 'html5-qrcode'
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode'
 import { Icon } from '../../components/Icon'
 
 interface QrScannerProps {
@@ -9,6 +9,39 @@ interface QrScannerProps {
 
 /** 자산 스티커는 작아서 기본 배율로는 초점이 잘 안 맞는다. 시작할 때 이만큼 당긴다. */
 const DEFAULT_ZOOM = 2
+
+const SUPPORTED_ASSET_CODE_FORMATS = [
+  Html5QrcodeSupportedFormats.QR_CODE,
+  Html5QrcodeSupportedFormats.CODE_128,
+  Html5QrcodeSupportedFormats.CODE_39,
+  Html5QrcodeSupportedFormats.CODE_93,
+  Html5QrcodeSupportedFormats.CODABAR,
+  Html5QrcodeSupportedFormats.ITF,
+  Html5QrcodeSupportedFormats.EAN_13,
+  Html5QrcodeSupportedFormats.EAN_8,
+  Html5QrcodeSupportedFormats.UPC_A,
+  Html5QrcodeSupportedFormats.UPC_E,
+  Html5QrcodeSupportedFormats.DATA_MATRIX,
+]
+
+/** QR URL과 1차원 바코드 평문을 동일한 자산번호 문자열로 바꿉니다. */
+export function extractAssetNoFromScan(decodedText: string): string {
+  const raw = decodedText.trim()
+  if (!raw) return ''
+
+  try {
+    const url = new URL(raw)
+    const assetPath = url.pathname.match(/\/asset\/([^/?#]+)/i)
+    if (assetPath?.[1]) return decodeURIComponent(assetPath[1]).trim()
+    const queryValue = url.searchParams.get('assetNo') || url.searchParams.get('asset') || url.searchParams.get('code')
+    if (queryValue) return queryValue.trim()
+  } catch {
+    // URL이 아닌 일반 바코드 값은 아래에서 그대로 처리합니다.
+  }
+
+  // 일부 산업용 스캐너가 붙이는 AIM symbology identifier(예: ]C1)를 제거합니다.
+  return raw.replace(/^\][A-Z][0-9]/i, '').replace(/^(?:ASSET|자산번호)\s*[:=]\s*/i, '').trim()
+}
 
 /**
  * 자산 라벨 QR 스캐너.
@@ -47,6 +80,7 @@ export default function QrScanner({ onResult, onClose }: QrScannerProps) {
 
     const scanner = new Html5Qrcode(idRef.current, {
       verbose: false,
+      formatsToSupport: SUPPORTED_ASSET_CODE_FORMATS,
       // 기기에 내장된 BarcodeDetector 는 기울어지거나 작은 코드에 훨씬 강하다.
       experimentalFeatures: { useBarCodeDetectorIfSupported: true },
     })
@@ -78,8 +112,9 @@ export default function QrScanner({ onResult, onClose }: QrScannerProps) {
           // 스캔 영역을 넓게 잡는다. 좁은 사각형이면 라벨을 정확히 그 안에 맞춰야 해서
           // 비스듬하거나 살짝 벗어난 QR을 놓친다.
           qrbox: (viewW: number, viewH: number) => {
-            const side = Math.floor(Math.min(viewW, viewH) * 0.85)
-            return { width: side, height: side }
+            const width = Math.floor(viewW * 0.9)
+            const height = Math.floor(Math.min(viewH * 0.7, width * 0.72))
+            return { width, height }
           },
           // 좌우 반전된 화면(전면 카메라·거울 모드)도 시도한다.
           disableFlip: false,
@@ -95,7 +130,7 @@ export default function QrScanner({ onResult, onClose }: QrScannerProps) {
           if (handledRef.current) return
           handledRef.current = true
           clearTimeout(timeoutId)
-          void stop().then(() => onResult(decodedText.trim()))
+          void stop().then(() => onResult(extractAssetNoFromScan(decodedText)))
         },
         () => {
           /* 프레임마다 나는 해독 실패는 정상이므로 무시 */
@@ -212,7 +247,7 @@ export default function QrScanner({ onResult, onClose }: QrScannerProps) {
         <div className="flex shrink-0 items-center justify-between border-b border-outline-variant px-4 py-2.5">
           <span className="font-h3 text-h3 text-on-surface flex items-center gap-2">
             <Icon name="qr_code_scanner" className="text-primary" />
-            QR 스캔
+            QR · 바코드 스캔
           </span>
           <div className="flex items-center gap-1">
             {torchSupported && (
@@ -291,7 +326,7 @@ export default function QrScanner({ onResult, onClose }: QrScannerProps) {
                     </div>
                   ) : (
                     <p className="text-center text-caption text-on-surface-variant">
-                      이 기기는 확대를 지원하지 않습니다. 라벨에 더 가까이 대세요.
+                      이 기기는 확대를 지원하지 않습니다. QR 또는 바코드 라벨에 더 가까이 대세요.
                     </p>
                   )}
 
@@ -315,7 +350,7 @@ export default function QrScanner({ onResult, onClose }: QrScannerProps) {
                   )}
 
                   <p className="text-center text-caption leading-relaxed text-on-surface-variant">
-                    라벨을 화면 안에 비추세요. 방향은 상관없습니다.<br />
+                    QR 또는 가로 바코드를 화면 안에 비추세요. 방향은 상관없습니다.<br />
                     <strong className="text-on-surface">흐리면 화면을 탭</strong>해 초점을 맞추세요.
                   </p>
                 </div>

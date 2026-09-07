@@ -1168,7 +1168,7 @@ function SurveyRunner({
               className="no-drag flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-primary text-on-primary py-2.5 text-body font-medium hover:bg-primary/90"
             >
               <Icon name="qr_code_scanner" />
-              QR 스캔
+              QR · 바코드 스캔
             </button>
             <button
               type="button"
@@ -1628,7 +1628,7 @@ function SurveyRunner({
             ))}
             {savedList.length === 0 && (
               <p className="text-center text-on-surface-variant text-caption py-4">
-                QR을 스캔해 첫 자산을 조사하세요.
+                QR 또는 바코드를 스캔해 첫 자산을 조사하세요.
               </p>
             )}
           </div>
