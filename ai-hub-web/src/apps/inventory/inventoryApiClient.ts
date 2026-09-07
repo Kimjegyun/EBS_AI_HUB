@@ -24,16 +24,18 @@ function getStoredToken(): string {
  * Inventory API can live independently from Vercel (Cloudflare Worker).
  * Keeping this in one place also makes every download/upload use the same host.
  */
-const INVENTORY_API_ORIGIN = ((import.meta.env.VITE_INVENTORY_API_URL as string | undefined) ?? '')
+const CONFIGURED_INVENTORY_API_ORIGIN = ((import.meta.env.VITE_INVENTORY_API_URL as string | undefined) ?? '')
   .trim()
   .replace(/\/$/, '')
+const FALLBACK_INVENTORY_API_ORIGIN = 'https://aka-minolta-rainbow-confident.trycloudflare.com'
+let activeInventoryApiOrigin = CONFIGURED_INVENTORY_API_ORIGIN || FALLBACK_INVENTORY_API_ORIGIN
 
 function inventoryUrl(path: string): string {
-  return `${INVENTORY_API_ORIGIN}/api/inventory${path}`
+  return `${activeInventoryApiOrigin}/api/inventory${path}`
 }
 
 function healthUrl(): string {
-  return `${INVENTORY_API_ORIGIN}/health`
+  return `${activeInventoryApiOrigin}/health`
 }
 
 /** Shared fetch wrapper — injects JWT and writes every request/response to IoLog. */
@@ -83,6 +85,15 @@ export async function isServerReachable(): Promise<boolean> {
     const res = await fetch(healthUrl(), { signal: AbortSignal.timeout(3000) })
     return res.ok
   } catch {
+    if (activeInventoryApiOrigin !== FALLBACK_INVENTORY_API_ORIGIN) {
+      activeInventoryApiOrigin = FALLBACK_INVENTORY_API_ORIGIN
+      try {
+        const res = await fetch(healthUrl(), { signal: AbortSignal.timeout(5000) })
+        return res.ok
+      } catch {
+        return false
+      }
+    }
     return false
   }
 }
