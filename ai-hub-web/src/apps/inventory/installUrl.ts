@@ -13,6 +13,15 @@
  * `/inventory` 는 라우트가 아니라 메인 허브 앱이 뜨므로 쓰면 안 됩니다.
  */
 export function inventoryInstallUrl(): string {
+  // 운영 화면을 공개 도메인에서 열었다면 그 origin을 그대로 사용합니다.
+  // Vercel의 branch/preview URL은 Deployment Protection이 적용될 수 있으므로,
+  // 빌드 시 주입된 URL보다 사용자가 실제로 연 공개 Production 도메인이 안전합니다.
+  const currentOrigin = window.location.origin.replace(/\/$/, '')
+  const isLocalOrigin = /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?$/i.test(currentOrigin)
+  if (!isLocalOrigin && /^https?:\/\//i.test(currentOrigin)) {
+    return `${currentOrigin}/inventory.html`
+  }
+
   const direct = (import.meta.env.VITE_INVENTORY_APP_URL as string | undefined)?.trim().replace(/\/$/, '')
   if (direct) return direct
   const origin = (import.meta.env.VITE_PUBLIC_URL as string | undefined)?.trim().replace(/\/$/, '')
