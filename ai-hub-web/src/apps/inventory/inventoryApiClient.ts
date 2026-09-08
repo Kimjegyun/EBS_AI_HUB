@@ -24,7 +24,8 @@ function getStoredToken(): string {
  * Inventory API can live independently from Vercel (Cloudflare Worker).
  * Keeping this in one place also makes every download/upload use the same host.
  */
-const CONFIGURED_INVENTORY_API_ORIGIN = ((import.meta.env.VITE_INVENTORY_API_URL as string | undefined) ?? '')
+const BUILD_ENV = (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env ?? {}
+const CONFIGURED_INVENTORY_API_ORIGIN = (BUILD_ENV.VITE_INVENTORY_API_URL ?? '')
   .trim()
   .replace(/\/$/, '')
 const FALLBACK_INVENTORY_API_ORIGIN = 'https://aka-minolta-rainbow-confident.trycloudflare.com'
