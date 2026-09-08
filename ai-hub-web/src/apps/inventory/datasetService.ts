@@ -23,12 +23,12 @@ export const normalizeAssetNo = (raw: string): string => raw.trim().toUpperCase(
 export const looseAssetKey = (raw: string): string => raw.toUpperCase().replace(/[^A-Z0-9]/g, '')
 
 /** 정확 키를 먼저 넣고, 비어 있는 느슨한 키 자리에만 폴백을 채웁니다. */
-function addToIndex<T>(index: Map<string, T>, assetNo: string, value: T): void {
+function addToIndex<T>(index: Map<string, T>, assetNo: string, value: T, overwrite = true): void {
   const exact = normalizeAssetNo(assetNo)
   if (!exact) return
-  index.set(exact, value)
+  if (overwrite || !index.has(exact)) index.set(exact, value)
   const loose = looseAssetKey(assetNo)
-  if (loose && !index.has(loose)) index.set(loose, value)
+  if (loose && (overwrite || !index.has(loose))) index.set(loose, value)
 }
 
 /** 정확 일치 → 하이픈 무시 순으로 색인을 조회합니다. */
@@ -38,7 +38,13 @@ export function indexLookup<T>(index: Map<string, T>, assetNo: string): T | unde
 
 function buildIndex(dataset: AssetDataset): Map<string, Asset> {
   const index = new Map<string, Asset>()
+  // 신형 자산번호를 우선 등록한 뒤 구형 자산번호를 별칭으로 등록합니다.
+  // 바코드가 구형 번호를 반환해도 동일한 마스터 자산을 찾되, 두 자산의
+  // 번호가 우연히 겹치는 경우에는 현재 자산번호가 항상 우선합니다.
   for (const a of dataset.assets) addToIndex(index, a.assetNo, a)
+  for (const a of dataset.assets) {
+    if (a.oldAssetNo) addToIndex(index, a.oldAssetNo, a, false)
+  }
   return index
 }
 
