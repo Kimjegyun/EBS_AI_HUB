@@ -31,6 +31,10 @@ const CONFIGURED_INVENTORY_API_ORIGIN = (BUILD_ENV.VITE_INVENTORY_API_URL ?? '')
 const FALLBACK_INVENTORY_API_ORIGIN = 'https://aka-minolta-rainbow-confident.trycloudflare.com'
 let activeInventoryApiOrigin = CONFIGURED_INVENTORY_API_ORIGIN || FALLBACK_INVENTORY_API_ORIGIN
 
+export function getInventoryApiOrigin(): string {
+  return activeInventoryApiOrigin
+}
+
 function inventoryUrl(path: string): string {
   return `${activeInventoryApiOrigin}/api/inventory${path}`
 }

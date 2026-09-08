@@ -11,6 +11,7 @@ import {
   deleteSurveyForm,
   fetchServerDatasets,
   fetchSurveyForm,
+  getInventoryApiOrigin,
   saveNgrokToken,
   uploadSurveyForm,
   type ServerDatasetMeta,
@@ -179,11 +180,10 @@ function MdmCertificateSection() {
 }
 
 function CloudflareTunnelSection() {
-  const apiUrl = ((import.meta.env.VITE_INVENTORY_API_URL as string | undefined) ?? '').trim().replace(/\/$/, '')
+  const apiUrl = getInventoryApiOrigin()
   const [state, setState] = useState<'checking' | 'online' | 'offline'>('checking')
 
   useEffect(() => {
-    if (!apiUrl) { setState('offline'); return }
     fetch(`${apiUrl}/health`, { signal: AbortSignal.timeout(5000) })
       .then((response) => setState(response.ok ? 'online' : 'offline'))
       .catch(() => setState('offline'))
@@ -201,10 +201,15 @@ function CloudflareTunnelSection() {
       <div className="space-y-2 px-3 py-3 text-caption text-on-surface-variant">
         <p>Vercel 앱이 Cloudflare Tunnel을 통해 기관 PC의 Express·SQLite·파일 저장소에 연결됩니다. 휴대폰 CA 인증서와 동일 Wi-Fi가 필요하지 않습니다.</p>
         <div className="rounded-lg bg-surface-container px-3 py-2 font-mono text-[11px] break-all">
-          {apiUrl || 'VITE_INVENTORY_API_URL이 설정되지 않았습니다.'}
+          {apiUrl}
         </div>
         {state === 'offline' && (
-          <p className="text-error">기관 PC에서 <code>npm run tunnel:start</code>를 실행하고 PC 절전 모드를 해제해 주세요.</p>
+          <p className="text-error">자동 실행 작업이 복구 중입니다. PC 인터넷 연결과 절전 상태를 확인해 주세요.</p>
+        )}
+        {state === 'online' && (
+          <p className="flex items-center gap-1 text-success">
+            <Icon name="autorenew" className="text-[13px]" />Windows 로그인 시 서버·터널 자동 실행 및 30초 간격 복구
+          </p>
         )}
       </div>
     </div>

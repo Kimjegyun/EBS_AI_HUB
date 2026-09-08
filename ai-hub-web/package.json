@@ -20,6 +20,7 @@
     "tunnel:setup": "powershell -ExecutionPolicy Bypass -File scripts/setup-cloudflare-tunnel.ps1",
     "tunnel:start": "powershell -ExecutionPolicy Bypass -File scripts/start-cloudflare-tunnel.ps1",
     "tunnel:quick": "powershell -ExecutionPolicy Bypass -File scripts/start-cloudflare-quick-tunnel.ps1",
+    "inventory:autostart": "powershell -ExecutionPolicy Bypass -File scripts/install-inventory-auto-start.ps1",
     "tencent:create-token": "node scripts/create-tencent-aigc-token.mjs",
     "tencent:show-token": "node scripts/show-tencent-aigc-token.mjs"
   },
