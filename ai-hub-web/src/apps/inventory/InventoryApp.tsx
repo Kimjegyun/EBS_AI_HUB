@@ -476,6 +476,11 @@ function SessionList({
       await ensureDataset(datasetId, (phase) => {
         setBusy(phase === 'download' ? '자산 마스터 다운로드 중...' : '자산 데이터 준비 중...')
       })
+      setBusy('본부 ERP 작업파일 생성 중...')
+      const safePart = (value: string) => value.trim().replace(/[\\/:*?"<>|]/g, '_').replace(/\s+/g, '_') || '미지정'
+      const workFileName = `ERP_${safePart(dept || src?.parentDept || '')}_${safePart(userName)}_작업.xlsx`
+      const downloaded = await downloadDatasetExcel(datasetId, workFileName)
+      if (!downloaded.ok) throw new Error(`ERP 작업파일 다운로드 실패: ${downloaded.error}`)
       const s = await createSession({
         name,
         datasetId,
@@ -1107,7 +1112,29 @@ function SurveyRunner({
     setSubmitting(false)
     setSubmitResult(res)
     if (res.ok) {
-      flash(`✅ ${res.submitted}건 서버 등록 완료!`)
+      // 조사 결과를 반영한 사용자별 ERP 작업파일을 기기에 저장하고 서버에도 보관합니다.
+      if (erp) {
+        try {
+          const { buildErpWithInspection } = await import('./inspectionExport')
+          const built = await buildErpWithInspection(erp, session)
+          saveBlobAs(built.blob, built.fileName)
+          const saved = await uploadInventoryFile({
+            blob: built.blob,
+            fileName: built.fileName,
+            kind: 'erp-inspection',
+            parentDept: session.parentDept,
+            sessionId: session.id,
+            summary: `조사자 ${session.createdBy} · 부서 ${session.dept || '-'} · ${built.filled}/${built.total}건 반영`,
+          })
+          flash(saved.ok
+            ? `✅ ${res.submitted}건 등록 및 ${built.fileName} 서버 보관 완료`
+            : `조사 결과는 등록됐지만 ERP 파일 보관 실패: ${saved.error}`)
+        } catch (e) {
+          flash(`조사 결과는 등록됐지만 ERP 파일 생성 실패: ${(e as Error).message}`)
+        }
+      } else {
+        flash(`✅ ${res.submitted}건 서버 등록 완료!`)
+      }
     } else {
       flash(`등록 실패: ${res.error}`)
     }
@@ -1330,6 +1357,18 @@ function SurveyRunner({
                   onChange={(e) => setDraft({ ...draft, location: e.target.value })}
                   className="no-drag mt-1 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-body-sm outline-none focus:border-primary"
                 />
+              </label>
+              <label className="block">
+                <span className="text-caption text-on-surface-variant">현재 설치부서</span>
+                <input
+                  value={draft.dept}
+                  onChange={(e) => setDraft({ ...draft, dept: e.target.value })}
+                  className="no-drag mt-1 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-body-sm outline-none focus:border-primary"
+                  placeholder="현물의 현재 설치부서"
+                />
+                <span className="mt-1 block text-[10px] text-on-surface-variant">
+                  ERP의 기존 설치부서와 다르면 완료 파일에 새 부서가 저장되고 해당 셀이 노란색으로 표시됩니다.
+                </span>
               </label>
               <div className="grid grid-cols-2 gap-2.5">
                 <label className="block">

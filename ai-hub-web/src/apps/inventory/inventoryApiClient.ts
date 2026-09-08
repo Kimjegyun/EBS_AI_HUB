@@ -128,7 +128,7 @@ export async function fetchServerAssets(datasetId: string): Promise<unknown[]> {
 }
 
 /** 본부별 자산현황을 재물조사 양식 xlsx 파일로 다운로드 (브라우저 Save As) */
-export async function downloadDatasetExcel(datasetId: string): Promise<{ ok: boolean; error?: string }> {
+export async function downloadDatasetExcel(datasetId: string, fileNameOverride?: string): Promise<{ ok: boolean; error?: string }> {
   try {
     const token = getStoredToken()
     const res = await fetch(inventoryUrl(`/datasets/${datasetId}/download`), {
@@ -143,6 +143,7 @@ export async function downloadDatasetExcel(datasetId: string): Promise<{ ok: boo
     let fileName = '자산현황_재물조사양식.xlsx'
     const m = cd.match(/filename\*=UTF-8''([^;\r\n]+)/i) ?? cd.match(/filename="?([^";\r\n]+)"?/i)
     if (m) fileName = decodeURIComponent(m[1])
+    if (fileNameOverride?.trim()) fileName = fileNameOverride.trim()
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url

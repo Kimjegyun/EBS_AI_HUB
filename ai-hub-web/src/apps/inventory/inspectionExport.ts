@@ -45,10 +45,6 @@ function solidFill(argb: string): ExcelJS.FillPattern {
   return { type: 'pattern', pattern: 'solid', fgColor: { argb } }
 }
 
-function baseName(fileName: string): string {
-  return fileName.replace(/\.[^.]+$/, '')
-}
-
 /** 헤더 행(= 자산번호 셀이 있는 첫 행)과 그 안의 열 위치를 찾습니다. */
 function findHeader(ws: ExcelJS.Worksheet, extraCols: string[] = []): {
   headerRow: number
@@ -119,12 +115,14 @@ export async function buildErpWithInspection(
   const ws = wb.getWorksheet(erp.sheetName) ?? wb.worksheets[0]
   if (!ws) throw new Error('ERP 파일에서 시트를 찾을 수 없습니다.')
 
-  const { headerRow, assetNoCol } = findHeader(ws)
+  const { headerRow, assetNoCol, extra } = findHeader(ws, ['설치부서명', '설치부서'])
+  const originalDeptCol = extra['설치부서명'] || extra['설치부서'] || 0
 
   // 맨 앞에 빈 4열 삽입 → 기존 열은 모두 4칸 오른쪽으로 밀립니다.
   const blankColumn = () => new Array<null>(ws.rowCount).fill(null)
   ws.spliceColumns(1, 0, ...INSPECTION_HEADERS.map(blankColumn))
   const shiftedAssetNoCol = assetNoCol + INSPECTION_HEADERS.length
+  const shiftedDeptCol = originalDeptCol ? originalDeptCol + INSPECTION_HEADERS.length : 0
 
   const header = ws.getRow(headerRow)
   INSPECTION_HEADERS.forEach((label, i) => {
@@ -152,16 +150,30 @@ export async function buildErpWithInspection(
     row.getCell(2).value = result.verifierDept ?? ''
     row.getCell(3).value = result.verifier ?? ''
     row.getCell(4).value = result.surveyedAt ? result.surveyedAt.slice(0, 10) : ''
+    if (shiftedDeptCol) {
+      const deptCell = row.getCell(shiftedDeptCol)
+      const previousDept = cellText(deptCell.value)
+      const inspectedDept = (result.dept ?? '').trim()
+      if (inspectedDept && inspectedDept !== previousDept) {
+        deptCell.value = inspectedDept
+        deptCell.fill = solidFill(FILL_SAME)
+        deptCell.note = `재물조사 전 설치부서: ${previousDept || '(없음)'} / 변경자: ${result.verifier || session.createdBy}`
+      }
+    }
     row.commit()
     filled++
   }
 
   return {
     blob: await toBlob(wb),
-    fileName: `${baseName(erp.fileName)}_검수반영_${session.parentDept}.xlsx`,
+    fileName: `ERP_${sanitizeFilePart(session.dept || session.parentDept)}_${sanitizeFilePart(session.createdBy)}.xlsx`,
     filled,
     total,
   }
+}
+
+function sanitizeFilePart(value: string): string {
+  return value.trim().replace(/[\\/:*?"<>|]/g, '_').replace(/\s+/g, '_') || '미지정'
 }
 
 // ── ② 운영관리부 대조 파일 (설치부서 노랑/주황) ──────────────────────────────
