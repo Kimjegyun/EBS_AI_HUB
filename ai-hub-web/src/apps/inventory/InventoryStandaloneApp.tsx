@@ -12,6 +12,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Icon } from '../../components/Icon'
 import InventoryApp from './InventoryApp'
 import { getDistributedOrgs } from './datasetService'
+import { applyInventoryApiOriginFromUrl } from './inventoryApiClient'
 
 const PROFILE_KEY = 'inventory-user-profile'
 
@@ -304,6 +305,7 @@ export default function InventoryStandaloneApp() {
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
+    applyInventoryApiOriginFromUrl()
     setProfile(loadProfile())
     setReady(true)
   }, [])

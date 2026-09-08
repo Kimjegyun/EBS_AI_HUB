@@ -34,6 +34,7 @@ ngrok-token.env
 
 # Cloudflare Tunnel binary, credentials reference and local config
 .cloudflared/
+.runtime/
 
 # Azure onboarding session artifacts
 .copilot-azure/

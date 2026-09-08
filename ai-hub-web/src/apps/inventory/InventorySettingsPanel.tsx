@@ -12,6 +12,8 @@ import {
   fetchServerDatasets,
   fetchSurveyForm,
   getInventoryApiOrigin,
+  resetInventoryApiOrigin,
+  setInventoryApiOrigin,
   saveNgrokToken,
   uploadSurveyForm,
   type ServerDatasetMeta,
@@ -180,14 +182,42 @@ function MdmCertificateSection() {
 }
 
 function CloudflareTunnelSection() {
-  const apiUrl = getInventoryApiOrigin()
+  const [apiUrl, setApiUrl] = useState(getInventoryApiOrigin())
+  const [draftUrl, setDraftUrl] = useState(apiUrl)
   const [state, setState] = useState<'checking' | 'online' | 'offline'>('checking')
+  const [message, setMessage] = useState('')
 
   useEffect(() => {
+    setState('checking')
     fetch(`${apiUrl}/health`, { signal: AbortSignal.timeout(5000) })
       .then((response) => setState(response.ok ? 'online' : 'offline'))
       .catch(() => setState('offline'))
   }, [apiUrl])
+
+  const saveAndTest = async () => {
+    setMessage('')
+    setState('checking')
+    try {
+      const normalized = draftUrl.trim().replace(/\/api\/inventory\/?$/i, '').replace(/\/$/, '')
+      const response = await fetch(`${normalized}/health`, { signal: AbortSignal.timeout(8000) })
+      if (!response.ok) throw new Error(`서버 응답 오류 (${response.status})`)
+      const saved = setInventoryApiOrigin(normalized)
+      setApiUrl(saved)
+      setDraftUrl(saved)
+      setState('online')
+      setMessage('연결 확인 및 저장 완료 — 이 브라우저와 새 QR에 적용됩니다.')
+    } catch (error) {
+      setState('offline')
+      setMessage(`저장하지 못했습니다: ${(error as Error).message}`)
+    }
+  }
+
+  const restoreDefault = () => {
+    const restored = resetInventoryApiOrigin()
+    setApiUrl(restored)
+    setDraftUrl(restored)
+    setMessage('기본 서버 주소로 복원했습니다.')
+  }
 
   return (
     <div className="overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
@@ -200,8 +230,31 @@ function CloudflareTunnelSection() {
       </div>
       <div className="space-y-2 px-3 py-3 text-caption text-on-surface-variant">
         <p>Vercel 앱이 Cloudflare Tunnel을 통해 기관 PC의 Express·SQLite·파일 저장소에 연결됩니다. 휴대폰 CA 인증서와 동일 Wi-Fi가 필요하지 않습니다.</p>
-        <div className="rounded-lg bg-surface-container px-3 py-2 font-mono text-[11px] break-all">
-          {apiUrl}
+        <label className="block">
+          <span className="font-medium text-on-surface">외부 API 주소</span>
+          <div className="mt-1 flex flex-col gap-1.5 sm:flex-row">
+            <input
+              type="url"
+              value={draftUrl}
+              onChange={(event) => setDraftUrl(event.target.value)}
+              placeholder="https://새주소.trycloudflare.com"
+              className="min-w-0 flex-1 rounded-lg border border-outline-variant bg-surface px-3 py-2 font-mono text-[11px] outline-none focus:border-primary"
+            />
+            <button type="button" onClick={() => void saveAndTest()}
+              className="rounded-lg bg-primary px-3 py-2 font-medium text-on-primary hover:bg-primary/90">
+              연결 테스트 후 저장
+            </button>
+            <button type="button" onClick={restoreDefault}
+              className="rounded-lg border border-outline-variant px-3 py-2 text-on-surface-variant hover:bg-surface-container-high">
+              기본값
+            </button>
+          </div>
+        </label>
+        {message && (
+          <p className={state === 'offline' ? 'text-error' : 'text-success'}>{message}</p>
+        )}
+        <div className="rounded-lg bg-surface-container px-3 py-2 text-[11px] leading-relaxed">
+          재부팅 후 주소가 바뀌면 기관 PC의 <code className="font-mono">.runtime/current-tunnel-url.txt</code>에 적힌 주소를 위에 붙여 넣으세요.
         </div>
         {state === 'offline' && (
           <p className="text-error">자동 실행 작업이 복구 중입니다. PC 인터넷 연결과 절전 상태를 확인해 주세요.</p>

@@ -29,10 +29,46 @@ const CONFIGURED_INVENTORY_API_ORIGIN = (BUILD_ENV.VITE_INVENTORY_API_URL ?? '')
   .trim()
   .replace(/\/$/, '')
 const FALLBACK_INVENTORY_API_ORIGIN = 'https://aka-minolta-rainbow-confident.trycloudflare.com'
-let activeInventoryApiOrigin = CONFIGURED_INVENTORY_API_ORIGIN || FALLBACK_INVENTORY_API_ORIGIN
+const INVENTORY_API_URL_KEY = 'inventory-api-origin'
+
+function storedInventoryApiOrigin(): string {
+  if (typeof localStorage === 'undefined') return ''
+  return (localStorage.getItem(INVENTORY_API_URL_KEY) ?? '').trim().replace(/\/$/, '')
+}
+
+let activeInventoryApiOrigin = storedInventoryApiOrigin() || CONFIGURED_INVENTORY_API_ORIGIN || FALLBACK_INVENTORY_API_ORIGIN
 
 export function getInventoryApiOrigin(): string {
   return activeInventoryApiOrigin
+}
+
+export function setInventoryApiOrigin(value: string): string {
+  const normalized = value.trim()
+    .replace(/\/api\/inventory\/?$/i, '')
+    .replace(/\/$/, '')
+  if (!/^https:\/\/[a-z0-9.-]+(?::\d+)?$/i.test(normalized)) {
+    throw new Error('https://로 시작하는 외부 서버 주소를 입력하세요.')
+  }
+  activeInventoryApiOrigin = normalized
+  if (typeof localStorage !== 'undefined') localStorage.setItem(INVENTORY_API_URL_KEY, normalized)
+  return normalized
+}
+
+export function resetInventoryApiOrigin(): string {
+  if (typeof localStorage !== 'undefined') localStorage.removeItem(INVENTORY_API_URL_KEY)
+  activeInventoryApiOrigin = CONFIGURED_INVENTORY_API_ORIGIN || FALLBACK_INVENTORY_API_ORIGIN
+  return activeInventoryApiOrigin
+}
+
+export function applyInventoryApiOriginFromUrl(): string | null {
+  if (typeof window === 'undefined') return null
+  const value = new URLSearchParams(window.location.search).get('api')
+  if (!value) return null
+  try {
+    return setInventoryApiOrigin(value)
+  } catch {
+    return null
+  }
 }
 
 function inventoryUrl(path: string): string {

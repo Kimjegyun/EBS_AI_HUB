@@ -30,24 +30,37 @@ export function inventoryInstallUrl(): string {
   const isProtectedVercelHost = hostname.endsWith('-projects.vercel.app')
 
   if (isPrivateHost || isProtectedVercelHost) {
-    return productionInventoryUrl
+    return withApiOrigin(productionInventoryUrl)
   }
 
   if (/^https?:\/\//i.test(currentOrigin)) {
-    return `${currentOrigin}/inventory.html`
+    return withApiOrigin(`${currentOrigin}/inventory.html`)
   }
 
   const direct = (import.meta.env.VITE_INVENTORY_APP_URL as string | undefined)?.trim().replace(/\/$/, '')
-  if (direct) return direct
+  if (direct) return withApiOrigin(direct)
   const origin = (import.meta.env.VITE_PUBLIC_URL as string | undefined)?.trim().replace(/\/$/, '')
     || window.location.origin
-  return `${origin}/inventory.html`
+  return withApiOrigin(`${origin}/inventory.html`)
+}
+
+function withApiOrigin(url: string): string {
+  const result = new URL(url)
+  result.searchParams.set('api', getInventoryApiOrigin())
+  return result.toString()
 }
 
 /** 설치 주소가 외부에서도 열리는 주소인지 (LAN 폴백이면 false). */
 export function isExternalInstallUrl(): boolean {
-  return !!(
-    (import.meta.env.VITE_INVENTORY_APP_URL as string | undefined)?.trim()
-    || (import.meta.env.VITE_PUBLIC_URL as string | undefined)?.trim()
-  )
+  try {
+    const hostname = new URL(inventoryInstallUrl()).hostname.toLowerCase()
+    return hostname !== 'localhost'
+      && hostname !== '127.0.0.1'
+      && !/^10\./.test(hostname)
+      && !/^192\.168\./.test(hostname)
+      && !/^172\.(1[6-9]|2\d|3[01])\./.test(hostname)
+  } catch {
+    return false
+  }
 }
+import { getInventoryApiOrigin } from './inventoryApiClient'

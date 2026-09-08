@@ -57,6 +57,32 @@ function Start-QuickTunnel {
   Write-WatchLog 'Cloudflare Quick Tunnel 시작 요청'
 }
 
+function Update-TunnelUrlFile {
+  $logFiles = @(
+    $tunnelErr,
+    (Join-Path $webDir '.cloudflared\quick-tunnel.err.log')
+  ) | Where-Object { Test-Path -LiteralPath $_ } | Sort-Object { (Get-Item -LiteralPath $_).LastWriteTime } -Descending
+
+  foreach ($logFile in $logFiles) {
+    $match = [regex]::Matches((Get-Content -Raw -LiteralPath $logFile -ErrorAction SilentlyContinue), 'https://[a-z0-9-]+\.trycloudflare\.com') |
+      Select-Object -Last 1
+    if ($match) {
+      $url = $match.Value
+      $target = Join-Path $runtimeDir 'current-tunnel-url.txt'
+      $previous = if (Test-Path -LiteralPath $target) { (Get-Content -Raw -LiteralPath $target).Trim() } else { '' }
+      if ($previous -ne $url) {
+        Set-Content -LiteralPath $target -Value $url -Encoding utf8
+        $desktop = [Environment]::GetFolderPath('Desktop')
+        if ($desktop) {
+          Set-Content -LiteralPath (Join-Path $desktop 'EBS 재물조사 외부주소.txt') -Value $url -Encoding utf8
+        }
+        Write-WatchLog "외부 주소 기록: $url"
+      }
+      return
+    }
+  }
+}
+
 Write-WatchLog '재물조사 자동 실행 감시 시작'
 while ($true) {
   try {
@@ -67,6 +93,7 @@ while ($true) {
     if ((Test-InventoryServer) -and -not (Get-QuickTunnelProcess)) {
       Start-QuickTunnel
     }
+    Update-TunnelUrlFile
   } catch {
     Write-WatchLog "자동 복구 실패: $($_.Exception.Message)"
   }
