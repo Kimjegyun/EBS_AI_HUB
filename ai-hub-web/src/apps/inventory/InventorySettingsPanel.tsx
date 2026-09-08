@@ -300,6 +300,7 @@ export default function InventorySettingsPanel() {
       const res = await uploadSurveyForm(file)
       if (!res.ok) { say('error', `전사 양식 업로드 실패: ${res.error}`); return }
       await reload()
+      window.dispatchEvent(new Event('inventory-datasets-updated'))
       say(
         'ok',
         `전사 ERP 등록 완료 — 본부 데이터셋 ${res.datasetsCreated ?? 0}개 · 자산 ${(res.assetCount ?? 0).toLocaleString()}건`,

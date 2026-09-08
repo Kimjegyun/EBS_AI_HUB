@@ -386,6 +386,16 @@ function SurveyProgressPanel({ parentDept }: { parentDept: string }) {
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void load() }, [])
 
+  useEffect(() => {
+    const refresh = () => { void load() }
+    window.addEventListener('inventory-datasets-updated', refresh)
+    window.addEventListener('focus', refresh)
+    return () => {
+      window.removeEventListener('inventory-datasets-updated', refresh)
+      window.removeEventListener('focus', refresh)
+    }
+  }, [])
+
   if (busy && coverage.length === 0) {
     return (
       <div className="flex items-center gap-2 rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-caption text-on-surface-variant">

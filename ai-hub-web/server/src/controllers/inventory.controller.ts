@@ -354,10 +354,22 @@ function parseWorksheetRows(
   // !ref 변경이 다른 시트 파싱에 영향을 주지 않도록 객체만 얕게 복사합니다.
   const ws = { ...sourceWorksheet }
 
+  // 양식 연도마다 헤더 위치가 달라질 수 있으므로 실제 '자산번호' 셀을 찾습니다.
+  // 찾지 못한 경우에만 호출자가 전달한 기존 행 번호를 사용합니다.
+  const previewRows = XLSX.utils.sheet_to_json<unknown[]>(sourceWorksheet, {
+    header: 1,
+    defval: '',
+    raw: false,
+  })
+  const detectedHeaderIndex = previewRows.slice(0, 50).findIndex((row) =>
+    row.some((cell) => String(cell ?? '').trim() === '자산번호'),
+  )
+  const resolvedHeaderRow = detectedHeaderIndex >= 0 ? detectedHeaderIndex + 1 : headerRow
+
   // range override: shift start row to skip title/guide rows
   const ref = ws['!ref'] ?? 'A1'
   const range = XLSX.utils.decode_range(ref)
-  range.s.r = headerRow - 1  // 0-based row index
+  range.s.r = resolvedHeaderRow - 1  // 0-based row index
   ws['!ref'] = XLSX.utils.encode_range(range)
 
   const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, {
