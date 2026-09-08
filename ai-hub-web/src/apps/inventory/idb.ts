@@ -68,3 +68,4 @@ export const idbGet = <T>(store: string, key: string) => tx<T | undefined>(store
 export const idbPut = <T>(store: string, value: T) => tx<IDBValidKey>(store, 'readwrite', (s) => s.put(value as unknown as object))
 export const idbDelete = (store: string, key: string) => tx<undefined>(store, 'readwrite', (s) => s.delete(key))
 export const idbGetAll = <T>(store: string) => tx<T[]>(store, 'readonly', (s) => s.getAll())
+export const idbClear = (store: string) => tx<undefined>(store, 'readwrite', (s) => s.clear())

@@ -26,6 +26,7 @@ import {
   markCompleted,
   pullServerSessions,
   removeResult,
+  resetSurveySessions,
   sessionStats,
   startSyncLoop,
   stopSyncLoop,
@@ -260,6 +261,7 @@ export default function InventoryApp({ overrideUserName, overrideUserDept, overr
           sessions={sessions}
           userName={userName}
           organization={overrideSurveyDept ?? authSession?.organization ?? ''}
+          isAdmin={isAdmin}
           onOpen={openSession}
         />
       )}
@@ -427,11 +429,13 @@ function SessionList({
   sessions,
   userName,
   organization,
+  isAdmin,
   onOpen,
 }: {
   sessions: SurveySession[]
   userName: string
   organization: string
+  isAdmin: boolean
   onOpen: (id: string) => void
 }) {
   const [showForm, setShowForm] = useState(sessions.length === 0)
@@ -444,8 +448,31 @@ function SessionList({
   const [error, setError] = useState<string | null>(null)
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
   const [dlToast, setDlToast] = useState<string | null>(null)
+  const [resetting, setResetting] = useState(false)
 
   const flashDl = (msg: string) => { setDlToast(msg); setTimeout(() => setDlToast(null), 3000) }
+
+  const resetTargets = isAdmin ? sessions : sessions.filter((session) => session.createdBy === userName)
+  const handleReset = async () => {
+    if (resetTargets.length === 0 || resetting) return
+    const scope = isAdmin ? '전체 사용자의' : '내'
+    const accepted = window.confirm(
+      `${scope} 조사 ${resetTargets.length}건과 저장된 조사 결과를 초기화할까요?\n\n` +
+      '운영관리부 ERP 원본과 이미 생성된 결과 파일은 삭제되지 않습니다. 이 작업은 되돌릴 수 없습니다.',
+    )
+    if (!accepted) return
+
+    setResetting(true)
+    const result = await resetSurveySessions(resetTargets)
+    await clearErpFile().catch(() => undefined)
+    setResetting(false)
+    if (result.failed > 0) {
+      flashDl(`초기화 ${result.deleted}건 완료 · 서버 연결 실패 ${result.failed}건은 보존했습니다.`)
+    } else {
+      setShowForm(true)
+      flashDl(`조사 데이터 ${result.deleted}건을 초기화했습니다.`)
+    }
+  }
 
   const handleDownloadExcel = async (datasetId: string, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -505,14 +532,25 @@ function SessionList({
             ① ⬇ 자산현황 엑셀 다운로드 → ② 부서별 조사 완성 → ③ ⬆ 완료 엑셀 업로드
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowForm((v) => !v)}
-          className="no-drag shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-primary text-on-primary px-3 py-1.5 text-label font-medium hover:bg-primary/90"
-        >
-          <Icon name={showForm ? 'close' : 'add'} className="text-[18px]" />
-          {showForm ? '닫기' : '새 조사'}
-        </button>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => void handleReset()}
+            disabled={resetTargets.length === 0 || resetting}
+            className="no-drag inline-flex items-center gap-1.5 rounded-lg border border-error/40 px-3 py-1.5 text-label font-medium text-error hover:bg-error/10 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Icon name={resetting ? 'progress_activity' : 'restart_alt'} className={`text-[18px] ${resetting ? 'animate-spin' : ''}`} />
+            {resetting ? '초기화 중' : '초기화'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowForm((v) => !v)}
+            className="no-drag inline-flex items-center gap-1.5 rounded-lg bg-primary text-on-primary px-3 py-1.5 text-label font-medium hover:bg-primary/90"
+          >
+            <Icon name={showForm ? 'close' : 'add'} className="text-[18px]" />
+            {showForm ? '닫기' : '새 조사'}
+          </button>
+        </div>
       </div>
 
       {/* 본부별 진행 현황 + 미확인 자산 상세 */}

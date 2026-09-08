@@ -498,7 +498,8 @@ export async function setServerCompleted(sessionId: string, completed: boolean):
 export async function deleteServerSession(sessionId: string): Promise<boolean> {
   try {
     const res = await apiFetch(`/sessions/${sessionId}`, { method: 'DELETE' })
-    return res.ok
+    // 이미 서버에서 제거된 세션도 로컬 초기화를 계속할 수 있도록 성공으로 취급합니다.
+    return res.ok || res.status === 404
   } catch {
     return false
   }

@@ -6,7 +6,7 @@
 // This module replaces (and extends) the old uploadSession() function. The old
 // entry-point is kept for backwards compatibility.
 
-import { idbDelete, idbGetAll, idbPut, STORE_SESSIONS, STORE_SYNC_QUEUE } from './idb'
+import { idbDelete, idbGetAll, idbPut, STORE_PHOTOS, STORE_SESSIONS, STORE_SYNC_QUEUE } from './idb'
 import {
   isServerReachable,
   pushResult,
@@ -194,6 +194,47 @@ export async function deleteSession(id: string): Promise<void> {
   await idbDelete(STORE_SESSIONS, id)
   await deleteServerSessionApi(id)
   emit()
+}
+
+export interface ResetSessionsResult {
+  deleted: number
+  failed: number
+}
+
+/**
+ * 선택한 조사 세션을 서버와 이 단말에서 함께 초기화합니다.
+ * 서버 삭제가 실패한 세션은 로컬에 남겨 다음 동기화 때 되살아나는 불일치를 막습니다.
+ */
+export async function resetSurveySessions(sessions: SurveySession[]): Promise<ResetSessionsResult> {
+  const deletedIds = new Set<string>()
+  let deleted = 0
+  let failed = 0
+
+  for (const session of sessions) {
+    const serverDeleted = await deleteServerSessionApi(session.id)
+    if (!serverDeleted) {
+      failed += 1
+      continue
+    }
+
+    for (const result of Object.values(session.results)) {
+      for (const photoId of result.photoIds ?? []) {
+        await idbDelete(STORE_PHOTOS, photoId).catch(() => undefined)
+      }
+    }
+    await idbDelete(STORE_SESSIONS, session.id)
+    deletedIds.add(session.id)
+    deleted += 1
+  }
+
+  const queued = await queueGetAll()
+  await Promise.all(
+    queued
+      .filter((item) => deletedIds.has(item.sessionId))
+      .map((item) => queueDelete(item.id)),
+  )
+  emit()
+  return { deleted, failed }
 }
 
 // ── Stats helper ──────────────────────────────────────────────────────────────
