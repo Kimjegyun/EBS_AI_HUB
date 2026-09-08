@@ -409,7 +409,13 @@ export async function mergeDatasets(req: AuthRequest, res: Response): Promise<vo
 
   // 파일2: ERP 자산현황 — 헤더행 1번째, 단일 시트
   const erpAssets = parseRows(erpFile.buffer, undefined, 1, ERP_COL_MAP)
-  const erpMap = new Map(erpAssets.map((a) => [a.assetNo, a]))
+  const erpMap = new Map<string, Asset>()
+  const mergeKey = (value?: string) => String(value ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+  for (const asset of erpAssets) erpMap.set(mergeKey(asset.assetNo), asset)
+  for (const asset of erpAssets) {
+    const oldKey = mergeKey(asset.oldAssetNo)
+    if (oldKey && !erpMap.has(oldKey)) erpMap.set(oldKey, asset)
+  }
 
   // Merge: ERP를 기준으로 survey 정보를 덮어씌움 (survey가 더 최신 현장 정보)
   const merged: Asset[] = []
@@ -417,9 +423,12 @@ export async function mergeDatasets(req: AuthRequest, res: Response): Promise<vo
 
   for (const sa of surveyAssets) {
     if (!sa.assetNo) continue
-    surveyNos.add(sa.assetNo)
-    const erp = erpMap.get(sa.assetNo)
+    surveyNos.add(mergeKey(sa.assetNo))
+    const erp = erpMap.get(mergeKey(sa.assetNo))
+      ?? (sa.oldAssetNo ? erpMap.get(mergeKey(sa.oldAssetNo)) : undefined)
     if (erp) {
+      surveyNos.add(mergeKey(erp.assetNo))
+      if (erp.oldAssetNo) surveyNos.add(mergeKey(erp.oldAssetNo))
       // ERP 기본정보 + survey 현장정보 병합
       const asset: Asset = {
         ...erp,
@@ -442,8 +451,8 @@ export async function mergeDatasets(req: AuthRequest, res: Response): Promise<vo
   }
 
   // ERP에만 있는 자산 추가 (survey 목록 미포함 자산)
-  for (const [assetNo, ea] of erpMap) {
-    if (!surveyNos.has(assetNo)) {
+  for (const ea of erpAssets) {
+    if (!surveyNos.has(mergeKey(ea.assetNo)) && !surveyNos.has(mergeKey(ea.oldAssetNo))) {
       ea._source = 'erp'
       merged.push(ea)
     }
@@ -566,16 +575,25 @@ export async function mergeByUploadId(req: AuthRequest, res: Response): Promise<
   for (const a of surveyAssets) a._source = 'survey'
 
   const erpAssets = parseRows(file.buffer, undefined, 1, ERP_COL_MAP)
-  const erpMap = new Map(erpAssets.map((a) => [a.assetNo, a]))
+  const erpMap = new Map<string, Asset>()
+  const mergeKey = (value?: string) => String(value ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+  for (const asset of erpAssets) erpMap.set(mergeKey(asset.assetNo), asset)
+  for (const asset of erpAssets) {
+    const oldKey = mergeKey(asset.oldAssetNo)
+    if (oldKey && !erpMap.has(oldKey)) erpMap.set(oldKey, asset)
+  }
 
   const merged: Asset[] = []
   const surveyNos = new Set<string>()
 
   for (const sa of surveyAssets) {
     if (!sa.assetNo) continue
-    surveyNos.add(sa.assetNo)
-    const erp = erpMap.get(sa.assetNo)
+    surveyNos.add(mergeKey(sa.assetNo))
+    const erp = erpMap.get(mergeKey(sa.assetNo))
+      ?? (sa.oldAssetNo ? erpMap.get(mergeKey(sa.oldAssetNo)) : undefined)
     if (erp) {
+      surveyNos.add(mergeKey(erp.assetNo))
+      if (erp.oldAssetNo) surveyNos.add(mergeKey(erp.oldAssetNo))
       merged.push({
         ...erp,
         surveyStatus: sa.surveyStatus || erp.surveyStatus,
@@ -592,8 +610,11 @@ export async function mergeByUploadId(req: AuthRequest, res: Response): Promise<
     }
   }
 
-  for (const [assetNo, ea] of erpMap) {
-    if (!surveyNos.has(assetNo)) { ea._source = 'erp'; merged.push(ea) }
+  for (const ea of erpAssets) {
+    if (!surveyNos.has(mergeKey(ea.assetNo)) && !surveyNos.has(mergeKey(ea.oldAssetNo))) {
+      ea._source = 'erp'
+      merged.push(ea)
+    }
   }
 
   if (merged.length === 0) {

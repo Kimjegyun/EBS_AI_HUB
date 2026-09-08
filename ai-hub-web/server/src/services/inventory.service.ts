@@ -389,6 +389,14 @@ async function buildCoverage(datasetId?: string): Promise<
       const lo = looseKey(a.assetNo)
       if (lo && !index.has(lo)) index.set(lo, i)
     })
+    // 구형 바코드로 저장된 과거 조사 결과도 동일한 신형 마스터 자산에 합산합니다.
+    assets.forEach((a, i) => {
+      if (!a.oldAssetNo) return
+      const ex = exactKey(a.oldAssetNo)
+      if (ex && !index.has(ex)) index.set(ex, i)
+      const lo = looseKey(a.oldAssetNo)
+      if (lo && !index.has(lo)) index.set(lo, i)
+    })
 
     const hits: Array<StoredResult | undefined> = new Array(assets.length).fill(undefined)
     let offMaster = 0

@@ -850,6 +850,8 @@ function SurveyRunner({
   const [loadMsg, setLoadMsg] = useState('자산 데이터 불러오는 중...')
   const [scanOpen, setScanOpen] = useState(false)
   const [continuousScan, setContinuousScan] = useState(false)
+  const [remainingOpen, setRemainingOpen] = useState(false)
+  const [remainingRefresh, setRemainingRefresh] = useState(0)
   const [manual, setManual] = useState('')
   const [lastInstallDept, setLastInstallDept] = useState(
     () => getUserScopedItem(LAST_INSTALL_DEPT_KEY)?.trim() || userDept,
@@ -1073,7 +1075,7 @@ function SurveyRunner({
     const scannedAsset = lookupAsset(session.datasetId, norm)
     const scannedErpAsset = lookupErp(norm)
     if (!scannedAsset && !scannedErpAsset) {
-      flash(`자산번호 ${norm}을(를) 확인할 수 없습니다. 다시 카메라로 찍으세요.`)
+      flash('조회되지 않는 자산입니다. 본부 재물조사 담당자에게 문의해주세요.')
       setTimeout(() => setScanOpen(true), 0)
       return
     }
@@ -1119,6 +1121,7 @@ function SurveyRunner({
           matched: true,
         }
       await upsertResult(session.id, result)
+      setRemainingRefresh((value) => value + 1)
       flash(`✓ 저장: ${asset.assetNo}`)
       setManual('')
       // Re-open scanner for next scan
@@ -1151,6 +1154,7 @@ function SurveyRunner({
       aiVerdict: aiVerdict ?? undefined,
     }
     await upsertResult(session.id, result)
+    setRemainingRefresh((value) => value + 1)
     if (draft.dept.trim()) {
       const rememberedDept = draft.dept.trim()
       setLastInstallDept(rememberedDept)
@@ -1221,6 +1225,7 @@ function SurveyRunner({
   const upload = async () => {
     const res = await uploadSession(session)
     flash(res.message)
+    setRemainingRefresh((value) => value + 1)
   }
 
   // 재물조사 완료 후 서버에 최종 등록 (완료 처리 포함)
@@ -1239,6 +1244,7 @@ function SurveyRunner({
     setSubmitting(false)
     setSubmitResult(res)
     if (res.ok) {
+      setRemainingRefresh((value) => value + 1)
       // 조사 결과를 반영한 사용자별 ERP 작업파일을 기기에 저장하고 서버에도 보관합니다.
       if (erp) {
         try {
@@ -1337,6 +1343,49 @@ function SurveyRunner({
               <Icon name="bolt" className="text-[18px]" />
               {continuousScan ? '연속ON' : '연속'}
             </button>
+          </div>
+
+          {/* 같은 부서의 모든 조사자가 서버에 올린 결과를 합산한 미확인 목록 */}
+          <div className="overflow-hidden rounded-lg border border-outline-variant bg-surface-container-low">
+            <div className="flex items-center hover:bg-surface-container-high">
+              <button
+                type="button"
+                onClick={() => setRemainingOpen((value) => !value)}
+                className="no-drag flex min-w-0 flex-1 items-center gap-2 px-3 py-2.5 text-left"
+              >
+                <Icon name={remainingOpen ? 'expand_less' : 'expand_more'} className="text-[18px] text-primary" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-body-sm font-semibold text-on-surface">부서 할당 자산 중 미확인 내역</span>
+                  <span className="block truncate text-caption text-on-surface-variant">
+                    {session.parentDept} · {session.dept || userDept} · 사용자 교차검증 결과 합산
+                  </span>
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setRemainingRefresh((value) => value + 1)
+                  setRemainingOpen(true)
+                }}
+                className="no-drag mr-3 rounded-md border border-outline-variant px-2 py-1 text-caption text-primary"
+              >
+                새로고침
+              </button>
+            </div>
+            {remainingOpen && (
+              <div className="border-t border-outline-variant p-3">
+                <UnsurveyedAssetList
+                  datasetId={session.datasetId}
+                  dept={session.dept || userDept}
+                  refreshKey={remainingRefresh}
+                  onSelect={(asset) => {
+                    setManual(asset.assetNo)
+                    doLookup(asset.assetNo)
+                    window.scrollTo({ top: 0, behavior: 'smooth' })
+                  }}
+                />
+              </div>
+            )}
           </div>
           {continuousScan && (
             <p className="text-caption text-success bg-success/10 rounded-lg px-3 py-1.5">
@@ -2033,8 +2082,14 @@ function ProgressBar({ done, total }: { done: number; total: number }) {
  * 서버에서 데이터셋 자산과 조사 결과를 대조해 내려줍니다.
  */
 function UnsurveyedAssetList({
-  datasetId, dept, expectedTotal,
-}: { datasetId?: string; dept?: string; expectedTotal?: number }) {
+  datasetId, dept, expectedTotal, refreshKey = 0, onSelect,
+}: {
+  datasetId?: string
+  dept?: string
+  expectedTotal?: number
+  refreshKey?: number
+  onSelect?: (asset: UnsurveyedAsset) => void
+}) {
   const PAGE = 100
   const [assets, setAssets] = useState<UnsurveyedAsset[]>([])
   const [total, setTotal] = useState(expectedTotal ?? 0)
@@ -2049,7 +2104,7 @@ function UnsurveyedAssetList({
     } finally {
       setBusy(false)
     }
-  }, [datasetId, dept])
+  }, [datasetId, dept, refreshKey])
 
   // setState는 모두 await 이후에 일어나지만 규칙이 호출을 따라 들어가 오탐합니다.
   // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -2085,6 +2140,7 @@ function UnsurveyedAssetList({
               {['자산번호', '자산명', '모델/규격', '설치부서', '설치장소', '관리부서', '취득일자'].map((h) => (
                 <th key={h} className="whitespace-nowrap px-2 py-1.5 text-left font-medium">{h}</th>
               ))}
+              {onSelect && <th className="whitespace-nowrap px-2 py-1.5 text-left font-medium">관리</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-outline-variant/60">
@@ -2099,6 +2155,17 @@ function UnsurveyedAssetList({
                 <td className="px-2 py-1.5 text-on-surface-variant">{a.location || '-'}</td>
                 <td className="whitespace-nowrap px-2 py-1.5 text-on-surface-variant">{a.manageDept || '-'}</td>
                 <td className="whitespace-nowrap px-2 py-1.5 text-on-surface-variant">{a.acquiredAt || '-'}</td>
+                {onSelect && (
+                  <td className="whitespace-nowrap px-2 py-1.5">
+                    <button
+                      type="button"
+                      onClick={() => onSelect(a)}
+                      className="no-drag rounded-md bg-primary px-2 py-1 font-semibold text-on-primary"
+                    >
+                      조사하기
+                    </button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
