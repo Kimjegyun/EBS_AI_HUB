@@ -160,12 +160,14 @@ interface InventoryAppProps extends Partial<AppContext> {
   /** standalone 모드: 외부에서 사용자 정보 주입 (인증 없이 사용 시) */
   overrideUserName?: string
   overrideUserDept?: string
+  /** standalone 사용자 등록에서 선택한 소속본부 */
+  overrideParentDept?: string
   /** standalone 최초 등록 화면에서 입력한 실제 조사 부서 */
   overrideSurveyDept?: string
   overrideIsAdmin?: boolean
 }
 
-export default function InventoryApp({ overrideUserName, overrideUserDept, overrideSurveyDept, overrideIsAdmin }: InventoryAppProps) {
+export default function InventoryApp({ overrideUserName, overrideUserDept, overrideParentDept, overrideSurveyDept, overrideIsAdmin }: InventoryAppProps) {
   // useAuthSafe: AuthProvider 없는 standalone(PWA) 환경에서도 안전하게 null 반환
   const authCtx = useAuthSafe()
   const authSession = authCtx?.session ?? null
@@ -261,6 +263,7 @@ export default function InventoryApp({ overrideUserName, overrideUserDept, overr
           sessions={sessions}
           userName={userName}
           organization={overrideSurveyDept ?? authSession?.organization ?? ''}
+          preferredParentDept={overrideParentDept ?? authSession?.organization ?? ''}
           isAdmin={isAdmin}
           onOpen={openSession}
         />
@@ -346,7 +349,7 @@ function ExcelUploadButton({
  * 조사목록 탭 상단 — 본부별 진행 현황과 미확인 자산 상세.
  * 조사 "건수"가 아니라 데이터셋 전체 자산 기준이라 100% 여부가 바로 보입니다.
  */
-function SurveyProgressPanel() {
+function SurveyProgressPanel({ parentDept }: { parentDept: string }) {
   const [coverage, setCoverage] = useState<DatasetCoverage[]>([])
   const [busy, setBusy] = useState(true)
   const [openDataset, setOpenDataset] = useState<string | null>(null)
@@ -371,20 +374,21 @@ function SurveyProgressPanel() {
       </div>
     )
   }
-  if (coverage.length === 0) return null
+  const visibleCoverage = coverage.filter((dataset) => dataset.parentDept === parentDept)
+  if (visibleCoverage.length === 0) return null
 
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
         <Icon name="donut_large" className="text-primary text-[18px]" />
-        <h3 className="flex-1 text-body-sm font-semibold text-on-surface">본부별 조사 진행 현황</h3>
+        <h3 className="flex-1 text-body-sm font-semibold text-on-surface">{parentDept} 조사 진행 현황</h3>
         <button type="button" onClick={() => void load()} disabled={busy}
           className="no-drag inline-flex items-center gap-1 text-caption text-on-surface-variant hover:text-primary disabled:opacity-50">
           <Icon name={busy ? 'progress_activity' : 'refresh'} className={`text-[14px] ${busy ? 'animate-spin' : ''}`} />갱신
         </button>
       </div>
 
-      {coverage.map((d) => {
+      {visibleCoverage.map((d) => {
         const open = openDataset === d.datasetId
         const done = d.unsurveyed === 0 && d.totalAssets > 0
         return (
@@ -429,12 +433,14 @@ function SessionList({
   sessions,
   userName,
   organization,
+  preferredParentDept,
   isAdmin,
   onOpen,
 }: {
   sessions: SurveySession[]
   userName: string
   organization: string
+  preferredParentDept: string
   isAdmin: boolean
   onOpen: (id: string) => void
 }) {
@@ -449,10 +455,12 @@ function SessionList({
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
   const [dlToast, setDlToast] = useState<string | null>(null)
   const [resetting, setResetting] = useState(false)
+  const [selectedParentDept, setSelectedParentDept] = useState(preferredParentDept)
 
   const flashDl = (msg: string) => { setDlToast(msg); setTimeout(() => setDlToast(null), 3000) }
 
-  const resetTargets = isAdmin ? sessions : sessions.filter((session) => session.createdBy === userName)
+  const visibleSessions = sessions.filter((session) => session.parentDept === selectedParentDept)
+  const resetTargets = (isAdmin ? visibleSessions : visibleSessions.filter((session) => session.createdBy === userName))
   const handleReset = async () => {
     if (resetTargets.length === 0 || resetting) return
     const scope = isAdmin ? '전체 사용자의' : '내'
@@ -490,9 +498,23 @@ function SessionList({
   useEffect(() => {
     getAllDatasetSources().then((sources) => {
       setDatasetSources(sources)
-      if (sources.length > 0 && !datasetId) setDatasetId(sources[0].id)
+      const preferred = sources.find((source) => source.parentDept === preferredParentDept)
+        ?? sources.find((source) => preferredParentDept.includes(source.parentDept) || source.parentDept.includes(preferredParentDept))
+        ?? sources[0]
+      if (preferred) {
+        setSelectedParentDept(preferred.parentDept)
+        setDatasetId(preferred.id)
+      }
     })
-  }, [])
+  }, [preferredParentDept])
+
+  const visibleDatasetSources = datasetSources.filter((source) => source.parentDept === selectedParentDept)
+
+  const changeParentDept = (parentDept: string) => {
+    setSelectedParentDept(parentDept)
+    const first = datasetSources.find((source) => source.parentDept === parentDept)
+    setDatasetId(first?.id ?? '')
+  }
 
   const create = async () => {
     if (!name.trim() || !datasetId) return
@@ -553,8 +575,21 @@ function SessionList({
         </div>
       </div>
 
+      <label className="block rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5">
+        <span className="text-caption font-medium text-on-surface-variant">소속본부</span>
+        <select
+          value={selectedParentDept}
+          onChange={(event) => changeParentDept(event.target.value)}
+          className="no-drag mt-1 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-body font-medium outline-none focus:border-primary"
+        >
+          {Array.from(new Set(datasetSources.map((source) => source.parentDept))).map((parentDept) => (
+            <option key={parentDept} value={parentDept}>{parentDept}</option>
+          ))}
+        </select>
+      </label>
+
       {/* 본부별 진행 현황 + 미확인 자산 상세 */}
-      <SurveyProgressPanel />
+      {selectedParentDept && <SurveyProgressPanel parentDept={selectedParentDept} />}
 
       {showForm && (
         <div className="rounded-xl border border-outline-variant bg-surface-container-low p-3 space-y-2.5">
@@ -575,7 +610,7 @@ function SessionList({
                 onChange={(e) => setDatasetId(e.target.value)}
                 className="no-drag mt-1 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-body outline-none focus:border-primary"
               >
-                {datasetSources.map((d) => (
+                {visibleDatasetSources.map((d) => (
                     <option key={d.id} value={d.id}>
                       {d.title}
                     </option>
@@ -612,12 +647,12 @@ function SessionList({
       )}
 
       <div className="space-y-2">
-        {sessions.length === 0 && !showForm && (
+        {visibleSessions.length === 0 && !showForm && (
           <p className="text-center text-on-surface-variant text-body-sm py-6">
             진행 중인 재물조사가 없습니다.
           </p>
         )}
-        {sessions.map((s) => {
+        {visibleSessions.map((s) => {
           const stats = sessionStats(s)
           return (
             <div

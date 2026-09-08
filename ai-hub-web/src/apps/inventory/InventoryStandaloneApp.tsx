@@ -336,6 +336,7 @@ export default function InventoryStandaloneApp() {
         <InventoryApp
           overrideUserName={profile.name}
           overrideUserDept={`${profile.org}${profile.dept ? ' ' + profile.dept : ''}`}
+          overrideParentDept={profile.org}
           overrideSurveyDept={profile.dept || profile.org}
           overrideIsAdmin={false}
         />
