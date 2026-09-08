@@ -11,8 +11,11 @@ import { getAiHubSession } from './supabaseMembership'
 import type { AuthSession } from './types'
 import { supabase } from '../lib/supabase'
 import {
+  getPortalScopedItem,
   getPortalScopedSessionItem,
+  removePortalScopedItem,
   removePortalScopedSessionItem,
+  setPortalScopedItem,
   setPortalScopedSessionItem,
 } from '../lib/portalStorage'
 import { withTimeout } from '../lib/withTimeout'
@@ -29,7 +32,10 @@ let cachedSession: AuthSession | null = null
 
 function readSession(): AuthSession | null {
   try {
-    const raw = getPortalScopedSessionItem(STORAGE_KEY)
+    const persistentRaw = getPortalScopedItem(STORAGE_KEY)
+    const raw = persistentRaw ?? getPortalScopedSessionItem(STORAGE_KEY)
+    // 기존 버전의 탭 세션을 한 번 읽으면 영구 저장소로 자동 이전합니다.
+    if (!persistentRaw && raw) setPortalScopedItem(STORAGE_KEY, raw)
     if (raw === cachedRawSession) return cachedSession
     cachedRawSession = raw
     if (!raw) {
@@ -71,10 +77,12 @@ function writeSession(session: AuthSession | null) {
     cachedRawSession = raw
     cachedSession = session
     setPortalScopedSessionItem(STORAGE_KEY, raw)
+    setPortalScopedItem(STORAGE_KEY, raw)
   } else {
     cachedRawSession = null
     cachedSession = null
     removePortalScopedSessionItem(STORAGE_KEY)
+    removePortalScopedItem(STORAGE_KEY)
   }
   listeners.forEach((l) => l())
 }

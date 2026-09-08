@@ -1,5 +1,5 @@
 import type { AuthSession } from '../auth/types'
-import { getPortalMode, getPortalScopedSessionItem } from './portalStorage'
+import { getPortalMode, getPortalScopedItem, getPortalScopedSessionItem } from './portalStorage'
 
 const AUTH_STORAGE_KEY = 'ai-hub-auth'
 
@@ -15,7 +15,7 @@ export function getCurrentUserStorageId(): string {
 
 export function getCurrentAuthSession(): AuthSession | null {
   try {
-    const raw = getPortalScopedSessionItem(AUTH_STORAGE_KEY)
+    const raw = getPortalScopedItem(AUTH_STORAGE_KEY) ?? getPortalScopedSessionItem(AUTH_STORAGE_KEY)
     if (!raw) return null
     return JSON.parse(raw) as AuthSession
   } catch {

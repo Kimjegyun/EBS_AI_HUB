@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useId } from 'react'
 import { Icon } from '../../components/Icon'
 import { useAuthSafe } from '../../auth/AuthContext'
+import { getUserScopedItem, setUserScopedItem } from '../../lib/userScopedStorage'
 import type { AppContext } from '../types'
 import {
   SURVEY_STATUSES,
@@ -155,6 +156,23 @@ function emptyDraft(assetNo: string, verifier: string, verifierDept: string, pre
 }
 
 type Tab = 'sessions' | 'stats' | 'datasets' | 'pairing' | 'settings'
+
+const SURVEY_PREFERENCES_KEY = 'inventory-survey-preferences'
+
+interface SurveyPreferences {
+  name?: string
+  parentDept?: string
+  dept?: string
+  datasetId?: string
+}
+
+function loadSurveyPreferences(): SurveyPreferences {
+  try {
+    return JSON.parse(getUserScopedItem(SURVEY_PREFERENCES_KEY) ?? '{}') as SurveyPreferences
+  } catch {
+    return {}
+  }
+}
 
 interface InventoryAppProps extends Partial<AppContext> {
   /** standalone 모드: 외부에서 사용자 정보 주입 (인증 없이 사용 시) */
@@ -444,18 +462,19 @@ function SessionList({
   isAdmin: boolean
   onOpen: (id: string) => void
 }) {
+  const [savedPreferences] = useState(loadSurveyPreferences)
   const [showForm, setShowForm] = useState(sessions.length === 0)
   const defaultName = `${new Date().getFullYear()}년 정기재물조사`
-  const [name, setName] = useState(defaultName)
+  const [name, setName] = useState(savedPreferences.name || defaultName)
   const [datasetSources, setDatasetSources] = useState([] as { id: string; title: string; parentDept: string }[])
-  const [datasetId, setDatasetId] = useState('')
-  const [dept, setDept] = useState(organization)
+  const [datasetId, setDatasetId] = useState(savedPreferences.datasetId || '')
+  const [dept, setDept] = useState(savedPreferences.dept || organization)
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
   const [dlToast, setDlToast] = useState<string | null>(null)
   const [resetting, setResetting] = useState(false)
-  const [selectedParentDept, setSelectedParentDept] = useState(preferredParentDept)
+  const [selectedParentDept, setSelectedParentDept] = useState(savedPreferences.parentDept || preferredParentDept)
 
   const flashDl = (msg: string) => { setDlToast(msg); setTimeout(() => setDlToast(null), 3000) }
 
@@ -498,7 +517,10 @@ function SessionList({
   useEffect(() => {
     getAllDatasetSources().then((sources) => {
       setDatasetSources(sources)
-      const preferred = sources.find((source) => source.parentDept === preferredParentDept)
+      const rememberedDataset = sources.find((source) => source.id === savedPreferences.datasetId)
+      const rememberedParentDept = savedPreferences.parentDept || preferredParentDept
+      const preferred = rememberedDataset
+        ?? sources.find((source) => source.parentDept === rememberedParentDept)
         ?? sources.find((source) => preferredParentDept.includes(source.parentDept) || source.parentDept.includes(preferredParentDept))
         ?? sources[0]
       if (preferred) {
@@ -506,7 +528,16 @@ function SessionList({
         setDatasetId(preferred.id)
       }
     })
-  }, [preferredParentDept])
+  }, [preferredParentDept, savedPreferences.datasetId, savedPreferences.parentDept])
+
+  useEffect(() => {
+    setUserScopedItem(SURVEY_PREFERENCES_KEY, JSON.stringify({
+      name,
+      parentDept: selectedParentDept,
+      dept,
+      datasetId,
+    } satisfies SurveyPreferences))
+  }, [name, selectedParentDept, dept, datasetId])
 
   const visibleDatasetSources = datasetSources.filter((source) => source.parentDept === selectedParentDept)
 
