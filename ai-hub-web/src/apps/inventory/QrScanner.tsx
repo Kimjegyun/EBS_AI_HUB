@@ -43,6 +43,12 @@ export function extractAssetNoFromScan(decodedText: string): string {
   return raw.replace(/^\][A-Z][0-9]/i, '').replace(/^(?:ASSET|자산번호)\s*[:=]\s*/i, '').trim()
 }
 
+/** 현재 ERP의 신·구 자산번호 규칙(영문 2자 + 숫자 9/12자리)인지 확인합니다. */
+export function isValidScannedAssetNo(value: string): boolean {
+  const compact = value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
+  return /^[A-Z]{2}(?:\d{9}|\d{12})$/.test(compact)
+}
+
 /**
  * 자산 라벨 QR 스캐너.
  *
@@ -58,8 +64,10 @@ export function extractAssetNoFromScan(decodedText: string): string {
 export default function QrScanner({ onResult, onClose }: QrScannerProps) {
   const idRef = useRef(`qr-reader-${Math.random().toString(36).slice(2)}`)
   const scannerRef = useRef<Html5Qrcode | null>(null)
+  const onResultRef = useRef(onResult)
   const handledRef = useRef(false)
   const [error, setError] = useState<string | null>(null)
+  const [scanNotice, setScanNotice] = useState<string | null>(null)
   // 'waiting'  — div 마운트 전
   // 'starting' — Html5Qrcode.start() 호출 후, 카메라 권한 대기 중
   // 'running'  — 카메라 뷰 활성 (start() 성공)
@@ -73,6 +81,7 @@ export default function QrScanner({ onResult, onClose }: QrScannerProps) {
   const [focusRing, setFocusRing] = useState<{ x: number; y: number; key: number } | null>(null)
 
   useEffect(() => { setPhase('starting') }, [])
+  useEffect(() => { onResultRef.current = onResult }, [onResult])
 
   useEffect(() => {
     if (phase !== 'starting') return
@@ -128,9 +137,14 @@ export default function QrScanner({ onResult, onClose }: QrScannerProps) {
         },
         (decodedText) => {
           if (handledRef.current) return
+          const assetNo = extractAssetNoFromScan(decodedText)
+          if (!isValidScannedAssetNo(assetNo)) {
+            setScanNotice('자산번호를 정확히 인식하지 못했습니다. 다시 카메라로 찍으세요.')
+            return
+          }
           handledRef.current = true
           clearTimeout(timeoutId)
-          void stop().then(() => onResult(extractAssetNoFromScan(decodedText)))
+          void stop().then(() => onResultRef.current(assetNo))
         },
         () => {
           /* 프레임마다 나는 해독 실패는 정상이므로 무시 */
@@ -155,6 +169,11 @@ export default function QrScanner({ onResult, onClose }: QrScannerProps) {
             await zoomCap.apply(target)
           }
           setTorchSupported(caps.torchFeature().isSupported())
+          // 줌 제약까지 적용한 다음 연속 자동초점을 마지막으로 설정합니다.
+          // 일부 Android 브라우저는 start()의 videoConstraints를 무시합니다.
+          await scanner.applyVideoConstraints({
+            advanced: [{ focusMode: 'continuous' } as MediaTrackConstraintSet],
+          }).catch(() => {})
         } catch {
           /* 줌·플래시를 못 쓰는 기기도 스캔 자체는 된다 */
         }
@@ -174,7 +193,7 @@ export default function QrScanner({ onResult, onClose }: QrScannerProps) {
       clearTimeout(timeoutId)
       void stop()
     }
-  }, [phase, onResult])
+  }, [phase])
 
   const applyZoom = useCallback((next: number) => {
     setZoom(next)
@@ -218,7 +237,7 @@ export default function QrScanner({ onResult, onClose }: QrScannerProps) {
     scanner
       .applyVideoConstraints({
         advanced: [{
-          focusMode: 'manual',
+          focusMode: 'single-shot',
           pointsOfInterest: [{ x, y }],
         } as unknown as MediaTrackConstraintSet],
       })
@@ -227,6 +246,14 @@ export default function QrScanner({ onResult, onClose }: QrScannerProps) {
           advanced: [{ focusMode: 'continuous' } as MediaTrackConstraintSet],
         })
         .catch(() => { /* 초점 제어를 지원하지 않는 기기 */ }))
+      .finally(() => {
+        // 한 지점에 초점을 맞춘 뒤에도 다음 바코드를 위해 연속 자동초점으로 복귀합니다.
+        setTimeout(() => {
+          void scanner.applyVideoConstraints({
+            advanced: [{ focusMode: 'continuous' } as MediaTrackConstraintSet],
+          }).catch(() => {})
+        }, 800)
+      })
   }, [phase])
 
   // 초점 표시는 잠깐만 보여준다
@@ -295,6 +322,12 @@ export default function QrScanner({ onResult, onClose }: QrScannerProps) {
                   />
                 )}
               </div>
+
+              {scanNotice && (
+                <div className="mt-2 rounded-lg bg-error/10 px-3 py-2 text-center text-body-sm font-semibold text-error" role="alert">
+                  {scanNotice}
+                </div>
+              )}
 
               {phase === 'starting' && (
                 <div className="flex flex-col items-center justify-center gap-2 py-6 text-body-sm text-on-surface-variant">

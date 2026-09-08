@@ -66,7 +66,7 @@ import {
   type UnsurveyedAsset,
 } from './inventoryApiClient'
 import { inventoryInstallUrl, isExternalInstallUrl } from './installUrl'
-import QrScanner from './QrScanner'
+import QrScanner, { isValidScannedAssetNo } from './QrScanner'
 import InventorySettingsPanel from './InventorySettingsPanel'
 
 const STATUS_TONE: Record<SurveyStatus, string> = {
@@ -158,6 +158,7 @@ function emptyDraft(assetNo: string, verifier: string, verifierDept: string, pre
 type Tab = 'sessions' | 'stats' | 'datasets' | 'pairing' | 'settings'
 
 const SURVEY_PREFERENCES_KEY = 'inventory-survey-preferences'
+const LAST_INSTALL_DEPT_KEY = 'inventory-last-install-dept'
 
 interface SurveyPreferences {
   name?: string
@@ -850,6 +851,9 @@ function SurveyRunner({
   const [scanOpen, setScanOpen] = useState(false)
   const [continuousScan, setContinuousScan] = useState(false)
   const [manual, setManual] = useState('')
+  const [lastInstallDept, setLastInstallDept] = useState(
+    () => getUserScopedItem(LAST_INSTALL_DEPT_KEY)?.trim() || userDept,
+  )
   const [draft, setDraft] = useState<Draft | null>(null)
   const [notFound, setNotFound] = useState(false)
   // ERP 대조 파일 — 마스터 미조회 자산의 자산명을 자동으로 찾아 채웁니다.
@@ -929,6 +933,7 @@ function SurveyRunner({
       const prev = session.results[asset.assetNo]
       setNotFound(false)
       const base = draftFromAsset(asset, userName, userDept, prev)
+      if (!prev && lastInstallDept) base.dept = lastInstallDept
       // 마스터에 자산명이 비어 있으면 ERP 파일에서 보완
       const erpFill = base.name ? undefined : lookupErp(norm)
       if (erpFill?.name) base.name = erpFill.name
@@ -947,11 +952,11 @@ function SurveyRunner({
       const erpAsset = lookupErp(norm)
       setNotFound(true)
       setErpHit(!!erpAsset)
-      setDraft(
-        erpAsset
+      const nextDraft = erpAsset
           ? draftFromErp(erpAsset, norm, userName, userDept, prev)
-          : emptyDraft(norm, userName, userDept, prev),
-      )
+          : emptyDraft(norm, userName, userDept, prev)
+      if (!prev && lastInstallDept) nextDraft.dept = lastInstallDept
+      setDraft(nextDraft)
     }
   }
 
@@ -1057,12 +1062,25 @@ function SurveyRunner({
 
   const handleScan = async (text: string) => {
     setScanOpen(false)
-    setManual(text)
+    const norm = normalizeAssetNo(text)
+    if (!isValidScannedAssetNo(norm)) {
+      flash('자산번호를 정확히 인식하지 못했습니다. 다시 카메라로 찍으세요.')
+      // QrScanner가 판독 직후 카메라 트랙을 종료하므로 다음 렌더에서 새로 엽니다.
+      setTimeout(() => setScanOpen(true), 0)
+      return
+    }
+
+    const scannedAsset = lookupAsset(session.datasetId, norm)
+    const scannedErpAsset = lookupErp(norm)
+    if (!scannedAsset && !scannedErpAsset) {
+      flash(`자산번호 ${norm}을(를) 확인할 수 없습니다. 다시 카메라로 찍으세요.`)
+      setTimeout(() => setScanOpen(true), 0)
+      return
+    }
+
+    setManual(norm)
 
     if (continuousScan) {
-      const norm = text.trim().toUpperCase().replace(/\s+/g, '')
-      if (!norm) return
-
       // Already surveyed → alert and open for edit
       if (session.results[norm]) {
         flash(`이미 조사된 자산입니다: ${norm}`)
@@ -1070,7 +1088,7 @@ function SurveyRunner({
         return
       }
 
-      const asset = lookupAsset(session.datasetId, norm)
+      const asset = scannedAsset
       if (!asset) {
         // Not found → fall through to manual input (ERP 파일이 있으면 자산명은 자동으로 채워짐)
         const erpAsset = lookupErp(norm)
@@ -1088,7 +1106,7 @@ function SurveyRunner({
           assetNo: asset.assetNo,
           name: asset.name,
           location: asset.location,
-          dept: asset.dept,
+          dept: lastInstallDept || asset.dept,
           model: asset.model,
           spec: asset.spec,
           status: '정상',
@@ -1133,6 +1151,11 @@ function SurveyRunner({
       aiVerdict: aiVerdict ?? undefined,
     }
     await upsertResult(session.id, result)
+    if (draft.dept.trim()) {
+      const rememberedDept = draft.dept.trim()
+      setLastInstallDept(rememberedDept)
+      setUserScopedItem(LAST_INSTALL_DEPT_KEY, rememberedDept)
+    }
     flash(`저장됨: ${draft.assetNo}`)
     setManual('')
     setNotFound(false)
@@ -1466,7 +1489,12 @@ function SurveyRunner({
                 <span className="text-caption text-on-surface-variant">현재 설치부서</span>
                 <input
                   value={draft.dept}
-                  onChange={(e) => setDraft({ ...draft, dept: e.target.value })}
+                  onChange={(e) => {
+                    const dept = e.target.value
+                    setDraft({ ...draft, dept })
+                    setLastInstallDept(dept)
+                    setUserScopedItem(LAST_INSTALL_DEPT_KEY, dept)
+                  }}
                   className="no-drag mt-1 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-body-sm outline-none focus:border-primary"
                   placeholder="현물의 현재 설치부서"
                 />
