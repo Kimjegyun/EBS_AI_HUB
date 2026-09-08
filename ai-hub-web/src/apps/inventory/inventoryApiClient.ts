@@ -789,7 +789,7 @@ export interface SurveyFormMeta {
 /** 전사 양식 업로드 — 서버에 파일이 남으므로 새로고침·서버 재시작 후에도 유지됩니다. */
 export async function uploadSurveyForm(
   file: File,
-): Promise<{ ok: boolean; form?: SurveyFormMeta; error?: string }> {
+): Promise<{ ok: boolean; form?: SurveyFormMeta; datasetsCreated?: number; assetCount?: number; error?: string }> {
   try {
     const token = getStoredToken()
     const form = new FormData()
@@ -799,9 +799,9 @@ export async function uploadSurveyForm(
       headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': '1' },
       body: form,
     })
-    const body = (await res.json()) as SurveyFormMeta & { error?: string }
+    const body = (await res.json()) as SurveyFormMeta & { datasetsCreated?: number; assetCount?: number; error?: string }
     if (!res.ok) return { ok: false, error: body.error ?? `업로드 실패 (${res.status})` }
-    return { ok: true, form: body }
+    return { ok: true, form: body, datasetsCreated: body.datasetsCreated, assetCount: body.assetCount }
   } catch (e) {
     return { ok: false, error: (e as Error).message }
   }

@@ -337,10 +337,22 @@ function parseRows(
   colMap: Record<string, keyof Asset>,
 ): Asset[] {
   const wb = XLSX.read(buf, { type: 'buffer' })
+  return parseWorksheetRows(wb, sheetName, headerRow, colMap)
+}
+
+function parseWorksheetRows(
+  wb: XLSX.WorkBook,
+  sheetName: string | undefined,
+  headerRow: number,
+  colMap: Record<string, keyof Asset>,
+): Asset[] {
   const wsName = sheetName
     ? wb.SheetNames.find((n) => n === sheetName) ?? wb.SheetNames[0]
     : wb.SheetNames[0]
-  const ws = wb.Sheets[wsName]
+  const sourceWorksheet = wb.Sheets[wsName]
+  if (!sourceWorksheet) return []
+  // !ref 변경이 다른 시트 파싱에 영향을 주지 않도록 객체만 얕게 복사합니다.
+  const ws = { ...sourceWorksheet }
 
   // range override: shift start row to skip title/guide rows
   const ref = ws['!ref'] ?? 'A1'
@@ -1088,6 +1100,15 @@ export async function deleteDatasetHandler(req: AuthRequest, res: Response): Pro
 
 const SURVEY_FORM_DIR = path.join(process.cwd(), 'uploads', 'inventory-survey')
 
+const NON_DIVISION_SHEET_PATTERNS = [
+  /^전사$/i, /^목차$/i, /^안내$/i, /^작성방법$/i, /^상위부서/i,
+  /raw\s*data/i, /재물조사대상/i,
+]
+
+function isDivisionSheet(name: string): boolean {
+  return !NON_DIVISION_SHEET_PATTERNS.some((pattern) => pattern.test(name.trim()))
+}
+
 interface SurveyFormRow {
   id: string
   file_name: string
@@ -1119,10 +1140,11 @@ export async function uploadSurveyForm(req: AuthRequest, res: Response): Promise
     return
   }
 
+  let workbook: XLSX.WorkBook
   let sheetNames: string[]
   try {
-    const wb = XLSX.read(file.buffer, { type: 'buffer', bookSheets: true })
-    sheetNames = wb.SheetNames
+    workbook = XLSX.read(file.buffer, { type: 'buffer' })
+    sheetNames = workbook.SheetNames
   } catch {
     res.status(400).json({ error: '엑셀 파일을 읽을 수 없습니다.' })
     return
@@ -1141,7 +1163,46 @@ export async function uploadSurveyForm(req: AuthRequest, res: Response): Promise
     [id, originalName, storedName, JSON.stringify(sheetNames), file.size, req.user?.id ?? null],
   )
 
-  res.json({ ok: true, id, fileName: originalName, sheetNames, size: file.size })
+  // 전사 ERP의 본부별 시트를 즉시 데이터셋으로 변환합니다.
+  // 따라서 관리자가 본부별 파일을 별도로 업로드할 필요가 없습니다.
+  const existing = await listDatasets()
+  const existingIdByDept = new Map(existing.map((dataset) => [dataset.parent_dept, dataset.id]))
+  let datasetsCreated = 0
+  let assetCount = 0
+  const skippedSheets: string[] = []
+
+  for (const sheetName of sheetNames.filter(isDivisionSheet)) {
+    const assets = parseWorksheetRows(workbook, sheetName, 7, SURVEY_COL_MAP)
+    if (assets.length === 0) {
+      skippedSheets.push(sheetName)
+      continue
+    }
+    for (const asset of assets) {
+      if (!asset.parentDept) asset.parentDept = sheetName
+      asset._source = 'survey'
+    }
+    await upsertDataset(
+      existingIdByDept.get(sheetName) ?? '',
+      sheetName,
+      sheetName,
+      assets,
+      req.user!.id,
+      `survey-form:${id}|sheet:${sheetName}|file:${originalName}`,
+    )
+    datasetsCreated += 1
+    assetCount += assets.length
+  }
+
+  res.json({
+    ok: true,
+    id,
+    fileName: originalName,
+    sheetNames,
+    size: file.size,
+    datasetsCreated,
+    assetCount,
+    skippedSheets,
+  })
 }
 
 /** GET /datasets/survey-form — 가장 최근에 올린 전사 양식 */
