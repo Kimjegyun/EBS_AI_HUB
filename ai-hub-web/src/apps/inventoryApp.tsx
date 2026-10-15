@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { Icon } from '../components/Icon'
 import type { AppContext, AppPlugin } from './types'
+import InventoryBuildStatus from './inventory/InventoryBuildStatus'
 
 // Lazy-loaded so the heavy deps (xlsx, html5-qrcode) are only fetched when the
 // 재물조사 app is actually opened — keeps the main bundle lean.
@@ -17,6 +18,7 @@ function InventoryBody(ctx: AppContext) {
       }
     >
       <LazyInventory {...ctx} />
+      <InventoryBuildStatus />
     </Suspense>
   )
 }

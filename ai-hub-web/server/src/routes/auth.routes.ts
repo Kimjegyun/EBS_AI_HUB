@@ -7,6 +7,8 @@ const controller = new AuthController()
 
 router.post('/login', loginLimiter, (req, res) => void controller.login(req, res))
 router.post('/signup', loginLimiter, (req, res) => void controller.signup(req, res))
+router.get('/portal-config', (req, res) => void controller.portalConfig(req, res))
+router.post('/verify-ai-hub-session', (req, res) => void controller.verifyAiHubSession(req, res))
 router.post('/logout', (req, res) => void controller.logout(req, res))
 router.post('/refresh', (req, res) => void controller.refreshToken(req, res))
 router.post('/reset-password', adminGateLimiter, (req, res) => void controller.resetPassword(req, res))

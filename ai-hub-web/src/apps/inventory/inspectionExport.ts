@@ -1,3 +1,4 @@
+import { formatSurveyDateTime } from '../../../server/src/services/surveyDateTime'
 // 검수 결과 엑셀 산출물 2종.
 //
 //  ① 검수 반영 ERP 본부 파일 — 사용자가 올린 원본 ERP 파일 맨 앞에 검수 4열
@@ -146,6 +147,11 @@ export async function buildErpWithInspection(
     total++
     const result = pick(results, assetNo)
     if (!result) continue
+    if (result.confirmed) {
+      const assetCell = row.getCell(shiftedAssetNoCol)
+      assetCell.style = structuredClone(assetCell.style)
+      assetCell.fill = solidFill('FFFFFF00')
+    }
     row.getCell(1).value = result.confirmed ? '완료' : '미완료'
     row.getCell(2).value = result.verifierDept ?? ''
     row.getCell(3).value = result.verifier ?? ''
@@ -162,6 +168,21 @@ export async function buildErpWithInspection(
     }
     row.commit()
     filled++
+  }
+
+  // Keep every saved result (including off-master assets) in the same workbook.
+  // Rebuild this sheet from the current session so edits and deletions replace
+  // prior values rather than accumulating duplicate rows.
+  const detailName = '누적 조사결과'
+  const previousDetail = wb.getWorksheet(detailName)
+  if (previousDetail && previousDetail !== ws) wb.removeWorksheet(previousDetail.id)
+  const detail = wb.addWorksheet(detailName === ws.name ? '누적 조사결과 상세' : detailName)
+  detail.addRow(['자산번호', '자산명', '모델', '규격', '설치부서', '설치장소', '상태', '스티커 미부착', '비고', '확인완료', '확인자', '확인자 부서', '조사일'])
+  for (const result of Object.values(session.results).sort((a, b) => a.assetNo.localeCompare(b.assetNo))) {
+    const detailRow = detail.addRow([result.assetNo, result.name, result.model, result.spec, result.dept, result.location,
+      result.status, result.stickerMissing ? '미부착' : '', result.note, result.confirmed ? '완료' : '미완료',
+      result.verifier, result.verifierDept, formatSurveyDateTime(result.surveyedAt)])
+    if (result.confirmed) detailRow.getCell(1).fill = solidFill('FFFFFF00')
   }
 
   return {
@@ -210,6 +231,7 @@ export async function buildDeptComparison(
   if (!deptCol) throw new Error(`${target.name} 시트에서 설치부서 열을 찾을 수 없습니다.`)
 
   const erpIndex = indexErp(erp.assets)
+  const results = indexResults(session)
   let same = 0
   let changed = 0
   let unmatched = 0
@@ -218,6 +240,11 @@ export async function buildDeptComparison(
     const row = target.getRow(r)
     const assetNo = cellText(row.getCell(assetNoCol).value)
     if (!assetNo) continue
+    if (pick(results, assetNo)?.confirmed) {
+      const assetCell = row.getCell(assetNoCol)
+      assetCell.style = structuredClone(assetCell.style)
+      assetCell.fill = solidFill('FFFFFF00')
+    }
     const erpAsset = pick(erpIndex, assetNo)
     if (!erpAsset) { unmatched++; continue }
 

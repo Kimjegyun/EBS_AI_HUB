@@ -4,21 +4,7 @@
 
 import type { SurveyResult, SurveySession } from './types'
 import { appendIoLog } from '../../lib/ioLog'
-
-/**
- * 인벤토리 API 인증 토큰 조회 — 우선순위:
- *  1. VITE_INVENTORY_TOKEN 환경변수 (서버 ADMIN_ACCESS_CODE와 동일 값으로 설정)
- *  2. localStorage 'auth_token' (localServerApi.login() 저장)
- *  3. localStorage 'authToken' (레거시)
- */
-function getStoredToken(): string {
-  return (
-    localStorage.getItem('auth_token') ||
-    localStorage.getItem('authToken') ||
-    (import.meta.env.VITE_INVENTORY_TOKEN as string | undefined)?.trim() ||
-    ''
-  )
-}
+import { getLocalApiToken as getStoredToken } from '../../lib/localApi'
 
 /**
  * Inventory API can live independently from Vercel (Cloudflare Worker).
@@ -28,21 +14,28 @@ const BUILD_ENV = (import.meta as ImportMeta & { env?: Record<string, string | u
 const CONFIGURED_INVENTORY_API_ORIGIN = (BUILD_ENV.VITE_INVENTORY_API_URL ?? '')
   .trim()
   .replace(/\/$/, '')
-const FALLBACK_INVENTORY_API_ORIGIN = 'https://aka-minolta-rainbow-confident.trycloudflare.com'
+// Development uses Vite's proxy to the local backend. Temporary tunnel URLs
+// must never be a default or a fallback destination for uploaded ERP data.
+const DEFAULT_INVENTORY_API_ORIGIN = CONFIGURED_INVENTORY_API_ORIGIN ||
+  (typeof window !== 'undefined' ? window.location.origin : '')
+const RETIRED_INVENTORY_API_ORIGIN = 'https://aka-minolta-rainbow-confident.trycloudflare.com'
 const INVENTORY_API_URL_KEY = 'inventory-api-origin'
 
 function storedInventoryApiOrigin(): string {
   if (typeof localStorage === 'undefined') return ''
-  return (localStorage.getItem(INVENTORY_API_URL_KEY) ?? '').trim().replace(/\/$/, '')
+  const saved = (localStorage.getItem(INVENTORY_API_URL_KEY) ?? '').trim().replace(/\/$/, '')
+  if (saved === BUILD_ENV.VITE_INVENTORY_PREVIOUS_API_ORIGIN) return ''
+  return saved === RETIRED_INVENTORY_API_ORIGIN ? '' : saved
 }
 
-let activeInventoryApiOrigin = storedInventoryApiOrigin() || CONFIGURED_INVENTORY_API_ORIGIN || FALLBACK_INVENTORY_API_ORIGIN
+let activeInventoryApiOrigin = storedInventoryApiOrigin() || DEFAULT_INVENTORY_API_ORIGIN
 
 export function getInventoryApiOrigin(): string {
   return activeInventoryApiOrigin
 }
 
 export function setInventoryApiOrigin(value: string): string {
+  if (value.replace(/\/$/, '') === BUILD_ENV.VITE_INVENTORY_PREVIOUS_API_ORIGIN && CONFIGURED_INVENTORY_API_ORIGIN) value = CONFIGURED_INVENTORY_API_ORIGIN
   const normalized = value.trim()
     .replace(/\/api\/inventory\/?$/i, '')
     .replace(/\/$/, '')
@@ -56,7 +49,7 @@ export function setInventoryApiOrigin(value: string): string {
 
 export function resetInventoryApiOrigin(): string {
   if (typeof localStorage !== 'undefined') localStorage.removeItem(INVENTORY_API_URL_KEY)
-  activeInventoryApiOrigin = CONFIGURED_INVENTORY_API_ORIGIN || FALLBACK_INVENTORY_API_ORIGIN
+  activeInventoryApiOrigin = DEFAULT_INVENTORY_API_ORIGIN
   return activeInventoryApiOrigin
 }
 
@@ -95,6 +88,7 @@ async function apiFetch(path: string, init: RequestInit = {}): Promise<Response>
 
   const res = await fetch(inventoryUrl(path), {
     ...init,
+    signal: init.signal || AbortSignal.timeout(60_000),
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
@@ -126,15 +120,6 @@ export async function isServerReachable(): Promise<boolean> {
     const res = await fetch(healthUrl(), { signal: AbortSignal.timeout(3000) })
     return res.ok
   } catch {
-    if (activeInventoryApiOrigin !== FALLBACK_INVENTORY_API_ORIGIN) {
-      activeInventoryApiOrigin = FALLBACK_INVENTORY_API_ORIGIN
-      try {
-        const res = await fetch(healthUrl(), { signal: AbortSignal.timeout(5000) })
-        return res.ok
-      } catch {
-        return false
-      }
-    }
     return false
   }
 }
@@ -142,22 +127,26 @@ export async function isServerReachable(): Promise<boolean> {
 // ─── Dataset types ────────────────────────────────────────────────────────────
 
 export interface ServerDatasetMeta {
+  sessionCount?: number
   id: string
   title: string
   parentDept: string
   assetCount: number
   uploadedAt: string
   source: string | null
+  /** Distinct 설치부서 values in this 본부's assets (servers before this field omit it). */
+  departments?: string[]
 }
 
 // ─── Datasets ────────────────────────────────────────────────────────────────
 
-export async function fetchServerDatasets(): Promise<ServerDatasetMeta[]> {
+export async function fetchServerDatasets(throwOnError = false): Promise<ServerDatasetMeta[]> {
   try {
     const res = await apiFetch('/datasets')
-    if (!res.ok) return []
-    return res.json()
-  } catch {
+    if (!res.ok) throw new Error(`자산 목록을 불러오지 못했습니다 (${res.status}).`)
+    return await res.json()
+  } catch (error) {
+    if (throwOnError) throw error
     return []
   }
 }
@@ -375,50 +364,113 @@ export async function mergeDatasetFiles(opts: {
  * 재물조사 결과 일괄 서버 등록.
  * 세션의 모든 결과를 서버 session에 push하고 completed = true 처리.
  */
-export async function submitSurveyResults(
-  sessionId: string,
-  results: SurveyResult[],
-): Promise<{ ok: boolean; submitted: number; error?: string }> {
+type SessionSummary = Omit<SurveySession, 'results'>
+
+export interface SubmissionResponse {
+  ok: boolean; submitted: number; added: number; updated: number; duplicates: number; failed: number; error?: string
+  acknowledged: Array<{ assetNo: string; revision: number; result: SurveyResult }>
+  conflicts: Array<{ assetNo: string; revision: number; result: SurveyResult }>
+  workbook?: NonNullable<SurveySession['workbook']>
+}
+
+export async function submitSurveyResults(sessionId: string, results: SurveyResult[]): Promise<SubmissionResponse> {
+  const failure = (error: string): SubmissionResponse => ({ ok: false, submitted: 0, added: 0, updated: 0, duplicates: 0, failed: results.length, acknowledged: [], conflicts: [], error })
   try {
-    let submitted = 0
-    for (const r of results) {
-      const serverPhotoIds: string[] = []
-      if (r.photoIds?.length) {
+    const payload: SurveyResult[] = []
+    for (const result of results.filter(r => r.confirmed)) {
+      const serverPhotoIds = [...(result.serverPhotoIds || [])]
+      const photoKeys = [...(result.photoKeys || [])]
+      const pendingPhotoIds = (result.photoIds || []).filter(id => !photoKeys.includes(id))
+      if (pendingPhotoIds.length) {
         const { getPhotos } = await import('./photoService')
-        const photos = await getPhotos(r.photoIds)
+        const photos = await getPhotos(pendingPhotoIds)
+        if (photos.length !== pendingPhotoIds.length) throw new Error('일부 사진을 찾지 못했습니다. 사진을 확인한 뒤 다시 반영해 주세요.')
         for (const photo of photos) {
-          const blob = await (await fetch(photo.dataUrl)).blob()
           const form = new FormData()
-          form.append('file', blob, `${r.assetNo}-${photo.id}.jpg`)
-          const photoRes = await fetch(inventoryUrl(`/sessions/${sessionId}/results/${encodeURIComponent(r.assetNo)}/photo`), {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${getStoredToken()}` },
-            body: form,
-          })
-          if (photoRes.ok) {
-            const uploaded = (await photoRes.json()) as { id: string }
-            serverPhotoIds.push(uploaded.id)
-          }
+          form.append('file', await (await fetch(photo.dataUrl)).blob(), `${result.assetNo}-${photo.id}.jpg`)
+          const response = await fetch(inventoryUrl(`/sessions/${sessionId}/results/${encodeURIComponent(result.assetNo)}/photo`), { method: 'POST', headers: { Authorization: `Bearer ${getStoredToken()}` }, body: form })
+          if (!response.ok) throw new Error('사진 전송에 실패했습니다. 기기에 보관한 결과를 다시 반영해 주세요.')
+          serverPhotoIds.push(((await response.json()) as { id: string }).id)
+          photoKeys.push(photo.id)
         }
       }
-      const res = await apiFetch(`/sessions/${sessionId}/results/${encodeURIComponent(r.assetNo)}`, {
-        method: 'PUT',
-        body: JSON.stringify({ ...r, serverPhotoIds }),
-      })
-      if (res.ok) submitted++
+      payload.push({ ...result, serverPhotoIds, photoKeys })
     }
-    // 완료 처리
-    await apiFetch(`/sessions/${sessionId}/complete`, {
-      method: 'PUT',
-      body: JSON.stringify({ completed: true }),
-    })
-    return { ok: true, submitted }
-  } catch (e) {
-    return { ok: false, submitted: 0, error: (e as Error).message }
+    const response = await apiFetch(`/sessions/${sessionId}/submit`, { method: 'POST', body: JSON.stringify({ results: payload }) })
+    const body = await response.json() as SubmissionResponse
+    if (!response.ok) return failure(body.error || `서버 반영 실패 (${response.status})`)
+    return body
+  } catch (error) { return failure((error as Error).message) }
+}
+
+export async function fetchSubmissionStatus(sessionId: string): Promise<NonNullable<SurveySession['workbook']>> {
+  const response = await apiFetch(`/sessions/${sessionId}/submission`)
+  if (!response.ok) throw new Error('제출 엑셀 상태를 조회하지 못했습니다.')
+  return response.json()
+}
+
+export async function fetchWorkingMaster(sessionId: string): Promise<ArrayBuffer> {
+  const response = await apiFetch(`/sessions/${sessionId}/master`)
+  if (!response.ok) throw new Error('마스터 작업 사본을 받지 못했습니다. 서버 연결을 확인해 주세요.')
+  return response.arrayBuffer()
+}
+export async function downloadWorkingMaster(session: SurveySession): Promise<void> {
+  const { saveMasterWorkingWorkbook } = await import('./workingWorkbook')
+  const saved = await saveMasterWorkingWorkbook(session)
+  saveBlobAs(saved.blob, saved.fileName)
+}
+
+export async function refreshMasterSubmission(year: string) {
+  const [master, datasets, sessions] = await Promise.all([fetchSurveyForm(true), fetchServerDatasets(true), fetchServerSessions()])
+  if (!master) throw new Error('운영관리부 마스터를 먼저 등록해 주세요.')
+  const ids = new Set(datasets.filter(dataset => dataset.source?.startsWith(`survey-form:${master.id}|`)).map(dataset => dataset.id))
+  const session = sessions.find(item => ids.has(item.datasetId) && (item.name.match(/20\d{2}/)?.[0] || item.createdAt.slice(0, 4)) === year)
+  if (!session) throw new Error(`${year}년 현재 마스터로 시작한 조사가 없습니다.`)
+  const result = await submitSurveyResults(session.id, [])
+  if (!result.ok || !result.workbook?.fileId) throw new Error(result.error || '서버 제출 파일 생성에 실패했습니다.')
+  const downloaded = await downloadInventoryFile(result.workbook.fileId)
+  if (!downloaded.ok) throw new Error(downloaded.error)
+  return result.workbook
+}
+
+export async function downloadPublishedSubmission(year: string) {
+  const response = await apiFetch(`/submission/current?year=${encodeURIComponent(year)}`, { cache: 'no-store' })
+  const book = await response.json() as NonNullable<SurveySession['workbook']> & { fileName?: string }
+  if (!response.ok || !book.fileId) throw new Error(book.error || '서버 반영 파일을 받지 못했습니다.')
+  const downloaded = await downloadInventoryFile(book.fileId)
+  if (!downloaded.ok) throw new Error(downloaded.error || '다운로드에 실패했습니다.')
+  return book
+}
+
+export async function fetchExportResults(year: string): Promise<(SurveyResult & { parentDept: string })[]> {
+  const response = await apiFetch(`/results/export?year=${encodeURIComponent(year)}`, { cache: 'no-store' })
+  const data = await response.json()
+  if (!response.ok) throw new Error(data.error || '서버 조사 결과를 불러오지 못했습니다.')
+  return data.rows
+}
+
+/** 전사 재물조사 엑셀 (admin only): current master with every 본부 sheet filled from server results. */
+export async function fetchCompanyWorkbook(year: string): Promise<{ blob: Blob; fileName: string; confirmed: number; headquarters: number }> {
+  const response = await apiFetch(`/submission/company-workbook?year=${encodeURIComponent(year)}`, { cache: 'no-store' })
+  if (!response.ok) {
+    if (response.status === 403) throw new Error('관리자 권한이 필요합니다. 관리자 인증 코드로 다시 로그인해 주세요.')
+    const data = await response.json().catch(() => ({}))
+    throw new Error(data.error || '전사 재물조사 엑셀을 만들지 못했습니다.')
+  }
+  return {
+    blob: await response.blob(),
+    fileName: `${year}_전사_재물조사.xlsx`,
+    confirmed: Number(response.headers.get('X-Confirmed-Count') || 0),
+    headquarters: Number(response.headers.get('X-Headquarters-Count') || 0),
   }
 }
 
-type SessionSummary = Omit<SurveySession, 'results'>
+export async function fetchCurrentCoverage() {
+  const [master, datasets, coverage] = await Promise.all([fetchSurveyForm(true), fetchServerDatasets(true), fetchCoverageStats()])
+  const ids = new Set(master ? datasets.filter(row => row.source?.startsWith(`survey-form:${master.id}|`)).map(row => row.id) : [])
+  if (ids.size && [...ids].some(id => !coverage.some(row => row.datasetId === id))) throw new Error('현재 ERP 통계를 모두 받지 못했습니다. 다시 갱신해 주세요.')
+  return { master, ids, coverage: coverage.filter(row => ids.has(row.datasetId)) }
+}
 
 export async function fetchServerSessions(): Promise<SessionSummary[]> {
   try {
@@ -467,7 +519,7 @@ export async function fetchServerSession(id: string): Promise<SurveySession | nu
       id: r.id, name: r.name, datasetId: r.datasetId, parentDept: r.parentDept,
       dept: r.dept, createdBy: r.createdBy, createdAt: r.createdAt,
       completed: r.completed, completedAt: r.completedAt, uploadedAt: r.uploadedAt,
-      results: r.results,
+      results: Object.fromEntries(Object.entries(r.results).map(([key, result]) => [key, { ...result, syncState: 'saved' as const }])),
     }
   } catch {
     return null
@@ -475,6 +527,7 @@ export async function fetchServerSession(id: string): Promise<SurveySession | nu
 }
 
 export async function createServerSession(input: {
+  id?: string
   name: string
   datasetId: string
   parentDept: string
@@ -516,6 +569,7 @@ export async function removeServerResult(
   try {
     const res = await apiFetch(`/sessions/${sessionId}/results/${encodeURIComponent(assetNo)}`, {
       method: 'DELETE',
+      body: JSON.stringify({ confirmed: true }),
     })
     return res.ok
   } catch {
@@ -537,7 +591,7 @@ export async function setServerCompleted(sessionId: string, completed: boolean):
 
 export async function deleteServerSession(sessionId: string): Promise<boolean> {
   try {
-    const res = await apiFetch(`/sessions/${sessionId}`, { method: 'DELETE' })
+    const res = await apiFetch(`/sessions/${sessionId}`, { method: 'DELETE', body: JSON.stringify({ confirmed: true }) })
     // 이미 서버에서 제거된 세션도 로컬 초기화를 계속할 수 있도록 성공으로 취급합니다.
     return res.ok || res.status === 404
   } catch {
@@ -572,37 +626,50 @@ export async function fetchStats(): Promise<SessionStat[]> {
 
 // ─── SSE ─────────────────────────────────────────────────────────────────────
 
-export type SseEventType = 'result_updated' | 'result_deleted' | 'session_completed' | 'heartbeat' | 'connected'
+export type SseEventType = 'result_updated' | 'result_deleted' | 'session_completed' | 'submission_updated' | 'heartbeat' | 'connected'
 
 export function openSseStream(
   sessionId: string,
   onEvent: (type: SseEventType, data: unknown) => void,
 ): () => void {
-  const token = getStoredToken()
-  const url = inventoryUrl(`/sessions/${sessionId}/events`)
-  let es: EventSource | null = null
+  const path = sessionId === '*' ? '/events' : `/sessions/${encodeURIComponent(sessionId)}/events`
+  let controller: AbortController | null = null
+  let retry: ReturnType<typeof setTimeout> | undefined
   let closed = false
-
-  const connect = () => {
+  const connect = async () => {
     if (closed) return
-    // EventSource doesn't support custom headers; pass token as query param
-    es = new EventSource(`${url}?token=${encodeURIComponent(token)}`)
-    const events: SseEventType[] = ['result_updated', 'result_deleted', 'session_completed', 'heartbeat', 'connected']
-    events.forEach((type) => {
-      es!.addEventListener(type, (e: MessageEvent) => {
-        try { onEvent(type, JSON.parse(e.data)) } catch { /* ignore */ }
-      })
-    })
-    es.onerror = () => {
-      es?.close()
-      if (!closed) setTimeout(connect, 5000)
+    controller = new AbortController()
+    try {
+      // Authenticated streaming fetch works through the gateway without tokens in URLs.
+      const response = await apiFetch(path, { signal: controller.signal, headers: { Accept: 'text/event-stream' } })
+      if (!response.ok || !response.body) throw new Error('Event stream unavailable')
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      while (!closed) {
+        const { value, done } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true }).replace(/\r/g, '')
+        let end: number
+        while ((end = buffer.indexOf('\n\n')) >= 0) {
+          const packet = buffer.slice(0, end)
+          buffer = buffer.slice(end + 2)
+          const type = packet.match(/^event: (.+)$/m)?.[1] as SseEventType | undefined
+          const data = packet.match(/^data: (.+)$/m)?.[1]
+          if (type && data && !closed) { try { onEvent(type, JSON.parse(data)) } catch { /* invalid packet */ } }
+        }
+      }
+    } catch { /* Periodic polling remains available while reconnecting. */ }
+    finally {
+      controller?.abort()
+      if (!closed) retry = setTimeout(() => void connect(), 5000)
     }
   }
-
-  connect()
+  void connect()
   return () => {
     closed = true
-    es?.close()
+    clearTimeout(retry)
+    controller?.abort()
   }
 }
 
@@ -702,6 +769,7 @@ export async function saveNgrokToken(token: string): Promise<{ ok: boolean; erro
 export type InventoryFileKind = 'erp-inspection' | 'dept-comparison'
 
 export interface InventoryFileMeta {
+  workbookStatus?: string
   id: string
   kind: InventoryFileKind
   parentDept: string
@@ -730,8 +798,11 @@ export async function uploadInventoryFile(opts: {
     form.append('parentDept', opts.parentDept)
     if (opts.sessionId) form.append('sessionId', opts.sessionId)
     if (opts.summary) form.append('summary', opts.summary)
-    const res = await fetch(inventoryUrl('/files'), {
-      method: 'POST',
+    const isWorkingWorkbook = opts.kind === 'erp-inspection' && !!opts.sessionId
+    const res = await fetch(inventoryUrl(isWorkingWorkbook
+      ? `/sessions/${encodeURIComponent(opts.sessionId!)}/workbook` : '/files'), {
+      method: isWorkingWorkbook ? 'PUT' : 'POST',
+      signal: AbortSignal.timeout(30_000),
       headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': '1' },
       body: form,
     })
@@ -826,6 +897,32 @@ export interface SurveyFormMeta {
   uploadedAt: string
 }
 
+export interface MasterFileInfo {
+  id: string; fileName: string; uploadedAt: string; retired: boolean
+  datasetCount: number; assetCount: number; sessionCount: number; resultCount: number; photoCount: number; fileCount: number; token: string
+}
+/** Admin-only API refused: this browser has no verified admin code (e.g. after reopening the app). */
+export class AdminAuthRequiredError extends Error {
+  constructor() { super('관리자 인증이 필요합니다. 관리자 인증 코드를 입력해 주세요.') }
+}
+export async function fetchMasterFiles(): Promise<MasterFileInfo[]> {
+  const response = await apiFetch('/master-files')
+  if (response.status === 401 || response.status === 403) throw new AdminAuthRequiredError()
+  if (!response.ok) throw new Error('자산파일 목록을 불러오지 못했습니다.')
+  return response.json()
+}
+export async function previewMasterDeletion(id: string): Promise<MasterFileInfo> {
+  const response = await apiFetch(`/master-files/${encodeURIComponent(id)}`)
+  if (!response.ok) throw new Error('자산파일 삭제 범위를 확인하지 못했습니다.')
+  return response.json()
+}
+export async function deleteMasterFile(id: string, token: string): Promise<{ datasetIds: string[]; cleanupPending: boolean }> {
+  const response = await apiFetch(`/master-files/${encodeURIComponent(id)}`, { method: 'DELETE', body: JSON.stringify({ token }) })
+  const body = await response.json()
+  if (!response.ok) throw new Error(body.error || '자산파일 삭제 실패')
+  return body
+}
+
 /** 전사 양식 업로드 — 서버에 파일이 남으므로 새로고침·서버 재시작 후에도 유지됩니다. */
 export async function uploadSurveyForm(
   file: File,
@@ -848,14 +945,34 @@ export async function uploadSurveyForm(
 }
 
 /** 가장 최근에 올린 전사 양식 (없으면 null) */
-export async function fetchSurveyForm(): Promise<SurveyFormMeta | null> {
+export async function fetchSurveyForm(throwOnError = false): Promise<SurveyFormMeta | null> {
   try {
     const res = await apiFetch('/datasets/survey-form')
-    if (!res.ok) return null
+    if (!res.ok) throw new Error(`등록된 엑셀 탭을 불러오지 못했습니다 (${res.status}).`)
     return (await res.json()) as SurveyFormMeta | null
-  } catch {
+  } catch (error) {
+    if (throwOnError) throw error
     return null
   }
+}
+
+/** Fail closed: an incomplete server response must never produce a submission. */
+export async function fetchSubmissionSources() {
+  const master = await fetchSurveyForm(true)
+  if (!master) throw new Error('설정에서 운영관리부 마스터 파일을 먼저 등록해 주세요.')
+  const [file, list] = await Promise.all([
+    apiFetch(`/datasets/survey-form/${encodeURIComponent(master.id)}/download`),
+    apiFetch('/sessions'),
+  ])
+  if (!file.ok || !list.ok) throw new Error('마스터 원본 또는 조사 목록을 받지 못했습니다. 서버 연결을 확인해 주세요.')
+  const summaries = await list.json() as Array<{ id: string }>
+  const sessions: SurveySession[] = []
+  for (const summary of summaries) {
+    const session = await fetchServerSession(summary.id)
+    if (!session) throw new Error('일부 조사 결과를 받지 못해 제출 파일 생성을 중단했습니다. 다시 시도해 주세요.')
+    sessions.push(session)
+  }
+  return { source: await file.arrayBuffer(), sessions }
 }
 
 export async function deleteSurveyForm(id: string): Promise<{ ok: boolean; error?: string }> {

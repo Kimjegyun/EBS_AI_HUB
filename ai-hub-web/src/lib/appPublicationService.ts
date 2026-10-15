@@ -57,7 +57,7 @@ async function fetchRemotePublishedApps(): Promise<string[] | null> {
 
 async function fetchLocalPublishedApps(): Promise<string[] | null> {
   try {
-    const res = await fetch(LOCAL_API_URL)
+    const res = await fetch(LOCAL_API_URL, { headers: authHeaders(), cache: 'no-store' })
     if (!res.ok) return null
     return parsePublishedPayload(await res.json())
   } catch {
@@ -93,7 +93,9 @@ export async function fetchPublishedApps(): Promise<string[]> {
   if (remote || local) {
     return writePublishedAppsCache(uniqueIds([...(remote ?? []), ...(local ?? [])]))
   }
-  return readPublishedAppsCache()
+  const cached = readPublishedAppsCache()
+  if (cached.length) return cached
+  throw new Error('등록된 앱 목록을 불러오지 못했습니다. 서버 연결을 확인하고 새로고침해 주세요.')
 }
 
 export async function setAppPublished(appId: string, published: boolean): Promise<void> {

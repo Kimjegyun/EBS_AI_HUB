@@ -2,12 +2,9 @@
 // 토큰 저장 키는 localServerApi.login() 이 쓰는 'auth_token' 이며,
 // remoteApps·inventoryApiClient 와 같은 순서로 폴백한다.
 
-export function authToken(): string {
-  const injected = (import.meta.env.VITE_INVENTORY_TOKEN as string | undefined)?.trim()
-  if (injected) return injected
-  if (typeof localStorage === 'undefined') return ''
-  return localStorage.getItem('auth_token') || localStorage.getItem('authToken') || ''
-}
+import { getLocalApiToken } from './localApi'
+
+export const authToken = getLocalApiToken
 
 export function authHeaders(extra: Record<string, string> = {}): Record<string, string> {
   const token = authToken()

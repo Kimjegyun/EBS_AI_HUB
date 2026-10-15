@@ -9,8 +9,8 @@ export default function InstalledAppsPage() {
   const activeCount = apps.filter((app) => activeIds.includes(app.id)).length
 
   return (
-    <main className="min-h-[calc(100vh-60px)] bg-background text-on-surface font-body text-body">
-      <div className="mx-auto max-w-7xl p-6">
+    <main className="min-h-[calc(100vh-48px)] bg-background text-on-surface font-body text-body">
+      <div className="w-full p-3">
         <div className="mb-5">
           <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
             <div>

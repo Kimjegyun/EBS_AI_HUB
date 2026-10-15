@@ -8,7 +8,9 @@ createRoot(document.getElementById('root')!).render(<App />)
 // Vite's HMR (live phone testing) is never intercepted by SW caching.
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch((err) => {
+    // Per-portal scope (/user/, /admin/) so each installs as its own home-screen app.
+    const base = import.meta.env.BASE_URL
+    navigator.serviceWorker.register(`${base}sw.js`, { scope: base }).catch((err) => {
       console.warn('Service worker 등록 실패:', err)
     })
   })

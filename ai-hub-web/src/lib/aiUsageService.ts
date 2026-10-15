@@ -12,12 +12,15 @@ export type AiUserUsage = {
   usedThisMonth: number
   period: string
   groupId?: string
+  /** Individual limit, used again when the user leaves their group. */
+  ownLimit?: number
 }
 
 export type AiGroupLimit = {
   groupId: string
   groupName: string
   monthlyLimit: number
+  memberCount?: number
 }
 
 type RpcResult<T> = {
@@ -74,6 +77,7 @@ function normalizeUsage(row: unknown, fallbackUserId: string): AiUserUsage {
     groupId: typeof (value.group_id ?? value.groupId) === 'string'
       ? String(value.group_id ?? value.groupId)
       : undefined,
+    ownLimit: value.own_limit !== undefined ? Number(value.own_limit) : undefined,
   }
 }
 
@@ -208,4 +212,55 @@ export function deleteGroupAiLimit(groupId: string): void {
   const groups = readGroupLimits()
   delete groups[groupId]
   writeGroupLimits(groups)
+}
+
+// ─── Groups (server: ai_hub.api_usage_groups) ─────────────────────────────────
+// A member assigned to a group gets the group's monthly limit (enforced by
+// ai_hub_consume_api_usage_v1); unassigned members keep their individual limit.
+
+function groupSetupError(error: { message: string }): Error {
+  return error.message.includes('Could not find the function') || error.message.includes('schema cache')
+    ? new Error('그룹 기능이 Supabase에 아직 설치되지 않았습니다. SQL Editor에서 20261008130000_ai_usage_groups.sql을 실행해 주세요.')
+    : new Error(error.message)
+}
+
+/** Server groups. Groups saved only in this browser by earlier versions are uploaded once, then cleared. */
+export async function listAiGroups(): Promise<Record<string, AiGroupLimit>> {
+  if (!supabase) return readGroupLimits()
+  const local = readGroupLimits()
+  if (Object.keys(local).length) {
+    for (const group of Object.values(local)) await saveAiGroup(group.groupId, group.groupName, group.monthlyLimit)
+    writeGroupLimits({})
+  }
+  const { data, error } = (await supabase.rpc('ai_hub_list_api_groups_v1')) as RpcResult<unknown>
+  if (error) throw groupSetupError(error)
+  return Object.fromEntries((Array.isArray(data) ? data : []).map((row) => {
+    const value = row as Record<string, unknown>
+    const group: AiGroupLimit = {
+      groupId: String(value.group_id), groupName: String(value.group_name),
+      monthlyLimit: Number(value.monthly_limit), memberCount: Number(value.member_count ?? 0),
+    }
+    return [group.groupId, group]
+  }))
+}
+
+export async function saveAiGroup(groupId: string, groupName: string, monthlyLimit: number): Promise<void> {
+  const limit = Math.max(0, Math.floor(monthlyLimit))
+  if (!supabase) { setGroupAiLimit(groupId, groupName, limit); return }
+  const { error } = (await supabase.rpc('ai_hub_save_api_group_v1', { p_group_id: groupId, p_group_name: groupName, p_monthly_limit: limit })) as RpcResult<unknown>
+  if (error) throw groupSetupError(error)
+}
+
+/** Members of the deleted group fall back to their individual limit. */
+export async function deleteAiGroup(groupId: string): Promise<void> {
+  if (!supabase) { deleteGroupAiLimit(groupId); return }
+  const { error } = (await supabase.rpc('ai_hub_delete_api_group_v1', { p_group_id: groupId })) as RpcResult<unknown>
+  if (error) throw groupSetupError(error)
+}
+
+/** groupId null = individual limit. */
+export async function setUserAiGroup(userId: string, groupId: string | null): Promise<void> {
+  if (!supabase) throw new Error('그룹 지정은 Supabase 연결이 필요합니다.')
+  const { error } = (await supabase.rpc('ai_hub_set_user_api_group_v1', { p_user_id: userId, p_group_id: groupId })) as RpcResult<unknown>
+  if (error) throw groupSetupError(error)
 }

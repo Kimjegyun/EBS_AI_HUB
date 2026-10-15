@@ -241,6 +241,9 @@ export const initDatabase = async (): Promise<void> => {
       )
     `);
 
+    await addColumnIfMissing('inventory_survey_forms', 'retired_at', 'TEXT');
+    await addColumnIfMissing('inventory_survey_forms', 'purged_at', 'TEXT');
+
     // 재물조사 산출물 파일 (검수 반영 ERP 파일 / 운영관리부 설치부서 대조 파일)
     // 파일 본문은 uploads/inventory 아래 디스크에 두고 여기에는 메타데이터만 둔다.
     await run(`

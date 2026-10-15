@@ -13,6 +13,12 @@
  * `/inventory` 는 라우트가 아니라 메인 허브 앱이 뜨므로 쓰면 안 됩니다.
  */
 export function inventoryInstallUrl(): string {
+  const publicApp = import.meta.env.VITE_INVENTORY_PUBLIC_APP_URL?.trim()
+  if (publicApp) {
+    const target = new URL(publicApp, window.location.origin)
+    target.searchParams.set('api', target.origin)
+    return target.toString()
+  }
   const productionInventoryUrl = 'https://ebs-ai-hub.vercel.app/inventory.html'
 
   // 운영 화면을 공개 도메인에서 열었다면 그 origin을 그대로 사용합니다.

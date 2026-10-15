@@ -10,4 +10,6 @@ export type AuthSession = {
   email: string
   displayName: string
   organization: string | null
+  department?: string
+  contactPhone?: string
 }

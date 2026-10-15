@@ -359,8 +359,8 @@ export default function SettingsPage() {
 
   if (!isAdmin) {
     return (
-      <main className="min-h-[calc(100vh-60px)] bg-background text-on-surface font-body text-body">
-        <div className="mx-auto max-w-3xl p-6">
+      <main className="min-h-[calc(100vh-48px)] bg-background text-on-surface font-body text-body">
+        <div className="w-full p-2">
           <section className="rounded-xl border border-outline-variant bg-surface-container px-5 py-5">
             <div className="flex items-start gap-3">
               <Icon name="lock" className="mt-0.5 text-[22px] text-primary" />
@@ -382,8 +382,8 @@ export default function SettingsPage() {
   }
 
   return (
-    <main className="min-h-[calc(100vh-60px)] bg-background text-on-surface font-body text-body">
-      <div className="mx-auto max-w-6xl p-4">
+    <main className="min-h-[calc(100vh-48px)] bg-background text-on-surface font-body text-body">
+      <div className="w-full p-2">
         <div className="mb-4">
           <h1 className="mb-0.5 font-h1 text-h1 text-on-surface">설정</h1>
           <p className="text-caption text-on-surface-variant">
@@ -391,7 +391,7 @@ export default function SettingsPage() {
           </p>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-[240px_minmax(0,1fr)]">
+        <div className="grid gap-4 lg:grid-cols-[200px_minmax(0,1fr)]">
           {/* 앱 목록 사이드바 */}
           <aside className="space-y-1">
             <h2 className="px-1 font-label text-label text-on-surface-variant mb-1">앱</h2>

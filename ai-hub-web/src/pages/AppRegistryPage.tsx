@@ -48,9 +48,9 @@ export default function AppRegistryPage() {
   }
 
   return (
-    <main className="min-h-[calc(100vh-60px)] bg-background text-on-surface font-body text-body">
-      <div className="mx-auto max-w-7xl p-6">
-        <div className="mb-6">
+    <main className="min-h-[calc(100vh-48px)] bg-background text-on-surface font-body text-body">
+      <div className="w-full p-3">
+        <div className="mb-3">
           <h1 className="mb-1 font-display text-display text-on-surface">앱 등록</h1>
           <p className="font-body-sm text-on-surface-variant">
             관리자 계정에서 앱을 테스트하면 사용자 마켓플레이스에 등록됩니다.

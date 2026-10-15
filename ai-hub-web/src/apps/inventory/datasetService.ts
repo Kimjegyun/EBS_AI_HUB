@@ -2,11 +2,37 @@
 // JSON from /datasets (or the server API) and stores it in IndexedDB so the app
 // works offline on a phone afterwards. No local Excel file is required.
 
-import { idbGet, idbPut, STORE_DATASETS } from './idb'
+import { idbGet, idbPut, idbDelete, STORE_DATASETS } from './idb'
 import { DATASET_SOURCES, type Asset, type AssetDataset, type DatasetSource } from './types'
-import { fetchServerDatasets, fetchServerAssets, isServerReachable } from './inventoryApiClient'
+import { fetchServerDatasets, fetchServerAssets, fetchSurveyForm, isServerReachable } from './inventoryApiClient'
+
+export function isDepartmentSheet(name: string): boolean {
+  return ![/^전사$/i, /^목차$/i, /^안내$/i, /^작성방법$/i, /^상위부서/i, /raw\s*data/i, /재물조사대상/i]
+    .some((pattern) => pattern.test(name.trim()))
+}
+
+/** The uploaded workbook defines department names and their order. */
+export async function getWorkbookCatalog(): Promise<{ departments: string[]; sources: DatasetSource[] }> {
+  if (!await isServerReachable()) throw new Error('등록된 엑셀의 탭을 불러올 수 없습니다. 서버 연결을 확인해 주세요.')
+  const [form, datasets] = await Promise.all([fetchSurveyForm(true), fetchServerDatasets(true)])
+  if (!form) return { departments: [], sources: [] }
+  const departments = form.sheetNames.filter(isDepartmentSheet)
+  const sources = departments.flatMap((name) => datasets
+    .filter((dataset) => dataset.parentDept === name && dataset.source?.startsWith(`survey-form:${form.id}|`))
+    .map((dataset) => ({
+      id: dataset.id, title: name, parentDept: name, url: '',
+      assetCount: dataset.assetCount, uploadedAt: dataset.uploadedAt, sourceFileName: form.fileName,
+      departments: dataset.departments,
+    })))
+  return { departments, sources }
+}
 
 const memCache = new Map<string, { dataset: AssetDataset; index: Map<string, Asset> }>()
+
+export async function forgetDataset(id: string): Promise<void> {
+  memCache.delete(id)
+  await idbDelete(STORE_DATASETS, id)
+}
 
 export const normalizeAssetNo = (raw: string): string => raw.trim().toUpperCase().replace(/\s+/g, '')
 
@@ -62,7 +88,14 @@ export async function getAllDatasetSources(): Promise<DatasetSource[]> {
     if (!reachable) return []
     const serverMetas = await fetchServerDatasets()
     return serverMetas
-      .map((m) => ({ id: m.id, title: m.title, url: '', parentDept: m.parentDept }))
+      .map((m) => ({
+        id: m.id, title: m.title, url: '', parentDept: m.parentDept,
+        assetCount: m.assetCount,
+        uploadedAt: m.uploadedAt,
+        sourceFileName: m.source?.includes('|file:')
+          ? m.source.slice(m.source.indexOf('|file:') + '|file:'.length)
+          : undefined,
+      }))
   } catch {
     return []
   }
@@ -159,18 +192,10 @@ export async function isDatasetCached(id: string): Promise<boolean> {
 }
 
 // ── 운영관리부 배부 본부(탭) 목록 ─────────────────────────────────────────────
-// 관리자가 운영관리부 양식의 시트(=본부)를 탭으로 등록하고 ERP 파일을 병합하면
-// 서버에 본부별 dataset이 생깁니다. 그 dataset의 parentDept가 곧 배부된 탭 이름이므로,
-// 사용자 앱의 '소속' 선택지는 이 목록에서 가져옵니다.
-// (탭 목록 자체는 관리자 브라우저 localStorage에만 있어 폰에서는 볼 수 없습니다 —
-//  서버 데이터셋이 폰이 접근할 수 있는 유일한 출처입니다)
+// 최신 전사 엑셀의 본부 시트 순서를 관리자 화면과 현장 앱에서 함께 사용합니다.
+// 오프라인에서는 마지막으로 서버에서 확인한 탭 목록을 사용합니다.
 const ORGS_CACHE_KEY = 'inventory-distributed-orgs'
-
-function uniqueSortedOrgs(values: string[]): string[] {
-  return [...new Set(values.map((v) => v.trim()).filter(Boolean))].sort((a, b) =>
-    a.localeCompare(b, 'ko'),
-  )
-}
+const ORG_DEPARTMENTS_CACHE_KEY = 'inventory-org-departments'
 
 /** 마지막으로 받아둔 배부 본부 목록 (오프라인 폴백). */
 export function readCachedOrgs(): string[] {
@@ -182,29 +207,31 @@ export function readCachedOrgs(): string[] {
   }
 }
 
+function readCachedOrgDepartments(): Record<string, string[]> {
+  try {
+    return JSON.parse(localStorage.getItem(ORG_DEPARTMENTS_CACHE_KEY) || '{}') as Record<string, string[]>
+  } catch {
+    return {}
+  }
+}
+
 /**
- * 배부된 본부(탭) 목록을 반환합니다.
+ * 배부된 본부(탭) 목록과 본부별 부서(자산 마스터의 설치부서) 목록을 반환합니다.
  * 서버가 닿으면 최신 목록을 받아 캐시하고, 오프라인이면 마지막 캐시를 사용합니다.
  */
-export async function getDistributedOrgs(): Promise<{ orgs: string[]; fromCache: boolean }> {
+export async function getDistributedOrgs(): Promise<{ orgs: string[]; fromCache: boolean; departmentsByOrg: Record<string, string[]> }> {
   try {
-    if (await isServerReachable()) {
-      const metas = await fetchServerDatasets()
-      const orgs = uniqueSortedOrgs([
-        ...DATASET_SOURCES.map((d) => d.parentDept),
-        ...metas.map((m) => m.parentDept),
-      ])
-      if (orgs.length) {
-        try {
-          localStorage.setItem(ORGS_CACHE_KEY, JSON.stringify(orgs))
-        } catch {
-          /* 저장 실패는 무시 — 목록 자체는 그대로 사용 */
-        }
-        return { orgs, fromCache: false }
-      }
+    const { departments: orgs, sources } = await getWorkbookCatalog()
+    const departmentsByOrg = Object.fromEntries(sources.map((source) => [source.parentDept, source.departments ?? []]))
+    try {
+      localStorage.setItem(ORGS_CACHE_KEY, JSON.stringify(orgs))
+      localStorage.setItem(ORG_DEPARTMENTS_CACHE_KEY, JSON.stringify(departmentsByOrg))
+    } catch {
+      /* 저장 실패는 무시 — 목록 자체는 그대로 사용 */
     }
+    return { orgs, fromCache: false, departmentsByOrg }
   } catch {
     /* 네트워크 오류 → 캐시 폴백 */
   }
-  return { orgs: readCachedOrgs(), fromCache: true }
+  return { orgs: readCachedOrgs(), fromCache: true, departmentsByOrg: readCachedOrgDepartments() }
 }

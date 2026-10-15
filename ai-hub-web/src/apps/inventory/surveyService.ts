@@ -4,6 +4,7 @@
 
 import { idbDelete, idbGetAll, idbPut, STORE_SESSIONS } from './idb'
 import type { SurveyResult, SurveySession } from './types'
+import { findSavedAsset } from './savedAsset'
 
 type Listener = () => void
 const listeners = new Set<Listener>()
@@ -69,9 +70,11 @@ export async function deleteSession(id: string): Promise<void> {
 export async function upsertResult(sessionId: string, result: SurveyResult): Promise<SurveySession> {
   const session = await getSession(sessionId)
   if (!session) throw new Error('세션을 찾을 수 없습니다.')
+  const existing = findSavedAsset(session.results, [result.assetNo])
+  const assetNo = existing?.[1].assetNo ?? result.assetNo
   const next: SurveySession = {
     ...session,
-    results: { ...session.results, [result.assetNo]: result },
+    results: { ...session.results, [existing?.[0] ?? assetNo]: { ...result, assetNo } },
     // Re-opening for edits clears a prior completion flag.
     completed: false,
     completedAt: undefined,

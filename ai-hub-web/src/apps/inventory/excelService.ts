@@ -1,3 +1,4 @@
+import { formatSurveyDateTime } from '../../../server/src/services/surveyDateTime'
 // Export utilities for 재물조사 (재물조사 결과 엑셀 생성)
 //
 // 파일 구조:
@@ -220,7 +221,7 @@ function buildRow(no: number, asset: Asset, result?: SurveyResult): (string | nu
     result?.photoIds?.length ?? 0,
     result?.verifier ?? '',
     (result as (SurveyResult & { verifierDept?: string }) | undefined)?.verifierDept ?? '',
-    result?.surveyedAt ? new Date(result.surveyedAt).toLocaleString('ko-KR') : '',
+    formatSurveyDateTime(result?.surveyedAt),
   ]
 }
 
@@ -236,7 +237,7 @@ function buildRowFromResult(no: number, r: SurveyResult): (string | number)[] {
     r.photoIds?.length ?? 0,
     r.verifier ?? '',
     (r as SurveyResult & { verifierDept?: string }).verifierDept ?? '',
-    r.surveyedAt ? new Date(r.surveyedAt).toLocaleString('ko-KR') : '',
+    formatSurveyDateTime(r.surveyedAt),
   ]
 }
 
@@ -246,10 +247,10 @@ export function exportDivisionResultFileName(session: SurveySession): string {
 }
 
 /** 파일③ 다운로드 */
-export function downloadDivisionResult(session: SurveySession, assets: Asset[]): string {
+export async function downloadDivisionResult(session: SurveySession, assets: Asset[]): Promise<string> {
   const wb = buildDivisionResultWorkbook(session, assets)
   const name = exportDivisionResultFileName(session)
-  XLSX.writeFile(wb, name)
+  await downloadHighlightedWorkbook(wb, name, session)
   return name
 }
 
@@ -304,13 +305,13 @@ export function buildMergedSurveyWorkbook(
   return { wb: idx.wb, sheetName: idx.sheetName, filled, notFound }
 }
 
-export function downloadMergedSurveyFile(
+export async function downloadMergedSurveyFile(
   wb: XLSX.WorkBook,
   session: SurveySession,
-): string {
+): Promise<string> {
   const year = sessionYear(session)
   const name = `${year}_운영관리부양식_병합완료_${session.parentDept}.xlsx`
-  XLSX.writeFile(wb, name)
+  await downloadHighlightedWorkbook(wb, name, session)
   return name
 }
 
@@ -337,7 +338,7 @@ export function buildExportRows(session: SurveySession): (string | number)[][] {
     r.confirmed ? '확인' : '미확인',
     r.verifier,
     (r as SurveyResult & { verifierDept?: string }).verifierDept ?? '',
-    r.surveyedAt ? new Date(r.surveyedAt).toLocaleString('ko-KR') : '',
+    formatSurveyDateTime(r.surveyedAt),
   ])
 }
 
@@ -364,9 +365,34 @@ export function exportFileName(session: SurveySession): string {
 }
 
 /** 세션 기본 엑셀 내보내기 */
-export function downloadSessionExcel(session: SurveySession): string {
+export async function downloadSessionExcel(session: SurveySession): Promise<string> {
   const wb = buildWorkbook(session)
   const name = exportFileName(session)
-  XLSX.writeFile(wb, name)
+  await downloadHighlightedWorkbook(wb, name, session)
   return name
+}
+
+/** Use ExcelJS for fills that SheetJS community exports cannot serialize. */
+async function downloadHighlightedWorkbook(wb: XLSX.WorkBook, name: string, session: SurveySession): Promise<void> {
+  const { default: ExcelJS } = await import('exceljs')
+  const { saveAs } = await import('file-saver')
+  const book = new ExcelJS.Workbook()
+  await book.xlsx.load(XLSX.write(wb, { type: 'array', bookType: 'xlsx' }))
+  const key = (value: string) => value.toUpperCase().replace(/[^A-Z0-9]/g, '')
+  const confirmed = new Set(Object.values(session.results).filter(result => result.confirmed).map(result => key(result.assetNo)))
+  for (const sheet of book.worksheets) {
+    let headerRow = 0, assetCol = 0
+    for (let r = 1; r <= Math.min(sheet.rowCount, 30) && !headerRow; r++) {
+      sheet.getRow(r).eachCell(cell => { if (cell.text.trim() === '자산번호') { headerRow = r; assetCol = Number(cell.col) } })
+    }
+    if (!headerRow) continue
+    for (let r = headerRow + 1; r <= sheet.rowCount; r++) {
+      const cell = sheet.getCell(r, assetCol)
+      if (confirmed.has(key(cell.text))) {
+        cell.style = structuredClone(cell.style)
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } }
+      }
+    }
+  }
+  saveAs(new Blob([await book.xlsx.writeBuffer()], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), name)
 }

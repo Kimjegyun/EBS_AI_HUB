@@ -328,7 +328,7 @@ const defaultLayouts: Record<string, Layout[]> = {
 }
 
 function loadStoredLayouts(): Record<string, Layout[]> {
-  const savedLayouts = getPortalScopedItem(LAYOUTS_KEY) ?? getUserScopedItem(LAYOUTS_KEY)
+  const savedLayouts = getUserScopedItem(LAYOUTS_KEY) ?? getPortalScopedItem(LAYOUTS_KEY)
   if (!savedLayouts) return defaultLayouts
 
   try {
@@ -340,13 +340,13 @@ function loadStoredLayouts(): Record<string, Layout[]> {
 }
 
 function loadStoredGridHeight(): number {
-  const raw = getPortalScopedItem(GRID_HEIGHT_KEY) ?? getUserScopedItem(GRID_HEIGHT_KEY)
+  const raw = getUserScopedItem(GRID_HEIGHT_KEY) ?? getPortalScopedItem(GRID_HEIGHT_KEY)
   const value = raw ? Number(raw) : 0
   return Number.isFinite(value) && value > 0 ? value : 0
 }
 
 function loadStoredGridWidth(): number {
-  const raw = getPortalScopedItem(GRID_WIDTH_KEY) ?? getUserScopedItem(GRID_WIDTH_KEY)
+  const raw = getUserScopedItem(GRID_WIDTH_KEY) ?? getPortalScopedItem(GRID_WIDTH_KEY)
   const value = raw ? Number(raw) : 0
   if (Number.isFinite(value) && value > 0) return value
   if (typeof window !== 'undefined') return Math.max(320, window.innerWidth - 24)
@@ -354,8 +354,8 @@ function loadStoredGridWidth(): number {
 }
 
 function loadStoredMaximizedWidget(): string | null {
-  const raw = getPortalScopedItem(MAXIMIZED_KEY) ?? getUserScopedItem(MAXIMIZED_KEY)
-  if (!raw || !APP_MAP[raw]) return null
+  const raw = getUserScopedItem(MAXIMIZED_KEY) ?? getPortalScopedItem(MAXIMIZED_KEY)
+  if (!raw) return null
   return raw
 }
 
@@ -508,7 +508,13 @@ export default function DashboardPage() {
     ) as Record<string, Layout[]>
 
   const persistLayouts = (next: Record<string, Layout[]>) => {
-    const raw = JSON.stringify(next)
+    if (catalogLoading) return next
+    // Keep positions for remote apps that are temporarily unavailable.
+    const saved = loadStoredLayouts()
+    const stored = Object.fromEntries(Object.entries(next).map(([bp, items]) => [
+      bp, [...items, ...(saved[bp] ?? []).filter((item) => !APP_MAP[item.i] && !items.some((nextItem) => nextItem.i === item.i))],
+    ]))
+    const raw = JSON.stringify(stored)
     setUserScopedItem(LAYOUTS_KEY, raw)
     setPortalScopedItem(LAYOUTS_KEY, raw)
     return next
@@ -551,7 +557,7 @@ export default function DashboardPage() {
     const observer = new ResizeObserver(updateHeight)
     observer.observe(node)
     return () => observer.disconnect()
-  }, [])
+  }, [catalogLoading])
 
   // Load saved layouts + active widgets from localStorage. Activation/deactivation
   // is managed from the "설치된 앱" page; we re-read on mount so the dashboard
@@ -564,20 +570,21 @@ export default function DashboardPage() {
     setGridWidth(loadStoredGridWidth())
     setMaximizedWidget(loadStoredMaximizedWidget())
     layoutsReadyRef.current = true
+    if (catalogLoading) return
     const frame = window.requestAnimationFrame(() => {
       ignoreLayoutPersistRef.current = false
     })
     return () => window.cancelAnimationFrame(frame)
-  }, [storageUserKey])
+  }, [storageUserKey, catalogLoading])
 
   // Reconcile layout entries whenever the active widget set changes: ensure each
   // active widget has an entry (newly activated ones get appended) and drop
   // entries for deactivated widgets. We keep RGL's own layout objects untouched
   // for unchanged widgets so an in-progress resize/drag is never reset.
   useEffect(() => {
-    if (!layoutsReadyRef.current) return
-    setLayouts((prev) => buildLayouts(prev, activeWidgets))
-  }, [activeWidgets])
+    if (!layoutsReadyRef.current || catalogLoading) return
+    setLayouts(buildLayouts(loadStoredLayouts(), activeWidgets))
+  }, [activeWidgets, catalogLoading])
 
   useEffect(() => {
     if (catalogLoading) return
@@ -586,7 +593,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (catalogLoading || activeWidgets.length === 0) return
-    if (maximizedWidget && !activeWidgets.includes(maximizedWidget)) {
+    if (maximizedWidget && APP_MAP[maximizedWidget] && !activeWidgets.includes(maximizedWidget)) {
       setMaximizedWidget(null)
     }
   }, [activeWidgets, maximizedWidget, catalogLoading])
@@ -635,6 +642,7 @@ export default function DashboardPage() {
   }
 
   const handleLayoutChange = (currentLayout: Layout[]) => {
+    if (catalogLoading) return
     // While resizing, onResizeStop owns the layout (linked give & take). Ignore
     // RGL's trailing raw onLayoutChange so it can't overwrite that result.
     if (maximizedWidget) return
@@ -1126,7 +1134,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="h-[calc(100vh-60px)] overflow-hidden bg-background">
+    <main className="h-[calc(100vh-48px)] overflow-hidden bg-background">
       <div className="h-full w-full pr-4 pl-2 flex flex-col">
         <section className="shrink-0 h-10 flex items-center justify-between gap-3">
           <div className="min-w-0 flex flex-1 items-center justify-between gap-3 overflow-hidden">
@@ -1245,7 +1253,7 @@ export default function DashboardPage() {
 
       {/* Maximized widget overlay (double-click a widget header to toggle) */}
       {maximizedWidget && APP_MAP[maximizedWidget] && (
-        <div className="fixed left-[160px] top-topbar-height right-0 bottom-0 z-40 p-4 bg-background/80 backdrop-blur-sm">
+        <div className="fixed left-[144px] top-topbar-height right-0 bottom-0 z-40 p-4 bg-background/80 backdrop-blur-sm">
           <div className="h-full">{renderWidgetInner(maximizedWidget, { overlay: true })}</div>
         </div>
       )}

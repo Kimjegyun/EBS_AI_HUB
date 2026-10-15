@@ -11,7 +11,9 @@ export interface StoredPhoto {
   createdAt: string
 }
 
-const MAX_DIM = 1280
+// 2048px keeps printed asset numbers legible for 사진 분석 OCR (at 1280px a
+// portrait label shot is ~590px wide and the text no longer reads); ~400KB each.
+const MAX_DIM = 2048
 const QUALITY = 0.7
 
 /** Downscale + re-encode an image File to a compact JPEG data URL. */
@@ -42,6 +44,23 @@ export async function savePhoto(file: File): Promise<StoredPhoto> {
   }
   await idbPut(STORE_PHOTOS, photo)
   return photo
+}
+
+/** Sequential decoding avoids holding several full-resolution gallery images in memory. */
+export async function importPhotos(files: File[], onProgress?: (done: number, total: number) => void) {
+  const photos: StoredPhoto[] = []
+  const errors: string[] = []
+  for (const [index, file] of files.entries()) {
+    try {
+      if (file.size > 20 * 1024 * 1024) throw new Error('20MB 이하의 사진을 선택해 주세요.')
+      if (!file.type.startsWith('image/') && !/\.(jpe?g|png|webp|heic|heif)$/i.test(file.name)) throw new Error('이미지 파일이 아닙니다.')
+      photos.push(await savePhoto(file))
+    } catch (error) {
+      errors.push(`${file.name}: ${error instanceof Error && /20MB|이미지 파일/.test(error.message) ? error.message : '사진을 읽지 못했습니다. JPG 또는 PNG로 변환 후 다시 선택해 주세요.'}`)
+    }
+    onProgress?.(index + 1, files.length)
+  }
+  return { photos, errors }
 }
 
 export async function getPhoto(id: string): Promise<StoredPhoto | undefined> {

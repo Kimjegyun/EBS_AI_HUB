@@ -31,10 +31,25 @@ export function getUserScopedItem(baseKey: string): string | null {
   return localStorage.getItem(userScopedStorageKey(baseKey))
 }
 
+type ChangeListener = (baseKey: string) => void
+const changeListeners = new Set<ChangeListener>()
+
+/** Called after every user-scoped write or removal (used by account settings sync). */
+export function onUserScopedChange(listener: ChangeListener): () => void {
+  changeListeners.add(listener)
+  return () => changeListeners.delete(listener)
+}
+
 export function setUserScopedItem(baseKey: string, value: string): void {
-  localStorage.setItem(userScopedStorageKey(baseKey), value)
+  const storageKey = userScopedStorageKey(baseKey)
+  if (localStorage.getItem(storageKey) === value) return
+  localStorage.setItem(storageKey, value)
+  changeListeners.forEach((listener) => listener(baseKey))
 }
 
 export function removeUserScopedItem(baseKey: string): void {
-  localStorage.removeItem(userScopedStorageKey(baseKey))
+  const storageKey = userScopedStorageKey(baseKey)
+  if (localStorage.getItem(storageKey) === null) return
+  localStorage.removeItem(storageKey)
+  changeListeners.forEach((listener) => listener(baseKey))
 }

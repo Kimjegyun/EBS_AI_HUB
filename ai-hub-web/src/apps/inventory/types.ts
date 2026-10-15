@@ -66,6 +66,11 @@ export interface DatasetSource {
   title: string
   url: string
   parentDept: string
+  assetCount?: number
+  uploadedAt?: string
+  sourceFileName?: string
+  /** Departments (설치부서) in this 본부, for the 부서 picker. */
+  departments?: string[]
 }
 
 export const DATASET_SOURCES: DatasetSource[] = [
@@ -91,6 +96,10 @@ export type SurveyStatus = (typeof SURVEY_STATUSES)[number]
 
 /** Per-asset survey result captured during a survey session. */
 export interface SurveyResult {
+  serverRevision?: number
+  photoKeys?: string[]
+  syncState?: 'local' | 'pending' | 'saved' | 'conflict'
+  conflict?: { revision: number; result: SurveyResult }
   assetNo: string
   // Snapshot of the (possibly edited) asset info at survey time.
   name: string // 자산명 (확인/수정)
@@ -117,6 +126,7 @@ export interface SurveyResult {
 
 /** 오프라인 시 로컬에 쌓이는 미전송 동기화 큐 항목. */
 export interface SyncQueueItem {
+  userAuthorized?: boolean
   id: string
   sessionId: string
   action: 'upsert' | 'delete'
@@ -128,6 +138,7 @@ export interface SyncQueueItem {
 
 /** A survey session = one category run, e.g. "2026년 정기재물조사". */
 export interface SurveySession {
+  workbook?: { status: string; fileId?: string; generatedAt?: string; error?: string; unmatched?: number; applied?: number }
   id: string
   name: string // 카테고리명
   datasetId: string

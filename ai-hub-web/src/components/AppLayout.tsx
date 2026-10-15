@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { saveLastPage } from '../lib/lastPage'
 import { useAuth } from '../auth/AuthContext'
 import EnvironmentSettingsDialog from './EnvironmentSettingsDialog'
 import AdminIoLogButton from './AdminIoLogButton'
+import AccountAvatar from './AccountAvatar'
+import AccountLoginDialog from './AccountLoginDialog'
 import { Icon } from './Icon'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { getPendingCount, subscribeNotifications } from '../lib/notificationService'
 
 function navClass(active: boolean) {
   return [
-    'flex items-center gap-2 rounded-lg px-2.5 py-2 mx-2 transition-all font-label text-label',
+    'flex items-center gap-2 rounded-lg px-2 py-1.5 mx-1 transition-all font-label text-label',
     active
       ? 'bg-primary-container text-on-primary-container shadow-sm'
       : 'text-on-surface-variant hover:text-primary hover:bg-surface-container-high',
@@ -25,7 +28,12 @@ function topNavClass(active: boolean) {
 export default function AppLayout() {
   const { session, isAdmin, logout } = useAuth()
   const navigate = useNavigate()
+  const { pathname } = useLocation()
+  useEffect(() => {
+    if (session) saveLastPage(pathname)
+  }, [pathname, session])
   const [envDialogOpen, setEnvDialogOpen] = useState(false)
+  const [loginDialogOpen, setLoginDialogOpen] = useState(false)
   const isMobile = useIsMobile()
   const [pendingCount, setPendingCount] = useState(0)
 
@@ -78,6 +86,16 @@ export default function AppLayout() {
             <AdminIoLogButton compact />
             <button
               type="button"
+              onClick={() => setLoginDialogOpen(true)}
+              className="h-9 w-9 inline-flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-high"
+              aria-label="로그인 아이디·비밀번호"
+              title="로그인 아이디·비밀번호"
+            >
+              <Icon name="key" className="text-[20px]" />
+            </button>
+            <AccountAvatar key={session?.userId || session?.email} account={session?.userId || session?.email || "anonymous"} editable={!isAdmin} />
+            <button
+              type="button"
               onClick={() => {
                 logout()
                 navigate('/login', { replace: true })
@@ -90,7 +108,7 @@ export default function AppLayout() {
           </div>
         </header>
 
-        <main className="h-[100svh] overflow-y-auto pt-14 pb-[calc(64px+env(safe-area-inset-bottom))]">
+        <main className="hub-content h-[100svh] overflow-y-auto pt-14 pb-[calc(64px+env(safe-area-inset-bottom))]">
           <Outlet />
         </main>
 
@@ -117,16 +135,17 @@ export default function AppLayout() {
         {isAdmin && (
           <EnvironmentSettingsDialog open={envDialogOpen} onClose={() => setEnvDialogOpen(false)} />
         )}
+        {loginDialogOpen && <AccountLoginDialog onClose={() => setLoginDialogOpen(false)} />}
       </div>
     )
   }
 
   return (
     <div className="relative min-h-screen bg-background text-on-surface font-body text-body overflow-hidden">
-      <header className="fixed top-0 w-full h-topbar-height z-50 bg-surface-container border-b border-outline-variant shadow-sm flex justify-between items-center px-5">
-        <div className="flex items-center gap-5">
+      <header className="fixed top-0 w-full h-topbar-height z-50 bg-surface-container border-b border-outline-variant shadow-sm flex justify-between items-center px-3">
+        <div className="flex items-center gap-3">
           <span className="font-h2 text-h2 font-bold text-primary">EBS AI 허브</span>
-          <div className="hidden md:flex items-center gap-6">
+          <div className="hidden md:flex items-center gap-3">
             <NavLink to="/dashboard" className={({ isActive }) => topNavClass(isActive)}>
               Dashboard
             </NavLink>
@@ -135,7 +154,7 @@ export default function AppLayout() {
             </NavLink>
           </div>
         </div>
-        <div className="flex items-center gap-3 sm:gap-4">
+        <div className="flex items-center gap-2 sm:gap-2">
           <div className="hidden sm:flex items-center gap-2 mr-1">
             <span
               className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-label text-label border ${
@@ -179,6 +198,15 @@ export default function AppLayout() {
           <AdminIoLogButton />
           <button
             type="button"
+            onClick={() => setLoginDialogOpen(true)}
+            className="p-2 rounded-full hover:bg-surface-container-highest transition-colors flex items-center justify-center"
+            aria-label="로그인 아이디·비밀번호"
+            title="로그인 아이디·비밀번호"
+          >
+            <Icon name="key" className="text-on-surface-variant" />
+          </button>
+          <button
+            type="button"
             className="p-2 rounded-full hover:bg-surface-container-highest transition-colors flex items-center justify-center"
             aria-label="알림"
           >
@@ -202,18 +230,12 @@ export default function AppLayout() {
             <Icon name="logout" className="text-[18px]" />
             로그아웃
           </button>
-          <div className="h-8 w-8 rounded-full bg-primary-container flex items-center justify-center border border-outline-variant overflow-hidden">
-            <img
-              alt=""
-              className="w-full h-full object-cover"
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuDaHPvbFJSGz3r5pEYwPjtTPE9I19OkF51OMIoMYo21r2dUtO57nJ4sSzqTqSlBvUuiN06oF2nNZxUlhSUj8WsyFgMv2-j3kPbsmJYyXk0MKJZsVQCpraPs0BHfs8ispX2xnHNIktDtGbRzrr3RnRkqpeIly4yQtfjU9krZyYjTwArR-o0bMlelGdYzh5KsVKf-oBOF5z3P0M76tMjm3xm2mI_CufvVkcuQpOf9Qu3AphLWeLsFSX0iRFjDSw-IKL9yYKa9fjLtioA"
-            />
-          </div>
+          <AccountAvatar key={session?.userId || session?.email} account={session?.userId || session?.email || "anonymous"} editable={!isAdmin} />
         </div>
       </header>
 
-      <aside className="fixed left-0 top-0 h-full w-[160px] z-40 bg-surface-container-lowest border-r border-outline-variant shadow-sm flex flex-col py-4 pt-[60px]">
-        <nav className="flex flex-col gap-1 mt-3 flex-grow">
+      <aside className="fixed left-0 top-0 h-full w-[144px] z-40 bg-surface-container-lowest border-r border-outline-variant shadow-sm flex flex-col pb-2 pt-topbar-height">
+        <nav className="flex flex-col gap-0.5 mt-1 flex-grow">
           <NavLink to="/dashboard" className={({ isActive }) => navClass(isActive)}>
             <Icon name="dashboard" />
             <span>Dashboard</span>
@@ -266,7 +288,7 @@ export default function AppLayout() {
           </NavLink>
         </nav>
         {isAdmin && (
-          <div className="px-4 mb-4">
+          <div className="px-2 mb-2">
             <button
               type="button"
               onClick={() => navigate('/app-registry')}
@@ -284,13 +306,14 @@ export default function AppLayout() {
         )}
       </aside>
 
-      <div className="ml-[160px] pt-topbar-height min-h-screen">
+      <div className="hub-content ml-[144px] pt-topbar-height min-h-screen">
         <Outlet />
       </div>
 
       {isAdmin && (
         <EnvironmentSettingsDialog open={envDialogOpen} onClose={() => setEnvDialogOpen(false)} />
       )}
+      {loginDialogOpen && <AccountLoginDialog onClose={() => setLoginDialogOpen(false)} />}
     </div>
   )
 }

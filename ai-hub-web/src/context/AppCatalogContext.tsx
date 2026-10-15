@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from 'react'
 import { useAuth } from '../auth/AuthContext'
+import { SETTINGS_SYNCED_EVENT } from '../lib/settingsSync'
 import {
   fetchPublishedApps,
   readPublishedAppsCache,
@@ -22,6 +23,8 @@ import {
   resolveInstalledAppIds,
 } from '../apps/appAccess'
 import {
+  APP_MAP,
+  getActiveApps,
   getRemoteApps,
   installApp,
   setActiveApps,
@@ -60,11 +63,11 @@ const AppCatalogContext = createContext<AppCatalogValue | null>(null)
 export function AppCatalogProvider({ children }: { children: ReactNode }) {
   const { isAdmin, session } = useAuth()
   const [publishedIds, setPublishedIds] = useState<string[]>(() => readPublishedAppsCache())
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectionVersion, setSelectionVersion] = useState(0)
   const [remoteApps, setRemoteAppResults] = useState<RemoteAppLoadResult[]>([])
-  const [remoteLoading, setRemoteLoading] = useState(false)
+  const [remoteLoading, setRemoteLoading] = useState(true)
   const [previewApp, setPreviewAppState] = useState<RemoteAppLoadResult | null>(null)
   // 레지스트리가 바뀌면(원격 앱 로드) 목록을 다시 계산하게 만드는 카운터
   const [registryVersion, setRegistryVersion] = useState(0)
@@ -79,6 +82,7 @@ export function AppCatalogProvider({ children }: { children: ReactNode }) {
     if (!session) {
       setRemoteAppResults([])
       setRemoteApps([])
+      setRemoteLoading(false)
       return
     }
     setRemoteLoading(true)
@@ -119,6 +123,7 @@ export function AppCatalogProvider({ children }: { children: ReactNode }) {
     if (!session) {
       setPublishedIds([])
       setError(null)
+      setLoading(false)
       return
     }
     setLoading(true)
@@ -135,6 +140,13 @@ export function AppCatalogProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void refresh()
   }, [refresh])
+
+  // Installed/active apps come back from the account settings sync (other PC or phone).
+  useEffect(() => {
+    const onSynced = () => setSelectionVersion((value) => value + 1)
+    window.addEventListener(SETTINGS_SYNCED_EVENT, onSynced)
+    return () => window.removeEventListener(SETTINGS_SYNCED_EVENT, onSynced)
+  }, [])
 
   useEffect(() => {
     if (!session) return
@@ -163,7 +175,7 @@ export function AppCatalogProvider({ children }: { children: ReactNode }) {
     if (selected) {
       if (!canUserSelectApp(appId, isAdmin, publishedIds)) return
       installApp(appId)
-      const nextActive = resolveActiveAppIds(isAdmin, publishedIds)
+      const nextActive = getActiveApps(isAdmin)
       if (!nextActive.includes(appId)) setActiveApps([...nextActive, appId])
     } else {
       uninstallApp(appId)
@@ -173,7 +185,7 @@ export function AppCatalogProvider({ children }: { children: ReactNode }) {
 
   const setAppActive = useCallback((appId: string, active: boolean) => {
     if (active && !canUserSelectApp(appId, isAdmin, publishedIds)) return
-    const current = resolveActiveAppIds(isAdmin, publishedIds)
+    const current = getActiveApps(isAdmin)
     const next = active
       ? (current.includes(appId) ? current : [...current, appId])
       : current.filter((id) => id !== appId)
@@ -182,7 +194,8 @@ export function AppCatalogProvider({ children }: { children: ReactNode }) {
   }, [isAdmin, publishedIds])
 
   const replaceActiveApps = useCallback((ids: string[]) => {
-    setActiveApps(filterUsableAppIds(ids, isAdmin, publishedIds))
+    const unavailable = getActiveApps(isAdmin).filter((id) => !APP_MAP[id])
+    setActiveApps([...unavailable, ...filterUsableAppIds(ids, isAdmin, publishedIds)])
     setSelectionVersion((value) => value + 1)
   }, [isAdmin, publishedIds])
 
@@ -193,16 +206,20 @@ export function AppCatalogProvider({ children }: { children: ReactNode }) {
   const installedIds = useMemo(
     () => {
       void selectionVersion
+      void registryVersion
+      void session
       return resolveInstalledAppIds(isAdmin, publishedIds)
     },
-    [isAdmin, publishedIds, selectionVersion],
+    [isAdmin, publishedIds, selectionVersion, registryVersion, session],
   )
   const activeIds = useMemo(
     () => {
       void selectionVersion
+      void registryVersion
+      void session
       return resolveActiveAppIds(isAdmin, publishedIds)
     },
-    [isAdmin, publishedIds, selectionVersion],
+    [isAdmin, publishedIds, selectionVersion, registryVersion, session],
   )
 
   const value = useMemo<AppCatalogValue>(
@@ -213,7 +230,7 @@ export function AppCatalogProvider({ children }: { children: ReactNode }) {
       reloadRemoteApps,
       previewApp,
       setPreviewApp,
-      loading,
+      loading: loading || remoteLoading,
       error,
       catalog,
       installedIds,

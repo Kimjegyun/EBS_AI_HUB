@@ -66,21 +66,8 @@ export interface SessionRow {
 // ─── SSE subscriber registry ─────────────────────────────────────────────────
 // Maps sessionId → Set of SSE response writers.
 
-type SseWriter = (event: string, data: unknown) => void
-const sseClients = new Map<string, Set<SseWriter>>()
-
-export function registerSseClient(sessionId: string, writer: SseWriter): () => void {
-  if (!sseClients.has(sessionId)) sseClients.set(sessionId, new Set())
-  sseClients.get(sessionId)!.add(writer)
-  return () => {
-    sseClients.get(sessionId)?.delete(writer)
-    if (sseClients.get(sessionId)?.size === 0) sseClients.delete(sessionId)
-  }
-}
-
-function broadcast(sessionId: string, event: string, data: unknown) {
-  sseClients.get(sessionId)?.forEach((w) => w(event, data))
-}
+export { registerSseClient } from './inventoryEvents'
+import { broadcast } from './inventoryEvents'
 
 // ─── Datasets ────────────────────────────────────────────────────────────────
 
@@ -88,6 +75,23 @@ export async function listDatasets(): Promise<DatasetRow[]> {
   return all(
     'SELECT id, title, parent_dept, asset_count, uploaded_by, uploaded_at, source FROM inventory_datasets ORDER BY uploaded_at DESC',
   )
+}
+
+// Datasets are immutable once uploaded (a new upload gets a new id), so the parsed
+// department list is cached per id; /datasets is polled by every device.
+const departmentCache = new Map<string, string[]>()
+
+/** Distinct 설치부서 values of a dataset, for the inventory app's 부서 picker. */
+export async function getDatasetDepartments(id: string): Promise<string[]> {
+  const cached = departmentCache.get(id)
+  if (cached) return cached
+  const row = await get('SELECT assets_json FROM inventory_datasets WHERE id = ?', [id])
+  if (!row) return []
+  const departments = [...new Set((JSON.parse(row.assets_json) as Asset[])
+    .map((asset) => String(asset.dept ?? '').trim()).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, 'ko'))
+  departmentCache.set(id, departments)
+  return departments
 }
 
 export async function getDatasetAssets(id: string): Promise<Asset[]> {
@@ -167,8 +171,23 @@ export async function createSession(
   parentDept: string,
   dept: string,
   createdBy: string,
+  requestedId?: string,
 ): Promise<SessionRow> {
-  const id = `sv-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+  const id = requestedId || `sv-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+  const existing = await getSession(id)
+  if (existing) {
+    if (existing.dataset_id !== datasetId || existing.parent_dept !== parentDept || existing.dept.trim() !== dept.trim() || existing.name !== name.trim()) throw new Error('조사 식별자가 다른 조사와 겹칩니다.')
+    return existing
+  }
+  // The server keeps one shared copy per survey department (dataset + name + dept).
+  // More users or devices from that department join it instead of adding another
+  // session (and Excel workbook); the caller must adopt the returned id.
+  const shared = await get(
+    'SELECT * FROM inventory_sessions WHERE dataset_id = ? AND name = ? AND TRIM(dept) = ? ORDER BY created_at, rowid LIMIT 1',
+    [datasetId, name.trim(), dept.trim()],
+  ) as SessionRow | undefined
+  if (shared) return shared
+  if (!await get('SELECT id FROM inventory_datasets WHERE id=?', [datasetId])) throw new Error('삭제된 자산 DB입니다. 새로 등록한 파일로 조사를 시작해 주세요.')
   await run(
     `INSERT INTO inventory_sessions (id, name, dataset_id, parent_dept, dept, created_by, results_json, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, '{}', CURRENT_TIMESTAMP)`,

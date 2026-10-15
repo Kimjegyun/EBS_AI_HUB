@@ -1,17 +1,19 @@
-import { useCallback, useEffect, useMemo, useRef, useState, useId } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '../../components/Icon'
+import ConfirmedAssetDialog from './ConfirmedAssetDialog'
 import { useAuthSafe } from '../../auth/AuthContext'
 import { getUserScopedItem, setUserScopedItem } from '../../lib/userScopedStorage'
 import type { AppContext } from '../types'
 import {
   SURVEY_STATUSES,
   type Asset,
+  type DatasetSource,
   type ErpAsset,
   type SurveyResult,
   type SurveySession,
   type SurveyStatus,
 } from './types'
-import { ensureDataset, getAllDatasetSources, getLoadedDataset, lookupAsset, normalizeAssetNo } from './datasetService'
+import { ensureDataset, getAllDatasetSources, getWorkbookCatalog, getLoadedDataset, lookupAsset, looseAssetKey, normalizeAssetNo } from './datasetService'
 import {
   clearErpFile,
   importErpFile,
@@ -34,20 +36,22 @@ import {
   subscribeSessions,
   uploadSession,
   upsertResult,
+  requestSubmission,
+  resolveSubmissionConflict,
 } from './syncService'
 import {
-  buildMergedSurveyWorkbook,
   downloadDivisionResult,
-  downloadMergedSurveyFile,
   downloadSessionExcel,
 } from './excelService'
 import { aiAvailable, aiVerifyAsset } from './aiVerify'
 import { deletePhotos } from './photoService'
+import GalleryPhotos from './GalleryPhotos'
 import {
   confirmPairCode,
-  downloadDatasetExcel,
   downloadInventoryFile,
   fetchCoverageStats,
+  fetchCurrentCoverage,
+  fetchServerSessions,
   fetchInventoryFiles,
   fetchPairedDevices,
   fetchServerDatasets,
@@ -55,9 +59,8 @@ import {
   fetchUnsurveyedAssets,
   openSseStream,
   saveBlobAs,
-  submitSurveyResults,
-  uploadInventoryFile,
-  uploadSurveyResultFile,
+  fetchSubmissionStatus,
+  type SubmissionResponse,
   type DatasetCoverage,
   type DeptCoverage,
   type DevicePair,
@@ -66,8 +69,17 @@ import {
   type UnsurveyedAsset,
 } from './inventoryApiClient'
 import { inventoryInstallUrl, isExternalInstallUrl } from './installUrl'
-import QrScanner, { isValidScannedAssetNo } from './QrScanner'
+import QrScanner from './QrScanner'
+import { extractAssetNoFromScan, isValidScannedAssetNo } from './scanText'
+import PhotoBarcodeImport, { type PhotoCodeMatch } from './PhotoBarcodeImport'
+import type { ScanFeedback } from './scanFeedback'
+import { findSavedAsset } from './savedAsset'
 import InventorySettingsPanel from './InventorySettingsPanel'
+import PublishedSubmissionDownload from './PublishedSubmissionDownload'
+import CompanyWorkbookDownload from './CompanyWorkbookDownload'
+import { belongsToSurveyUser, findContinuingSurvey } from './resumeSurvey'
+import { saveWorkingWorkbook, saveMasterWorkingWorkbook } from './workingWorkbook'
+import { discardUnsentBackup, downloadUnsentBackup, getUnsentBackup, LOCAL_CLEANUP_EVENT, pruneRemovedServerData } from './localCleanup'
 
 const STATUS_TONE: Record<SurveyStatus, string> = {
   정상: 'bg-success/15 text-success',
@@ -158,6 +170,10 @@ function emptyDraft(assetNo: string, verifier: string, verifierDept: string, pre
 type Tab = 'sessions' | 'stats' | 'datasets' | 'pairing' | 'settings'
 
 const SURVEY_PREFERENCES_KEY = 'inventory-survey-preferences'
+/** How long a single scan's result stays under the camera before the input form opens. */
+const SCAN_RESULT_HOLD_MS = 800
+/** How long the result banner stays visible on the (re)opened scanner. */
+const SCAN_RESULT_VISIBLE_MS = 4000
 const LAST_INSTALL_DEPT_KEY = 'inventory-last-install-dept'
 
 interface SurveyPreferences {
@@ -191,23 +207,60 @@ export default function InventoryApp({ overrideUserName, overrideUserDept, overr
   const authCtx = useAuthSafe()
   const authSession = authCtx?.session ?? null
   const userName = overrideUserName ?? authSession?.displayName ?? '사용자'
-  const userDept = overrideUserDept ?? authSession?.organization ?? ''
+  const userDept = overrideUserDept ?? authSession?.department ?? ''
   const isAdmin = overrideIsAdmin ?? authSession?.role === 'admin'
   const [sessions, setSessions] = useState<SurveySession[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>('sessions')
   const sseCleanupRef = useRef<(() => void) | null>(null)
+  const resumeKey = `inventory-active:${JSON.stringify([userName, overrideParentDept ?? authSession?.organization ?? '', overrideSurveyDept ?? userDept])}`
+  const resumedKey = useRef<string | null>(null)
+  useEffect(() => {
+    if (!isAdmin) return
+    return openSseStream('*', type => {
+      if (type !== 'submission_updated' && type !== 'connected') return
+      void pullServerSessions()
+      window.dispatchEvent(new Event('inventory-server-updated'))
+    })
+  }, [isAdmin])
 
   // Boot: pull server sessions + start offline sync loop
   useEffect(() => {
     void pullServerSessions()
     startSyncLoop()
-    return () => stopSyncLoop()
+    const refresh = () => { void pullServerSessions() }
+    window.addEventListener('focus', refresh)
+    return () => {
+      window.removeEventListener('focus', refresh)
+      stopSyncLoop()
+    }
   }, [])
 
   useEffect(() => {
     getSessions().then(setSessions)
     return subscribeSessions(() => getSessions().then(setSessions))
+  }, [])
+
+  // Mirror server deletions on this device: surveys, cached datasets, and the
+  // user's original and working copy go away with the server's asset master.
+  // Unsent results are kept in one backup workbook first.
+  const [unsentBackupCount, setUnsentBackupCount] = useState(0)
+  useEffect(() => {
+    let alive = true
+    const showBackup = () => { void getUnsentBackup().then((backup) => { if (alive) setUnsentBackupCount(backup?.rows.length ?? 0) }) }
+    const prune = () => { void pruneRemovedServerData().catch(() => undefined).finally(showBackup) }
+    prune()
+    const timer = window.setInterval(prune, 60_000)
+    window.addEventListener('focus', prune)
+    window.addEventListener('inventory-datasets-updated', prune)
+    window.addEventListener(LOCAL_CLEANUP_EVENT, showBackup)
+    return () => {
+      alive = false
+      window.clearInterval(timer)
+      window.removeEventListener('focus', prune)
+      window.removeEventListener('inventory-datasets-updated', prune)
+      window.removeEventListener(LOCAL_CLEANUP_EVENT, showBackup)
+    }
   }, [])
 
   // SSE: subscribe to active session changes from other devices
@@ -216,21 +269,14 @@ export default function InventoryApp({ overrideUserName, overrideUserDept, overr
     sseCleanupRef.current = openSseStream(sessionId, (type) => {
       if (type === 'result_updated' || type === 'result_deleted' || type === 'session_completed') {
         // Refresh local store from server
-        import('./inventoryApiClient').then(({ fetchServerSession }) =>
-          fetchServerSession(sessionId).then(async (full) => {
-            if (full) {
-              const { idbPut } = await import('./idb')
-              const { STORE_SESSIONS } = await import('./idb')
-              await idbPut(STORE_SESSIONS, full)
-              getSessions().then(setSessions)
-            }
-          })
-        )
+        void pullServerSessions()
       }
     })
   }, [])
 
   const openSession = (id: string) => {
+    resumedKey.current = resumeKey
+    setUserScopedItem(resumeKey, id)
     setActiveId(id)
     subscribeToSession(id)
   }
@@ -240,6 +286,18 @@ export default function InventoryApp({ overrideUserName, overrideUserDept, overr
     sseCleanupRef.current = null
     setActiveId(null)
   }
+
+  useEffect(() => {
+    if (isAdmin || resumedKey.current === resumeKey || !sessions.length) return
+    const own = sessions.filter(item => belongsToSurveyUser(item, userName, overrideParentDept ?? authSession?.organization ?? '', overrideSurveyDept ?? userDept))
+    const last = own.find(item => item.id === getUserScopedItem(resumeKey)) ?? own.find(item => !item.completed)
+    if (!last) return
+    resumedKey.current = resumeKey
+    setActiveId(last.id)
+    setUserScopedItem(resumeKey, last.id)
+    subscribeToSession(last.id)
+  }, [sessions, isAdmin, resumeKey, userName, userDept, overrideParentDept, overrideSurveyDept, authSession?.organization, subscribeToSession])
+  useEffect(() => () => { sseCleanupRef.current?.() }, [])
 
   const active = useMemo(() => sessions.find((s) => s.id === activeId) ?? null, [sessions, activeId])
 
@@ -257,7 +315,16 @@ export default function InventoryApp({ overrideUserName, overrideUserDept, overr
 
   return (
     <div className="space-y-3">
+      {unsentBackupCount > 0 && (
+        <div role="status" className="flex flex-wrap items-center gap-2 rounded-xl border border-warning/40 bg-warning/10 p-3 text-body-sm">
+          <span className="min-w-0 flex-1">서버에서 삭제된 조사의 미전송 결과 {unsentBackupCount.toLocaleString()}건을 이 기기에 백업했습니다.</span>
+          <button type="button" onClick={() => void downloadUnsentBackup()} className="rounded-lg bg-primary px-3 py-1.5 text-label font-medium text-on-primary">백업 엑셀 받기</button>
+          <button type="button" onClick={() => { if (window.confirm('미전송 백업을 삭제할까요? 복구할 수 없습니다.')) void discardUnsentBackup() }} className="rounded-lg border border-outline-variant px-3 py-1.5 text-label">삭제</button>
+        </div>
+      )}
       {/* Tabs */}
+      <PublishedSubmissionDownload showPreview={isAdmin} />
+      {isAdmin && <CompanyWorkbookDownload />}
       <div className="flex gap-1 border-b border-outline-variant">
         {([['sessions', '조사 목록'], ['datasets', '데이터셋'], ['stats', '통계']] as [Tab, string][]).concat(
           isAdmin ? [['pairing', '기기 관리'], ['settings', '설정']] : []
@@ -281,7 +348,7 @@ export default function InventoryApp({ overrideUserName, overrideUserDept, overr
         <SessionList
           sessions={sessions}
           userName={userName}
-          organization={overrideSurveyDept ?? authSession?.organization ?? ''}
+          organization={overrideSurveyDept ?? authSession?.department ?? ''}
           preferredParentDept={overrideParentDept ?? authSession?.organization ?? ''}
           isAdmin={isAdmin}
           onOpen={openSession}
@@ -297,7 +364,7 @@ export default function InventoryApp({ overrideUserName, overrideUserDept, overr
         <PairingManager />
       )}
       {tab === 'settings' && isAdmin && (
-        <InventorySettingsPanel />
+        <InventorySettingsPanel showExport={false} />
       )}
     </div>
   )
@@ -306,69 +373,7 @@ export default function InventoryApp({ overrideUserName, overrideUserDept, overr
 /* ------------------------------- Session list ------------------------------ */
 
 /** 완성된 재물조사 엑셀을 서버에 업로드 → 세션 결과로 저장 */
-function ExcelUploadButton({
-  session,
-  onDone,
-}: {
-  session: SurveySession
-  onDone: (msg: string) => void
-}) {
-  const fileId = useId()
-  const [uploading, setUploading] = useState(false)
-
-  const handleFile = async (file: File) => {
-    setUploading(true)
-    const res = await uploadSurveyResultFile({
-      datasetId: session.datasetId,
-      file,
-      sessionName: session.name,
-      dept: session.dept,
-      sessionId: session.id,
-    })
-    setUploading(false)
-    if (res.ok) {
-      onDone(`✅ 엑셀 업로드 완료: ${res.updated}건 등록`)
-    } else {
-      onDone(`❌ 업로드 실패: ${res.error}`)
-    }
-  }
-
-  return (
-    <label
-      htmlFor={fileId}
-      title="완성된 재물조사 엑셀 업로드"
-      className={`no-drag w-8 h-8 flex items-center justify-center rounded-full cursor-pointer transition-colors ${
-        uploading
-          ? 'text-primary opacity-60 pointer-events-none'
-          : 'text-success hover:bg-success/10'
-      }`}
-      aria-label="완성 엑셀 업로드"
-    >
-      <Icon
-        name={uploading ? 'progress_activity' : 'upload_file'}
-        className={`text-[18px] ${uploading ? 'animate-spin' : ''}`}
-      />
-      <input
-        id={fileId}
-        type="file"
-        accept=".xlsx"
-        className="hidden"
-        disabled={uploading}
-        onChange={(e) => {
-          const f = e.target.files?.[0]
-          if (f) void handleFile(f)
-          e.target.value = ''
-        }}
-      />
-    </label>
-  )
-}
-
-/**
- * 조사목록 탭 상단 — 본부별 진행 현황과 미확인 자산 상세.
- * 조사 "건수"가 아니라 데이터셋 전체 자산 기준이라 100% 여부가 바로 보입니다.
- */
-function SurveyProgressPanel({ parentDept }: { parentDept: string }) {
+function SurveyProgressPanel({ parentDept, datasetId }: { parentDept: string; datasetId: string }) {
   const [coverage, setCoverage] = useState<DatasetCoverage[]>([])
   const [busy, setBusy] = useState(true)
   const [openDataset, setOpenDataset] = useState<string | null>(null)
@@ -376,7 +381,8 @@ function SurveyProgressPanel({ parentDept }: { parentDept: string }) {
   const load = async () => {
     setBusy(true)
     try {
-      setCoverage(await fetchCoverageStats())
+      const [latest] = await Promise.all([fetchCoverageStats(), pullServerSessions()])
+      setCoverage(latest)
     } finally {
       setBusy(false)
     }
@@ -389,9 +395,11 @@ function SurveyProgressPanel({ parentDept }: { parentDept: string }) {
   useEffect(() => {
     const refresh = () => { void load() }
     window.addEventListener('inventory-datasets-updated', refresh)
+    window.addEventListener('inventory-server-updated', refresh)
     window.addEventListener('focus', refresh)
     return () => {
       window.removeEventListener('inventory-datasets-updated', refresh)
+      window.removeEventListener('inventory-server-updated', refresh)
       window.removeEventListener('focus', refresh)
     }
   }, [])
@@ -403,7 +411,7 @@ function SurveyProgressPanel({ parentDept }: { parentDept: string }) {
       </div>
     )
   }
-  const visibleCoverage = coverage.filter((dataset) => dataset.parentDept === parentDept)
+  const visibleCoverage = coverage.filter((dataset) => dataset.parentDept === parentDept && dataset.datasetId === datasetId)
   if (visibleCoverage.length === 0) return null
 
   return (
@@ -477,7 +485,10 @@ function SessionList({
   const [showForm, setShowForm] = useState(sessions.length === 0)
   const defaultName = `${new Date().getFullYear()}년 정기재물조사`
   const [name, setName] = useState(savedPreferences.name || defaultName)
-  const [datasetSources, setDatasetSources] = useState([] as { id: string; title: string; parentDept: string }[])
+  const [datasetSources, setDatasetSources] = useState<DatasetSource[]>([])
+  const [departmentTabs, setDepartmentTabs] = useState<string[]>([])
+  const [tabsLoading, setTabsLoading] = useState(true)
+  const [tabsError, setTabsError] = useState('')
   const [datasetId, setDatasetId] = useState(savedPreferences.datasetId || '')
   const [dept, setDept] = useState(savedPreferences.dept || organization)
   const [busy, setBusy] = useState<string | null>(null)
@@ -486,13 +497,15 @@ function SessionList({
   const [dlToast, setDlToast] = useState<string | null>(null)
   const [resetting, setResetting] = useState(false)
   const [selectedParentDept, setSelectedParentDept] = useState(savedPreferences.parentDept || preferredParentDept)
+  const selectedSourceRef = useRef({ parentDept: selectedParentDept, datasetId })
+  selectedSourceRef.current = { parentDept: selectedParentDept, datasetId }
 
   const flashDl = (msg: string) => { setDlToast(msg); setTimeout(() => setDlToast(null), 3000) }
 
   const visibleSessions = sessions.filter((session) => session.parentDept === selectedParentDept)
   const resetTargets = (isAdmin ? visibleSessions : visibleSessions.filter((session) => session.createdBy === userName))
   const handleReset = async () => {
-    if (resetTargets.length === 0 || resetting) return
+    if (!isAdmin || resetTargets.length === 0 || resetting) return
     const scope = isAdmin ? '전체 사용자의' : '내'
     const accepted = window.confirm(
       `${scope} 조사 ${resetTargets.length}건과 저장된 조사 결과를 초기화할까요?\n\n` +
@@ -512,34 +525,47 @@ function SessionList({
     }
   }
 
-  const handleDownloadExcel = async (datasetId: string, e: React.MouseEvent) => {
+  const handleDownloadExcel = async (survey: SurveySession, e: React.MouseEvent) => {
     e.stopPropagation()
-    setDownloadingId(datasetId)
-    const res = await downloadDatasetExcel(datasetId)
-    setDownloadingId(null)
-    if (res.ok) {
-      flashDl('✅ 본부별 현재자산 엑셀을 다운로드했습니다.')
-    } else {
-      flashDl(`다운로드 실패: ${res.error}`)
-    }
+    setDownloadingId(survey.datasetId)
+    try { await downloadSessionExcel(survey); flashDl('조사 결과 엑셀을 다운로드했습니다.') }
+    catch (error) { flashDl(`다운로드 실패: ${(error as Error).message}`) }
+    finally { setDownloadingId(null) }
   }
 
-  // Load dataset list (local + server)
+  // Workbook tabs define the available departments, including empty tabs.
   useEffect(() => {
-    getAllDatasetSources().then((sources) => {
-      setDatasetSources(sources)
-      const rememberedDataset = sources.find((source) => source.id === savedPreferences.datasetId)
-      const rememberedParentDept = savedPreferences.parentDept || preferredParentDept
-      const preferred = rememberedDataset
-        ?? sources.find((source) => source.parentDept === rememberedParentDept)
-        ?? sources.find((source) => preferredParentDept.includes(source.parentDept) || source.parentDept.includes(preferredParentDept))
-        ?? sources[0]
-      if (preferred) {
-        setSelectedParentDept(preferred.parentDept)
-        setDatasetId(preferred.id)
-      }
-    })
-  }, [preferredParentDept, savedPreferences.datasetId, savedPreferences.parentDept])
+    let active = true
+    let requestId = 0
+    const refresh = () => {
+      const currentRequest = ++requestId
+      setTabsLoading(true)
+      setTabsError('')
+      void getWorkbookCatalog().then(({ departments, sources }) => {
+        if (!active || currentRequest !== requestId) return
+        const selected = selectedSourceRef.current
+        const parentDept = departments.includes(selected.parentDept) ? selected.parentDept
+          : departments.includes(preferredParentDept) ? preferredParentDept : departments[0] ?? ''
+        const matching = sources.filter((source) => source.parentDept === parentDept)
+        setDepartmentTabs(departments)
+        setDatasetSources(sources)
+        setSelectedParentDept(parentDept)
+        setDatasetId(matching.find((source) => source.id === selected.datasetId)?.id ?? matching[0]?.id ?? '')
+      }).catch((error: unknown) => {
+        if (active && currentRequest === requestId) setTabsError((error as Error).message)
+      }).finally(() => {
+        if (active && currentRequest === requestId) setTabsLoading(false)
+      })
+    }
+    refresh()
+    window.addEventListener('inventory-datasets-updated', refresh)
+    window.addEventListener('focus', refresh)
+    return () => {
+      active = false
+      window.removeEventListener('inventory-datasets-updated', refresh)
+      window.removeEventListener('focus', refresh)
+    }
+  }, [preferredParentDept])
 
   useEffect(() => {
     setUserScopedItem(SURVEY_PREFERENCES_KEY, JSON.stringify({
@@ -551,6 +577,7 @@ function SessionList({
   }, [name, selectedParentDept, dept, datasetId])
 
   const visibleDatasetSources = datasetSources.filter((source) => source.parentDept === selectedParentDept)
+  const selectedDataset = visibleDatasetSources.find((source) => source.id === datasetId)
 
   const changeParentDept = (parentDept: string) => {
     setSelectedParentDept(parentDept)
@@ -559,23 +586,36 @@ function SessionList({
   }
 
   const create = async () => {
-    if (!name.trim() || !datasetId) return
+    if (!name.trim() || busy || tabsLoading || !departmentTabs.includes(selectedParentDept)) return
+    if (!dept.trim()) { setError('조사 부서를 입력해 주세요.'); return }
     setError(null)
     setBusy('자산 데이터 준비 중...')
     try {
-      const src = datasetSources.find((d) => d.id === datasetId)
-      await ensureDataset(datasetId, (phase) => {
+      // Revalidate the selected sheet at start: Settings may have replaced the
+      // workbook since this screen loaded.
+      const catalog = await getWorkbookCatalog()
+      setDepartmentTabs(catalog.departments)
+      setDatasetSources(catalog.sources)
+      const src = catalog.sources.find((source) => source.parentDept === selectedParentDept)
+      if (!catalog.departments.includes(selectedParentDept) || !src || !src.assetCount) {
+        setDatasetId('')
+        throw new Error('선택한 본부 탭에 조사할 자산이 없습니다. 등록된 엑셀 탭을 다시 선택해 주세요.')
+      }
+      setDatasetId(src.id)
+      const existing = findContinuingSurvey(sessions, { datasetId: src.id, createdBy: userName, name, dept, parentDept: src.parentDept })
+      if (existing) {
+        setBusy(null)
+        onOpen(existing.id)
+        return
+      }
+      await ensureDataset(src.id, (phase) => {
         setBusy(phase === 'download' ? '자산 마스터 다운로드 중...' : '자산 데이터 준비 중...')
-      })
-      setBusy('본부 ERP 작업파일 생성 중...')
-      const safePart = (value: string) => value.trim().replace(/[\\/:*?"<>|]/g, '_').replace(/\s+/g, '_') || '미지정'
-      const workFileName = `ERP_${safePart(dept || src?.parentDept || '')}_${safePart(userName)}_작업.xlsx`
-      const downloaded = await downloadDatasetExcel(datasetId, workFileName)
-      if (!downloaded.ok) throw new Error(`ERP 작업파일 다운로드 실패: ${downloaded.error}`)
+      }, true)
+      setBusy('재물조사 작업공간 준비 중...')
       const s = await createSession({
         name,
-        datasetId,
-        parentDept: src?.parentDept ?? '',
+        datasetId: src.id,
+        parentDept: src.parentDept,
         createdBy: userName,
         dept,
       })
@@ -593,11 +633,11 @@ function SessionList({
         <div>
           <h2 className="font-h2 text-h2 text-on-surface">재물조사</h2>
           <p className="text-caption text-on-surface-variant">
-            ① ⬇ 자산현황 엑셀 다운로드 → ② 부서별 조사 완성 → ③ ⬆ 완료 엑셀 업로드
+            ① 엑셀 본부 탭 선택 → ② 조사 결과 자동 저장 → ③ 최종 등록
           </p>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
-          <button
+          {isAdmin && <button
             type="button"
             onClick={() => void handleReset()}
             disabled={resetTargets.length === 0 || resetting}
@@ -605,7 +645,7 @@ function SessionList({
           >
             <Icon name={resetting ? 'progress_activity' : 'restart_alt'} className={`text-[18px] ${resetting ? 'animate-spin' : ''}`} />
             {resetting ? '초기화 중' : '초기화'}
-          </button>
+          </button>}
           <button
             type="button"
             onClick={() => setShowForm((v) => !v)}
@@ -617,21 +657,44 @@ function SessionList({
         </div>
       </div>
 
-      <label className="block rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5">
-        <span className="text-caption font-medium text-on-surface-variant">소속본부</span>
-        <select
-          value={selectedParentDept}
-          onChange={(event) => changeParentDept(event.target.value)}
-          className="no-drag mt-1 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-body font-medium outline-none focus:border-primary"
-        >
-          {Array.from(new Set(datasetSources.map((source) => source.parentDept))).map((parentDept) => (
-            <option key={parentDept} value={parentDept}>{parentDept}</option>
+      <div className="block rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5">
+        <span className="text-caption font-medium text-on-surface-variant">소속본부 · 등록 엑셀의 탭 선택</span>
+        <div role="group" aria-label="소속본부 엑셀 탭 선택" className="mt-2 flex flex-wrap gap-2">
+          {departmentTabs.length === 0 && <p className="text-caption text-on-surface-variant">{tabsLoading ? '엑셀 탭 불러오는 중...' : '등록된 본부 탭이 없습니다'}</p>}
+          {departmentTabs.map((parentDept) => (
+            <button key={parentDept} type="button" aria-pressed={parentDept === selectedParentDept}
+              disabled={tabsLoading || !!busy}
+              onClick={() => changeParentDept(parentDept)}
+              className={`no-drag rounded-lg border px-3 py-2 text-body-sm font-medium disabled:opacity-50 ${parentDept === selectedParentDept
+                ? 'border-primary bg-primary text-on-primary'
+                : 'border-outline-variant bg-surface text-on-surface hover:border-primary'}`}>
+              {parentDept}
+            </button>
           ))}
-        </select>
-      </label>
+        </div>
+      </div>
+      {tabsError && <p className="text-caption text-error" role="alert">{tabsError}</p>}
+      {!tabsLoading && !tabsError && departmentTabs.length === 0 && (
+        <p className="text-caption text-on-surface-variant">Settings에서 전사 엑셀파일을 등록하면 본부 탭이 표시됩니다.</p>
+      )}
+      {!tabsLoading && selectedParentDept && !selectedDataset && (
+        <p className="text-caption text-on-surface-variant">선택한 엑셀 탭에 등록된 자산이 없습니다. 다른 본부 탭을 선택해 주세요.</p>
+      )}
 
       {/* 본부별 진행 현황 + 미확인 자산 상세 */}
-      {selectedParentDept && <SurveyProgressPanel parentDept={selectedParentDept} />}
+      {selectedDataset && (
+        <div className="rounded-lg border border-outline-variant bg-surface px-3 py-2 text-caption text-on-surface-variant" aria-label="현재 적용된 자산 파일">
+          <p className="break-all">
+            <span className="font-medium text-on-surface">적용 파일: </span>
+            {selectedDataset.sourceFileName || selectedDataset.title}
+          </p>
+          <p className="mt-1">
+            {selectedDataset.parentDept} · 자산 {(selectedDataset.assetCount ?? 0).toLocaleString()}건
+            {selectedDataset.uploadedAt && <> · 등록일 {selectedDataset.uploadedAt.slice(0, 10)}</>}
+          </p>
+        </div>
+      )}
+      {selectedDataset && <SurveyProgressPanel key={selectedDataset.id} parentDept={selectedParentDept} datasetId={selectedDataset.id} />}
 
       {showForm && (
         <div className="rounded-xl border border-outline-variant bg-surface-container-low p-3 space-y-2.5">
@@ -645,20 +708,14 @@ function SessionList({
             />
           </label>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            <label className="block">
-              <span className="text-caption text-on-surface-variant">자산 목록(마스터)</span>
-              <select
-                value={datasetId}
-                onChange={(e) => setDatasetId(e.target.value)}
-                className="no-drag mt-1 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-body outline-none focus:border-primary"
-              >
-                {visibleDatasetSources.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.title}
-                    </option>
-                  ))}
-              </select>
-            </label>
+            <div className="block">
+              <span className="text-caption text-on-surface-variant">선택한 탭의 자산 목록</span>
+              <p className="mt-1 rounded-lg border border-outline-variant bg-surface px-3 py-2 text-body">
+                {selectedDataset
+                  ? `${selectedDataset.title} · ${(selectedDataset.assetCount ?? 0).toLocaleString()}건`
+                  : '위에서 조사할 본부 탭을 선택하세요'}
+              </p>
+            </div>
             <label className="block">
               <span className="text-caption text-on-surface-variant">조사 부서</span>
               <input
@@ -672,7 +729,7 @@ function SessionList({
           {error && <p className="text-error text-caption">{error}</p>}
           <button
             type="button"
-            disabled={!!busy}
+            disabled={!!busy || tabsLoading || !!tabsError || !datasetId}
             onClick={create}
             className="no-drag w-full rounded-lg bg-primary text-on-primary py-2 text-body font-medium hover:bg-primary/90 disabled:opacity-60 flex items-center justify-center gap-2"
           >
@@ -729,7 +786,7 @@ function SessionList({
                   {/* ① 본부별 현재자산 엑셀 다운로드 */}
                   <button
                     type="button"
-                    onClick={(e) => void handleDownloadExcel(s.datasetId, e)}
+                    onClick={(e) => void handleDownloadExcel(s, e)}
                     disabled={downloadingId === s.datasetId}
                     title="① 본부별 현재자산 엑셀 다운로드"
                     className="no-drag w-8 h-8 flex items-center justify-center rounded-full text-primary hover:bg-primary/10 disabled:opacity-50"
@@ -738,17 +795,19 @@ function SessionList({
                     <Icon name={downloadingId === s.datasetId ? 'progress_activity' : 'download'} className={`text-[18px] ${downloadingId === s.datasetId ? 'animate-spin' : ''}`} />
                   </button>
                   {/* ③ 완성된 재물조사 엑셀 업로드 */}
-                  <ExcelUploadButton session={s} onDone={flashDl} />
-                  <button
+                  {isAdmin && <button
                     type="button"
                     onClick={() => {
-                      if (confirm(`'${s.name}' 조사를 삭제할까요?`)) deleteSession(s.id)
+                      if (!isAdmin) return
+                      if (confirm(`'${s.name}' 조사를 삭제할까요?\n${s.parentDept} · ${s.dept}\n저장된 조사 결과 ${Object.keys(s.results).length}건이 조사 목록에서 삭제됩니다.\n이미 서버 제출 엑셀에 반영된 누적 결과와 ERP 원본은 유지됩니다.`)) {
+                        void deleteSession(s.id).catch(error => flashDl((error as Error).message))
+                      }
                     }}
                     className="no-drag w-8 h-8 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-error/10 hover:text-error"
                     aria-label="삭제"
                   >
                     <Icon name="delete" className="text-[18px]" />
-                  </button>
+                  </button>}
                 </div>
               </div>
             </div>
@@ -859,6 +918,19 @@ function SurveyRunner({
   const [ready, setReady] = useState(false)
   const [loadMsg, setLoadMsg] = useState('자산 데이터 불러오는 중...')
   const [scanOpen, setScanOpen] = useState(false)
+  const [scanInstance, setScanInstance] = useState(0)
+  // Latest scan result (인식완료/타부서자산/인식실패/이미 조사됨) shown under the camera.
+  // Kept here because the scanner is remounted after every scan.
+  const [scanFeedback, setScanFeedback] = useState<ScanFeedback | null>(null)
+  const announceScan = (kind: ScanFeedback['kind'], detail: string) => setScanFeedback({ kind, detail, key: Date.now() })
+  useEffect(() => {
+    if (!scanFeedback) return
+    const timer = setTimeout(() => setScanFeedback((current) => (current?.key === scanFeedback.key ? null : current)), SCAN_RESULT_VISIBLE_MS)
+    return () => clearTimeout(timer)
+  }, [scanFeedback])
+  const scanBusyRef = useRef(false)
+  const duplicatePendingRef = useRef(false)
+  const [duplicateAssetNo, setDuplicateAssetNo] = useState<string | null>(null)
   const [continuousScan, setContinuousScan] = useState(false)
   const [remainingOpen, setRemainingOpen] = useState(false)
   const [remainingRefresh, setRemainingRefresh] = useState(0)
@@ -867,6 +939,8 @@ function SurveyRunner({
     () => getUserScopedItem(LAST_INSTALL_DEPT_KEY)?.trim() || userDept,
   )
   const [draft, setDraft] = useState<Draft | null>(null)
+  const [photoBusy, setPhotoBusy] = useState(false)
+  const [pendingPhotoIds, setPendingPhotoIds] = useState<string[]>([])
   const [notFound, setNotFound] = useState(false)
   // ERP 대조 파일 — 마스터 미조회 자산의 자산명을 자동으로 찾아 채웁니다.
   const [erp, setErp] = useState<ErpStore | null>(null)
@@ -885,18 +959,24 @@ function SurveyRunner({
     confirmedBy: string
   } | null>(null)
   // 전사 병합용 원본 파일 (관리자)
-  const [surveyMasterFile, setSurveyMasterFile] = useState<File | null>(null)
-  const [merging, setMerging] = useState(false)
   // 검수 결과 반영 산출물 — 운영관리부 대조에 쓸 원본 양식 파일과 진행 상태
-  const [deptCompareFile, setDeptCompareFile] = useState<File | null>(null)
   const [exportBusy, setExportBusy] = useState<'erp' | 'compare' | null>(null)
+  const [workbookStatus, setWorkbookStatus] = useState('작업파일 준비 중...')
   // 재물조사 결과 서버 등록
   const [submitting, setSubmitting] = useState(false)
-  const [submitResult, setSubmitResult] = useState<{
-    ok: boolean; submitted: number; error?: string
-  } | null>(null)
+  const [submitResult, setSubmitResult] = useState<SubmissionResponse | null>(null)
 
   const stats = sessionStats(session)
+  const savedCount = Object.values(session.results).filter(r => r.confirmed && r.syncState === 'saved').length
+  const pendingCount = stats.confirmed - savedCount
+  const [bookState, setBookState] = useState<SurveySession['workbook']>(session.workbook)
+  useEffect(() => {
+    let active = true
+    const refreshBook = () => void fetchSubmissionStatus(session.id).then(state => { if (active) setBookState(state) }).catch(() => { if (active) setBookState({ status: 'unknown', error: '서버 연결을 확인해 주세요.' }) })
+    refreshBook()
+    const timer = window.setInterval(refreshBook, 15000)
+    return () => { active = false; clearInterval(timer) }
+  }, [session.id, session.workbook])
 
   useEffect(() => {
     // forceRefresh=true: 서버에서 최신 데이터 받기 (confirmedInSession 반영)
@@ -928,7 +1008,30 @@ function SurveyRunner({
       }
     })()
     return () => { alive = false }
-  }, [session.parentDept])
+  }, [session.parentDept, session.datasetId])
+
+  useEffect(() => {
+    if (!ready) return
+    let active = true
+    const save = () => {
+      setWorkbookStatus('같은 작업파일에 저장 중...')
+      void saveMasterWorkingWorkbook(session).then((file) => {
+        if (active) setWorkbookStatus(file.synced
+          ? `${file.fileName} · 자동 저장 완료`
+          : `${file.fileName} · 기기 저장 완료 (확인 결과 서버 반영 후 엑셀 내보내기 가능)`)
+      }).catch((error: unknown) => {
+        if (active) setWorkbookStatus(`작업파일 저장 실패: ${(error as Error).message}`)
+      })
+    }
+    save()
+    window.addEventListener('online', save)
+    const retry = window.setInterval(save, 30_000)
+    return () => {
+      active = false
+      window.removeEventListener('online', save)
+      window.clearInterval(retry)
+    }
+  }, [session, erp, ready])
 
   const flash = (msg: string) => {
     setToast(msg)
@@ -936,6 +1039,7 @@ function SurveyRunner({
   }
 
   const doLookup = (raw: string) => {
+    if (photoBusy) { flash('사진 처리가 끝난 뒤 자산을 조회해 주세요.'); return }
     const norm = normalizeAssetNo(raw)
     if (!norm) return
     setAiVerdict(null)
@@ -950,7 +1054,8 @@ function SurveyRunner({
       const erpFill = base.name ? undefined : lookupErp(norm)
       if (erpFill?.name) base.name = erpFill.name
       setErpHit(!!erpFill?.name)
-      setDraft(base)
+      setDraft({ ...base, photoIds: [...new Set([...base.photoIds, ...pendingPhotoIds])] })
+      setPendingPhotoIds([])
       if (asset.confirmedInSession && asset.confirmedInSession === session.id) {
         setConfirmedBanner({
           sessionId: asset.confirmedInSession,
@@ -968,7 +1073,8 @@ function SurveyRunner({
           ? draftFromErp(erpAsset, norm, userName, userDept, prev)
           : emptyDraft(norm, userName, userDept, prev)
       if (!prev && lastInstallDept) nextDraft.dept = lastInstallDept
-      setDraft(nextDraft)
+      setDraft({ ...nextDraft, photoIds: [...new Set([...nextDraft.photoIds, ...pendingPhotoIds])] })
+      setPendingPhotoIds([])
     }
   }
 
@@ -995,6 +1101,7 @@ function SurveyRunner({
   }
 
   const handleErpClear = async () => {
+    if (!isAdmin || !window.confirm('이 기기에 저장된 ERP 대조 파일을 삭제할까요? 서버 원본은 유지됩니다.')) return
     await clearErpFile()
     setErp(null)
     setErpHit(false)
@@ -1026,19 +1133,9 @@ function SurveyRunner({
     if (!erp) { flash('먼저 ERP 자산현황 파일을 등록하세요.'); return }
     setExportBusy('erp')
     try {
-      const { buildErpWithInspection } = await import('./inspectionExport')
-      const built = await buildErpWithInspection(erp, session)
-      const summary = `자산 ${built.total}행 중 ${built.filled}행 검수 반영`
-      const saved = await uploadInventoryFile({
-        blob: built.blob,
-        fileName: built.fileName,
-        kind: 'erp-inspection',
-        parentDept: session.parentDept,
-        sessionId: session.id,
-        summary,
-      })
-      saveBlobAs(built.blob, built.fileName)
-      flash(saved.ok ? `${summary} — 서버 보관 + 기기 저장 완료` : `${summary} — 기기 저장됨 (서버 보관 실패: ${saved.error})`)
+      const saved = await saveWorkingWorkbook(session, erp)
+      saveBlobAs(saved.blob, saved.fileName)
+      flash(saved.synced ? '누적 작업파일 사본을 다운로드했습니다.' : '기기에 저장된 최신 작업파일 사본을 다운로드했습니다.')
     } catch (e) {
       flash(`검수 반영 파일 생성 실패: ${(e as Error).message}`)
     } finally {
@@ -1047,35 +1144,17 @@ function SurveyRunner({
   }
 
   /** ② 운영관리부 양식의 설치부서를 ERP와 대조해 노랑(동일)/주황(변경)으로 칠한 파일 */
-  const exportDeptComparison = async () => {
-    if (!erp) { flash('먼저 ERP 자산현황 파일을 등록하세요.'); return }
-    if (!deptCompareFile) { flash('운영관리부 재물조사 양식 파일을 첨부하세요.'); return }
-    setExportBusy('compare')
-    try {
-      const { buildDeptComparison } = await import('./inspectionExport')
-      const built = await buildDeptComparison(await deptCompareFile.arrayBuffer(), erp, session)
-      const summary = `동일 ${built.same} · 변경 ${built.changed} · 미대조 ${built.unmatched}`
-      const saved = await uploadInventoryFile({
-        blob: built.blob,
-        fileName: built.fileName,
-        kind: 'dept-comparison',
-        parentDept: session.parentDept,
-        sessionId: session.id,
-        summary,
-      })
-      saveBlobAs(built.blob, built.fileName)
-      flash(saved.ok ? `${summary} — 서버 보관 + 기기 저장 완료` : `${summary} — 기기 저장됨 (서버 보관 실패: ${saved.error})`)
-    } catch (e) {
-      flash(`대조 파일 생성 실패: ${(e as Error).message}`)
-    } finally {
-      setExportBusy(null)
+  const processScan = async (text: string) => {
+    // React may batch close + reopen after a quick save. A new key guarantees
+    // that the stopped scanner is replaced rather than reused with handled=true.
+    const closeScanner = () => {
+      setScanInstance((value) => value + 1)
+      setScanOpen(false)
     }
-  }
-
-  const handleScan = async (text: string) => {
-    setScanOpen(false)
     const norm = normalizeAssetNo(text)
     if (!isValidScannedAssetNo(norm)) {
+      closeScanner()
+      announceScan('failure', `자산번호 형식이 아닙니다: ${text.trim().slice(0, 40)}`)
       flash('자산번호를 정확히 인식하지 못했습니다. 다시 카메라로 찍으세요.')
       // QrScanner가 판독 직후 카메라 트랙을 종료하므로 다음 렌더에서 새로 엽니다.
       setTimeout(() => setScanOpen(true), 0)
@@ -1084,17 +1163,50 @@ function SurveyRunner({
 
     const scannedAsset = lookupAsset(session.datasetId, norm)
     const scannedErpAsset = lookupErp(norm)
+    const aliases = [norm, scannedAsset?.assetNo, scannedAsset?.oldAssetNo,
+      scannedErpAsset?.assetNo, scannedErpAsset?.oldAssetNo].filter((id): id is string => !!id)
+    const sessions = await getSessions()
+    const previous = [session, ...sessions].filter((item) => item.datasetId === session.datasetId)
+      .map((item) => findSavedAsset(item.results, aliases)?.[1])
+      .find((result) => result?.confirmed)
+    if (previous || scannedAsset?.confirmedInSession) {
+      closeScanner()
+      announceScan('duplicate', `${previous?.assetNo || scannedAsset?.assetNo || norm} · 이미 확인된 자산입니다.`)
+      clearDraft()
+      setManual('')
+      duplicatePendingRef.current = true
+      setDuplicateAssetNo(previous?.assetNo || scannedAsset?.assetNo || norm)
+      return
+    }
     if (!scannedAsset && !scannedErpAsset) {
+      closeScanner()
+      announceScan('failure', `${norm} · 조회되지 않는 자산입니다. 본부 재물조사 담당자에게 문의해주세요.`)
       flash('조회되지 않는 자산입니다. 본부 재물조사 담당자에게 문의해주세요.')
       setTimeout(() => setScanOpen(true), 0)
       return
     }
 
+    // 타부서자산: this 본부's master lists another 설치부서, or only the company ERP knows it (another 본부).
+    const compact = (value: string) => value.replace(/\s+/g, '')
+    const surveyDept = compact(session.dept)
+    const assetDept = compact(scannedAsset?.dept ?? '')
+    const otherDept = !scannedAsset || (!!surveyDept && !!assetDept && !surveyDept.endsWith(assetDept) && !assetDept.endsWith(surveyDept))
+    const matchedNo = scannedAsset?.assetNo ?? scannedErpAsset?.assetNo ?? norm
+    // Old labels (e.g. QM430056000) resolve to the current number; show both so the match is clear.
+    const oldLabel = looseAssetKey(matchedNo) !== looseAssetKey(norm) ? ` (구형 라벨 ${norm})` : ''
+    const assetLabel = `${matchedNo}${oldLabel}${(scannedAsset ?? scannedErpAsset)?.name ? ` · ${(scannedAsset ?? scannedErpAsset)!.name}` : ''}`
+    const otherDeptDetail = scannedAsset
+      ? `${assetLabel} · 설치부서 ${scannedAsset.dept || '미지정'} (조사부서 ${session.dept})`
+      : `${assetLabel} · 이 본부 마스터에 없는 다른 본부 자산입니다.`
+    announceScan(otherDept ? 'otherDept' : 'success', otherDept ? otherDeptDetail : assetLabel)
+
     setManual(norm)
 
-    if (continuousScan) {
+    if (continuousScan && pendingPhotoIds.length === 0) {
+      closeScanner()
       // Already surveyed → alert and open for edit
-      if (session.results[norm]) {
+      if (findSavedAsset(session.results, aliases)) {
+        announceScan('duplicate', `${assetLabel} · 이 조사에서 이미 저장했습니다.`)
         flash(`이미 조사된 자산입니다: ${norm}`)
         doLookup(text)
         return
@@ -1134,15 +1246,97 @@ function SurveyRunner({
       setRemainingRefresh((value) => value + 1)
       flash(`✓ 저장: ${asset.assetNo}`)
       setManual('')
-      // Re-open scanner for next scan
+      // Re-open scanner for next scan; it shows the result banner set above.
       setScanOpen(true)
       return
     }
 
+    // Single scan: keep the (stopped) scanner up briefly so the result is seen under it.
+    await new Promise((resolve) => setTimeout(resolve, SCAN_RESULT_HOLD_MS))
+    closeScanner()
     doLookup(text)
   }
 
+  /** Printed asset numbers read by OCR → this 본부's master assets. Only readings matching a real asset count. */
+  const matchOcrAssets = async (ocrText: string): Promise<Asset[]> => {
+    const { extractAssetCandidates, matchOcrCandidate } = await import('./assetOcr')
+    const assets = getLoadedDataset(session.datasetId)?.assets ?? []
+    const found = new Map<string, Asset>()
+    for (const candidate of extractAssetCandidates(ocrText)) {
+      const asset = matchOcrCandidate(candidate, assets, (no) => lookupAsset(session.datasetId, no))
+      if (asset) found.set(asset.assetNo, asset)
+    }
+    return [...found.values()]
+  }
+
+  /** 사진 분석 fallback for photos without QR/barcode. */
+  const resolvePhotoOcr = async (ocrText: string): Promise<PhotoCodeMatch[]> =>
+    Promise.all((await matchOcrAssets(ocrText)).map(async (asset) => ({ ...(await resolvePhotoCode(asset.assetNo)), viaOcr: true })))
+
+  /** Camera "번호 글자 읽기": OCR the current frame and continue as a normal scan. */
+  const handleOcrFrame = async (frame: HTMLCanvasElement) => {
+    const { recognizeAssetText } = await import('./assetOcr')
+    const [asset] = await matchOcrAssets(await recognizeAssetText(frame))
+    if (!asset) {
+      announceScan('failure', '글자에서 자산번호를 찾지 못했습니다. 번호가 화면 가운데에 크고 반듯하게, 반사 없이 보이게 다시 찍어 주세요.')
+      return
+    }
+    await handleScan(asset.assetNo)
+  }
+
+  /** Same lookup and duplicate rules as a camera scan, for codes read from saved photos. */
+  const resolvePhotoCode = async (decodedText: string): Promise<PhotoCodeMatch> => {
+    const code = normalizeAssetNo(extractAssetNoFromScan(decodedText))
+    if (!isValidScannedAssetNo(code)) return { code: decodedText.trim(), state: 'invalid' }
+    const asset = lookupAsset(session.datasetId, code)
+    if (!asset) return { code, state: 'other', name: lookupErp(code)?.name }
+    const aliases = [code, asset.assetNo, asset.oldAssetNo].filter((id): id is string => !!id)
+    const sessions = await getSessions()
+    const surveyed = asset.confirmedInSession || [session, ...sessions]
+      .filter((item) => item.datasetId === session.datasetId)
+      .some((item) => findSavedAsset(item.results, aliases)?.[1]?.confirmed)
+    return { code, state: surveyed ? 'surveyed' : 'new', assetNo: asset.assetNo, name: asset.name }
+  }
+
+  /** Records assets found in photos as 정상, like continuous-scan auto-save. */
+  const applyPhotoAssets = async (assetNos: string[]) => {
+    let saved = 0
+    for (const assetNo of assetNos) {
+      const asset = lookupAsset(session.datasetId, assetNo)
+      if (!asset) continue
+      await upsertResult(session.id, {
+        assetNo: asset.assetNo,
+        name: asset.name,
+        location: asset.location,
+        dept: asset.dept,
+        model: asset.model,
+        spec: asset.spec,
+        status: '정상',
+        stickerMissing: false,
+        note: '',
+        confirmed: true,
+        verifier: userName,
+        verifierDept: userDept,
+        surveyedAt: new Date().toISOString(),
+        matched: true,
+      })
+      saved++
+    }
+    setRemainingRefresh((value) => value + 1)
+    flash(`✓ 사진에서 ${saved}건 저장했습니다. 최종 등록으로 서버에 반영하세요.`)
+    return saved
+  }
+
+  const handleScan = async (text: string) => {
+    if (scanBusyRef.current || duplicatePendingRef.current) return
+    scanBusyRef.current = true
+    try { await processScan(text) }
+    catch (error) { flash(`스캔 처리 실패: ${(error as Error).message}`) }
+    finally { scanBusyRef.current = false }
+  }
+
   const save = async () => {
+    if (photoBusy) { flash('사진 처리가 끝난 뒤 저장해 주세요.'); return }
     if (!draft) return
     const result: SurveyResult = {
       assetNo: draft.assetNo,
@@ -1202,36 +1396,20 @@ function SurveyRunner({
   }
 
   // 파일③: 본부별 결과 엑셀 다운로드
-  const exportDivisionResult = () => {
+  const exportDivisionResult = async () => {
     const dataset = getLoadedDataset(session.datasetId)
     const assets = dataset?.assets ?? []
-    const name = downloadDivisionResult(session, assets)
+    const name = await downloadDivisionResult(session, assets)
     flash(`파일③ 내보내기: ${name}`)
   }
 
   // 기존 세션 단순 엑셀
-  const exportExcel = () => {
-    const name = downloadSessionExcel(session)
+  const exportExcel = async () => {
+    const name = await downloadSessionExcel(session)
     flash(`엑셀 내보내기: ${name}`)
   }
 
   // 전사 병합: 운영관리부 원본 파일에 본부 결과 덮어쓰기
-  const doMergeSurveyFile = async () => {
-    if (!surveyMasterFile) return
-    setMerging(true)
-    try {
-      const buf = await surveyMasterFile.arrayBuffer()
-      const { wb } = await buildMergedSurveyWorkbook(buf, session)
-      const name = downloadMergedSurveyFile(wb, session)
-      flash(`전사 병합 완료: ${name}`)
-      setSurveyMasterFile(null)
-    } catch (e) {
-      flash(`병합 실패: ${(e as Error).message}`)
-    } finally {
-      setMerging(false)
-    }
-  }
-
   const upload = async () => {
     const res = await uploadSession(session)
     flash(res.message)
@@ -1240,63 +1418,33 @@ function SurveyRunner({
 
   // 재물조사 완료 후 서버에 최종 등록 (완료 처리 포함)
   const submitToServer = async () => {
-    const resultList = Object.values(session.results)
-    if (resultList.length === 0) {
-      flash('조사된 자산이 없습니다.')
-      return
-    }
-    if (!confirm(`조사 결과 ${resultList.length}건을 서버에 최종 등록하고 완료 처리 하시겠습니까?`)) return
     setSubmitting(true)
     setSubmitResult(null)
-    // 서버에 세션이 없을 수 있으므로 먼저 임시 동기화
-    await uploadSession(session)
-    const res = await submitSurveyResults(session.id, resultList)
-    setSubmitting(false)
-    setSubmitResult(res)
-    if (res.ok) {
-      setRemainingRefresh((value) => value + 1)
-      // 조사 결과를 반영한 사용자별 ERP 작업파일을 기기에 저장하고 서버에도 보관합니다.
-      if (erp) {
-        try {
-          const { buildErpWithInspection } = await import('./inspectionExport')
-          const built = await buildErpWithInspection(erp, session)
-          saveBlobAs(built.blob, built.fileName)
-          const saved = await uploadInventoryFile({
-            blob: built.blob,
-            fileName: built.fileName,
-            kind: 'erp-inspection',
-            parentDept: session.parentDept,
-            sessionId: session.id,
-            summary: `조사자 ${session.createdBy} · 부서 ${session.dept || '-'} · ${built.filled}/${built.total}건 반영`,
-          })
-          flash(saved.ok
-            ? `✅ ${res.submitted}건 등록 및 ${built.fileName} 서버 보관 완료`
-            : `조사 결과는 등록됐지만 ERP 파일 보관 실패: ${saved.error}`)
-        } catch (e) {
-          flash(`조사 결과는 등록됐지만 ERP 파일 생성 실패: ${(e as Error).message}`)
-        }
-      } else {
-        flash(`✅ ${res.submitted}건 서버 등록 완료!`)
-      }
-    } else {
-      flash(`등록 실패: ${res.error}`)
-    }
+    try {
+      const response = await requestSubmission(session.id)
+      setSubmitResult(response)
+      setRemainingRefresh(value => value + 1)
+    } catch (error) { flash((error as Error).message) }
+    finally { setSubmitting(false) }
   }
 
   const editExisting = (assetNo: string) => {
+    if (photoBusy) { flash('사진 처리가 끝난 뒤 자산을 선택해 주세요.'); return }
     const r = session.results[assetNo]
     if (!r) return
     setManual(assetNo)
     const asset = r.matched ? lookupAsset(session.datasetId, assetNo) : undefined
-    setDraft(asset ? draftFromAsset(asset, userName, userDept, r) : emptyDraft(assetNo, userName, userDept, r))
+    const next = asset ? draftFromAsset(asset, userName, userDept, r) : emptyDraft(assetNo, userName, userDept, r)
+    setDraft({ ...next, photoIds: [...new Set([...next.photoIds, ...pendingPhotoIds])] })
+    setPendingPhotoIds([])
     setNotFound(!r.matched)
     setAiVerdict(r.aiVerdict ?? null)
   }
 
   const deleteResult = (assetNo: string) => {
+    if (!isAdmin || !window.confirm(`자산 ${assetNo}의 저장된 조사 내역을 삭제할까요?`)) return
     const r = session.results[assetNo]
-    if (r?.photoIds?.length) void deletePhotos(r.photoIds)
-    void removeResult(session.id, assetNo)
+    void removeResult(session.id, assetNo).then(() => { if (r?.photoIds?.length) void deletePhotos(r.photoIds) }).catch(error => flash((error as Error).message))
   }
 
   const savedList = Object.values(session.results).sort((a, b) =>
@@ -1323,6 +1471,51 @@ function SurveyRunner({
         </div>
       </div>
 
+      <p className="text-caption text-on-surface-variant" role="status">{workbookStatus}</p>
+      <PublishedSubmissionDownload showPreview={isAdmin}>
+<div className="rounded-lg border border-outline-variant bg-surface-container-low p-2.5 space-y-2">
+              <p className="text-caption font-medium text-on-surface-variant">엑셀 내보내기</p>
+              <div className="flex flex-wrap gap-1.5">
+                {/* 파일③: 본부별 결과 */}
+                <button type="button" onClick={exportDivisionResult}
+                  className="no-drag inline-flex items-center gap-1.5 rounded-lg bg-primary/10 text-primary px-3 py-1.5 text-label hover:bg-primary/20">
+                  <Icon name="table_chart" className="text-[16px]" />본부별 결과 엑셀
+                </button>
+                {/* 기존 세션 엑셀 */}
+                <button type="button" onClick={exportExcel}
+                  className="no-drag inline-flex items-center gap-1.5 rounded-lg border border-outline-variant px-3 py-1.5 text-label hover:bg-surface-container-high">
+                  <Icon name="download" className="text-[16px]" />전체 내보내기
+                </button>
+              </div>
+
+              {/* 검수 결과 반영 — 서버 보관 + 기기 저장 */}
+              {isAdmin && <div className="pt-1 border-t border-outline-variant/50 space-y-1.5">
+                <p className="text-[11px] leading-relaxed text-on-surface-variant">
+                  조사 결과는 같은 작업파일에 자동 저장됩니다. 다운로드하면 현재까지의 결과 사본을 받습니다.
+                </p>
+                {!erp && (
+                  <p className="text-[11px] text-warning">
+                    ERP 자산현황이 필요합니다 — 관리자가 설정 탭에서 이 본부의 ERP 파일을 등록하면 자동으로 불러옵니다.
+                  </p>
+                )}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => void exportErpInspection()}
+                    disabled={!erp || exportBusy !== null}
+                    className="no-drag inline-flex items-center gap-1.5 rounded-lg bg-primary/10 text-primary px-3 py-1.5 text-label hover:bg-primary/20 disabled:opacity-50"
+                  >
+                    {exportBusy === 'erp'
+                      ? <><Icon name="progress_activity" className="animate-spin text-[16px]" />만드는 중...</>
+                      : <><Icon name="playlist_add_check" className="text-[16px]" />누적 작업파일 다운로드</>
+                    }
+                  </button>
+                </div>
+              </div>}
+
+            </div>
+      </PublishedSubmissionDownload>
+      {bookState?.status === 'ready' && <p className="rounded-lg bg-success/10 px-3 py-2 text-caption" role="status">서버 조사 결과 누적 반영 {bookState.applied ?? '확인 중'}건 · 미매칭 {bookState.unmatched ?? 0}건 · 위 메뉴에서 본부·부서·입력자별로 엑셀을 다운로드할 수 있습니다.</p>}
       {!ready ? (
         <div className="flex items-center justify-center gap-2 text-on-surface-variant text-body-sm py-8">
           <Icon name="progress_activity" className="animate-spin" />
@@ -1335,6 +1528,7 @@ function SurveyRunner({
             <button
               type="button"
               onClick={() => setScanOpen(true)}
+              disabled={photoBusy}
               className="no-drag flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-primary text-on-primary py-2.5 text-body font-medium hover:bg-primary/90"
             >
               <Icon name="qr_code_scanner" />
@@ -1353,7 +1547,33 @@ function SurveyRunner({
               <Icon name="bolt" className="text-[18px]" />
               {continuousScan ? '연속ON' : '연속'}
             </button>
+            <PhotoBarcodeImport
+              disabled={photoBusy}
+              photoIds={draft?.photoIds ?? pendingPhotoIds}
+              resolve={resolvePhotoCode}
+              resolveOcr={resolvePhotoOcr}
+              onApply={async (assetNos) => {
+                const saved = await applyPhotoAssets(assetNos)
+                // Pending photos would otherwise attach to the next saved asset; they were label shots for analysis.
+                if (!draft && saved) {
+                  void deletePhotos(pendingPhotoIds)
+                  setPendingPhotoIds([])
+                }
+                return saved
+              }}
+              onNotice={flash}
+            />
           </div>
+
+          <GalleryPhotos key={`${session.id}:${draft?.assetNo ?? 'no-asset'}`} ids={draft?.photoIds ?? pendingPhotoIds} assetNo={draft?.assetNo} onBusy={setPhotoBusy}
+            onAdd={ids => {
+              if (!draft) setPendingPhotoIds(current => [...current, ...ids])
+              else setDraft(current => current && current.assetNo === draft.assetNo ? { ...current, photoIds: [...current.photoIds, ...ids] } : current)
+            }}
+            onRemove={id => {
+              if (!draft) setPendingPhotoIds(current => current.filter(value => value !== id))
+              else setDraft(current => current && current.assetNo === draft.assetNo ? { ...current, photoIds: current.photoIds.filter(value => value !== id) } : current)
+            }} />
 
           {/* 같은 부서의 모든 조사자가 서버에 올린 결과를 합산한 미확인 목록 */}
           <div className="overflow-hidden rounded-lg border border-outline-variant bg-surface-container-low">
@@ -1444,7 +1664,7 @@ function SurveyRunner({
                 </>
               ) : (
                 <p className="text-[11px] leading-relaxed text-warning">
-                  {session.parentDept}에 등록된 ERP 자산현황이 서버에 없습니다. 관리자에게 등록을 요청하거나 직접 첨부하세요.
+                  마스터 자산 목록으로 조사할 수 있습니다. ERP 파일은 추가 조회가 필요한 경우에만 사용합니다.
                 </p>
               )}
             </div>
@@ -1471,7 +1691,7 @@ function SurveyRunner({
                 }}
               />
             </label>
-            {erp && (
+            {erp && isAdmin && (
               <button
                 type="button"
                 onClick={() => void handleErpClear()}
@@ -1643,6 +1863,7 @@ function SurveyRunner({
                 <button
                   type="button"
                   onClick={save}
+                  disabled={photoBusy}
                   className="no-drag flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary text-on-primary px-3 py-2 text-body-sm font-medium hover:bg-primary/90"
                 >
                   <Icon name="save" className="text-[16px]" />
@@ -1655,40 +1876,23 @@ function SurveyRunner({
           {/* Actions */}
           <div className="space-y-2">
             {/* ── 엑셀 다운로드 → 작성 → 업로드 워크플로 (핵심) ── */}
-            <div className="rounded-xl border-2 border-success/30 bg-success/4 p-3 space-y-2">
-              <p className="text-caption font-semibold text-on-surface flex items-center gap-1.5">
-                <Icon name="table_chart" className="text-[16px] text-success" />
-                엑셀로 재물조사 (권장)
-              </p>
-              <p className="text-[11px] text-on-surface-variant">
-                ① 자산현황 엑셀을 받아 부서확인 열을 부서별로 채운 뒤 ③ 완성 파일을 업로드하면 결과가 자동 등록됩니다.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => void downloadDatasetExcel(session.datasetId)}
-                  className="no-drag inline-flex items-center gap-1.5 rounded-lg bg-primary/10 text-primary px-3 py-2 text-label font-medium hover:bg-primary/20"
-                >
-                  <Icon name="download" className="text-[16px]" />
-                  ① 자산현황 엑셀 받기
-                </button>
-                <ExcelUploadButton session={session} onDone={(msg) => flash(msg)} />
-              </div>
-            </div>
+            
 
             {/* ★ QR 스캔 결과 서버 등록 */}
             <div className="rounded-xl border border-outline-variant bg-surface-container-low p-3 space-y-2">
               <p className="text-caption font-semibold text-on-surface flex items-center gap-1.5">
                 <Icon name="cloud_upload" className="text-[16px] text-primary" />
-                QR 스캔 결과 서버 등록
+                확인 결과 서버 반영
               </p>
               <p className="text-[11px] text-on-surface-variant">
-                QR 스캔으로 조사한 결과를 서버에 최종 등록합니다. 등록 후 완료 처리됩니다.
+                확인된 신규·수정 항목만 서버에 전송합니다. 반영 후에도 조사를 계속할 수 있습니다.
               </p>
+              <p className="text-caption">대상 {(getLoadedDataset(session.datasetId)?.assets || []).filter(asset => !session.dept || asset.dept.trim() === session.dept.trim()).length}건 · 확인 완료 {stats.confirmed}건 · 서버 미반영 {pendingCount}건 · 서버 반영 {savedCount}건</p>
+              <p className="text-caption" role="status">제출 엑셀: {bookState?.status === 'ready' ? '반영 완료' : bookState?.status === 'error' ? '갱신 실패 · 다시 반영을 눌러 재시도' : bookState?.status === 'unknown' ? '상태 확인 불가' : '반영 대기'}{bookState?.generatedAt && ` · ${new Date(bookState.generatedAt).toLocaleString('ko-KR')}`}{!!bookState?.unmatched && ` · 미매칭 ${bookState.unmatched}건 관리자 확인 필요`}</p>
               {submitResult?.ok && (
                 <div className="flex items-center gap-1.5 rounded-lg bg-success/10 border border-success/30 px-2.5 py-2 text-caption text-success">
                   <Icon name="check_circle" className="text-[16px]" />
-                  {submitResult.submitted}건 등록 완료
+                  신규 {submitResult.added}건 · 수정 {submitResult.updated}건 · 중복 {submitResult.duplicates}건 · 실패 {submitResult.failed}건 · 서버 저장 완료
                 </div>
               )}
               {submitResult && !submitResult.ok && (
@@ -1697,6 +1901,14 @@ function SurveyRunner({
                   {submitResult.error}
                 </div>
               )}
+              {Object.values(session.results).filter(r => r.conflict).map(result => <div key={result.assetNo} className="rounded border border-warning p-2 text-caption space-y-2">
+                <p className="font-semibold">{result.assetNo} · 다른 조사 결과와 충돌</p>
+                <p>서버: {result.conflict!.result.verifier} ({result.conflict!.result.verifierDept}) · {result.conflict!.result.dept} / {result.conflict!.result.location} · {result.conflict!.result.status} · {result.conflict!.result.surveyedAt}</p>
+                <p>내 결과: {result.verifier} ({result.verifierDept}) · {result.dept} / {result.location} · {result.status} · {result.surveyedAt}</p>
+                <p>서버 비고: {result.conflict!.result.note || '-'} / 내 비고: {result.note || '-'}</p>
+                <div className="flex gap-2"><button type="button" className="rounded bg-primary text-on-primary px-2 py-1" onClick={() => void resolveSubmissionConflict(session.id, result.assetNo, false)}>서버 결과 유지</button><button type="button" className="rounded border border-outline-variant px-2 py-1" onClick={() => void resolveSubmissionConflict(session.id, result.assetNo, true)}>내 결과로 변경 준비</button></div>
+                <p>내 결과를 선택한 뒤 ‘서버에 반영’을 누르면 변경합니다.</p>
+              </div>)}
               <button
                 type="button"
                 disabled={submitting || stats.total === 0}
@@ -1706,7 +1918,7 @@ function SurveyRunner({
                 {submitting ? (
                   <><Icon name="progress_activity" className="animate-spin text-[18px]" />등록 중...</>
                 ) : (
-                  <><Icon name="send" className="text-[18px]" />조사 결과 {stats.total}건 서버에 등록</>
+                  <><Icon name="send" className="text-[18px]" />확인 결과 {pendingCount}건 서버에 반영{pendingCount === 0 ? ' / 엑셀 재확인' : ''}</>
                 )}
               </button>
             </div>
@@ -1715,10 +1927,11 @@ function SurveyRunner({
             <div className="flex flex-wrap gap-2">
               <button type="button" onClick={upload}
                 className="no-drag inline-flex items-center gap-1.5 rounded-lg border border-outline-variant px-3 py-1.5 text-label hover:bg-surface-container-high">
-                <Icon name="sync" className="text-[18px]" />임시 동기화
+                  <Icon name="sync" className="text-[18px]" />서버 반영 재시도
               </button>
               <button type="button"
                 onClick={() => markCompleted(session.id, !session.completed)}
+                disabled={!session.completed && (pendingCount > 0 || bookState?.status !== 'ready')}
                 className={`no-drag inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-label ${
                   session.completed ? 'bg-success/15 text-success' : 'border border-outline-variant hover:bg-surface-container-high'
                 }`}>
@@ -1728,93 +1941,7 @@ function SurveyRunner({
             </div>
 
             {/* 엑셀 내보내기 */}
-            <div className="rounded-lg border border-outline-variant bg-surface-container-low p-2.5 space-y-2">
-              <p className="text-caption font-medium text-on-surface-variant">엑셀 내보내기</p>
-              <div className="flex flex-wrap gap-1.5">
-                {/* 파일③: 본부별 결과 */}
-                <button type="button" onClick={exportDivisionResult}
-                  className="no-drag inline-flex items-center gap-1.5 rounded-lg bg-primary/10 text-primary px-3 py-1.5 text-label hover:bg-primary/20">
-                  <Icon name="table_chart" className="text-[16px]" />본부별 결과 엑셀
-                </button>
-                {/* 기존 세션 엑셀 */}
-                <button type="button" onClick={exportExcel}
-                  className="no-drag inline-flex items-center gap-1.5 rounded-lg border border-outline-variant px-3 py-1.5 text-label hover:bg-surface-container-high">
-                  <Icon name="download" className="text-[16px]" />전체 내보내기
-                </button>
-              </div>
-
-              {/* 검수 결과 반영 — 서버 보관 + 기기 저장 */}
-              <div className="pt-1 border-t border-outline-variant/50 space-y-1.5">
-                <p className="text-[11px] leading-relaxed text-on-surface-variant">
-                  검수 결과를 엑셀에 반영합니다. 만든 파일은 서버에 보관되고 기기에도 저장됩니다.
-                </p>
-                {!erp && (
-                  <p className="text-[11px] text-warning">
-                    ERP 자산현황이 필요합니다 — 관리자가 설정 탭에서 이 본부의 ERP 파일을 등록하면 자동으로 불러옵니다.
-                  </p>
-                )}
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => void exportErpInspection()}
-                    disabled={!erp || exportBusy !== null}
-                    className="no-drag inline-flex items-center gap-1.5 rounded-lg bg-primary/10 text-primary px-3 py-1.5 text-label hover:bg-primary/20 disabled:opacity-50"
-                  >
-                    {exportBusy === 'erp'
-                      ? <><Icon name="progress_activity" className="animate-spin text-[16px]" />만드는 중...</>
-                      : <><Icon name="playlist_add_check" className="text-[16px]" />검수 반영 ERP 파일</>
-                    }
-                  </button>
-                  <label className="no-drag inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-outline-variant px-2.5 py-1.5 text-label text-on-surface-variant hover:bg-surface-container-high">
-                    <Icon name="upload_file" className="text-[16px]" />
-                    <span className="max-w-[160px] truncate">
-                      {deptCompareFile ? deptCompareFile.name : '운영관리부 양식 첨부'}
-                    </span>
-                    <input
-                      type="file"
-                      accept=".xlsx"
-                      className="hidden"
-                      onChange={(e) => setDeptCompareFile(e.target.files?.[0] ?? null)}
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => void exportDeptComparison()}
-                    disabled={!erp || !deptCompareFile || exportBusy !== null}
-                    className="no-drag inline-flex items-center gap-1.5 rounded-lg bg-secondary/15 text-secondary px-3 py-1.5 text-label hover:bg-secondary/25 disabled:opacity-50"
-                  >
-                    {exportBusy === 'compare'
-                      ? <><Icon name="progress_activity" className="animate-spin text-[16px]" />대조 중...</>
-                      : <><Icon name="palette" className="text-[16px]" />설치부서 대조 (노랑/주황)</>
-                    }
-                  </button>
-                </div>
-              </div>
-
-              {/* 전사 병합 — 관리자 전용 */}
-              {isAdmin && (
-                <div className="pt-1 border-t border-outline-variant/50">
-                  <p className="text-[11px] text-on-surface-variant mb-1.5">
-                    [관리자] 운영관리부 전체 양식 파일에 이 본부 결과를 병합해 저장합니다.
-                  </p>
-                  <label className="no-drag inline-flex items-center gap-1.5 rounded-lg border border-outline-variant px-2.5 py-1.5 text-label cursor-pointer hover:bg-surface-container-high text-on-surface-variant">
-                    <Icon name="upload_file" className="text-[16px]" />
-                    {surveyMasterFile ? surveyMasterFile.name : '전체 양식 파일 첨부'}
-                    <input type="file" accept=".xlsx" className="hidden"
-                      onChange={(e) => setSurveyMasterFile(e.target.files?.[0] ?? null)} />
-                  </label>
-                  {surveyMasterFile && (
-                    <button type="button" onClick={() => void doMergeSurveyFile()} disabled={merging}
-                      className="no-drag ml-2 inline-flex items-center gap-1.5 rounded-lg bg-secondary/15 text-secondary px-3 py-1.5 text-label hover:bg-secondary/25 disabled:opacity-50">
-                      {merging
-                        ? <><Icon name="progress_activity" className="animate-spin text-[16px]" />병합 중...</>
-                        : <><Icon name="merge" className="text-[16px]" />전사 파일에 병합 저장</>
-                      }
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
+            
           </div>
 
           {/* Saved items */}
@@ -1846,14 +1973,14 @@ function SurveyRunner({
                     {r.location || '-'} · 확인자 {r.verifier}
                   </p>
                 </button>
-                <button
+                {isAdmin && <button
                   type="button"
                   onClick={() => deleteResult(r.assetNo)}
                   className="no-drag shrink-0 w-7 h-7 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-error/10 hover:text-error"
                   aria-label="내역 삭제"
                 >
                   <Icon name="delete" className="text-[16px]" />
-                </button>
+                </button>}
               </div>
             ))}
             {savedList.length === 0 && (
@@ -1865,7 +1992,12 @@ function SurveyRunner({
         </>
       )}
 
-      {scanOpen && <QrScanner onResult={handleScan} onClose={() => setScanOpen(false)} />}
+      {scanOpen && <QrScanner key={scanInstance} onResult={handleScan} onClose={() => setScanOpen(false)} feedback={scanFeedback} onOcrFrame={handleOcrFrame} />}
+      {duplicateAssetNo !== null && <ConfirmedAssetDialog assetNo={duplicateAssetNo} onConfirm={() => {
+        setDuplicateAssetNo(null)
+        duplicatePendingRef.current = false
+        if (continuousScan) setScanOpen(true)
+      }} />}
 
       {toast && (
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[70] rounded-full bg-on-surface text-surface px-4 py-2 text-body-sm shadow-lg">
@@ -1912,11 +2044,12 @@ function ResultFileRow({ file }: { file: InventoryFileMeta }) {
           <p className="text-caption text-on-surface-variant truncate">
             {file.parentDept || '본부 미지정'}
             {file.summary && <> · {file.summary}</>}
+            {file.workbookStatus && file.workbookStatus !== 'ready' && <> · 최신 결과 엑셀 반영 대기</>}
             <> · {file.createdAt.slice(0, 16).replace('T', ' ')}</>
             <> · {(file.size / 1024).toFixed(0)} KB</>
           </p>
         </div>
-        <button type="button" onClick={() => void download()} disabled={busy}
+        <button type="button" onClick={() => void download()} disabled={busy || (!!file.workbookStatus && file.workbookStatus !== 'ready')}
           className="no-drag shrink-0 inline-flex items-center gap-1 rounded-lg border border-outline-variant px-2.5 py-1.5 text-label hover:bg-surface-container-high disabled:opacity-50">
           <Icon name={busy ? 'progress_activity' : 'download'} className={`text-[16px] ${busy ? 'animate-spin' : ''}`} />
           내려받기
@@ -1962,17 +2095,14 @@ function ResultFileSection({
 function DatasetManager({ isAdmin }: { isAdmin: boolean }) {
   const [rows, setRows] = useState<DatasetRow[]>([])
   const [inspectionFiles, setInspectionFiles] = useState<InventoryFileMeta[]>([])
-  const [comparisonFiles, setComparisonFiles] = useState<InventoryFileMeta[]>([])
   const [busy, setBusy] = useState(true)
-
   const refresh = async () => {
     setBusy(true)
     try {
-      const [all, server, erpFiles, cmpFiles] = await Promise.all([
+      const [all, server, erpFiles] = await Promise.all([
         getAllDatasetSources(),
         fetchServerDatasets(),
         fetchInventoryFiles({ kind: 'erp-inspection' }),
-        fetchInventoryFiles({ kind: 'dept-comparison' }),
       ])
       const byId = new Map(server.map((d) => [d.id, d]))
       setRows(
@@ -1989,13 +2119,19 @@ function DatasetManager({ isAdmin }: { isAdmin: boolean }) {
         }),
       )
       setInspectionFiles(erpFiles)
-      setComparisonFiles(cmpFiles)
     } finally {
       setBusy(false)
     }
   }
 
-  useEffect(() => { void refresh() }, [])
+  useEffect(() => {
+    const update = () => { if (!document.hidden) void refresh().catch(() => {}) }
+    update()
+    const timer = window.setInterval(update, 15000)
+    window.addEventListener('focus', update)
+    window.addEventListener('inventory-server-updated', update)
+    return () => { clearInterval(timer); window.removeEventListener('focus', update); window.removeEventListener('inventory-server-updated', update) }
+  }, [])
 
   return (
     <div className="space-y-4">
@@ -2045,20 +2181,13 @@ function DatasetManager({ isAdmin }: { isAdmin: boolean }) {
 
           {/* 현장에서 올라온 산출물 */}
           <div className="space-y-4 pt-2 border-t border-outline-variant">
-            <ResultFileSection
+            {!isAdmin && <ResultFileSection
               icon="playlist_add_check"
               title="부서별 자산 현황 파일 (검수 반영)"
               hint="현장에서 검수한 결과가 맨 앞 4열(검수완료 · 검수인부서 · 검수인 · 검수날짜)로 들어간 본부별 ERP 파일입니다."
               files={inspectionFiles}
               emptyText="아직 올라온 부서별 자산 현황 파일이 없습니다."
-            />
-            <ResultFileSection
-              icon="palette"
-              title="운영관리부 전사 파일 (설치부서 대조)"
-              hint="운영관리부 양식의 설치부서를 ERP와 대조해 칠한 파일입니다. 노란색은 이전과 동일, 주황색은 설치부서가 바뀐 자산입니다."
-              files={comparisonFiles}
-              emptyText="아직 생성된 운영관리부 전사 파일이 없습니다."
-            />
+            />}
           </div>
         </>
       )}
@@ -2262,6 +2391,8 @@ function DeptCoverageRow({ datasetId, dept }: { datasetId: string; dept: DeptCov
  * 관리자가 아니어도 볼 수 있습니다.
  */
 function StatsView({ isAdmin }: { isAdmin: boolean }) {
+  const [sourceName, setSourceName] = useState('')
+  const [loadError, setLoadError] = useState('')
   const [coverage, setCoverage] = useState<DatasetCoverage[]>([])
   const [sessions, setSessions] = useState<SessionStat[]>([])
   const [busy, setBusy] = useState(true)
@@ -2271,12 +2402,18 @@ function StatsView({ isAdmin }: { isAdmin: boolean }) {
   const load = async () => {
     setBusy(true)
     try {
-      const [cov, sess] = await Promise.all([fetchCoverageStats(), fetchStats()])
+      const [current, sess, summaries] = await Promise.all([fetchCurrentCoverage(), fetchStats(), fetchServerSessions()])
+      const cov = current.coverage
+      const sessionIds = new Set(summaries.filter(row => current.ids.has(row.datasetId)).map(row => row.id))
       setCoverage(cov)
-      setSessions(sess)
+      setSessions(sess.filter(row => sessionIds.has(row.id)))
+      setSourceName(current.master?.fileName || '현재 등록된 ERP 없음')
+      setLoadError('')
       setLastRefreshed(new Date())
       // 데이터셋이 하나뿐이면 자동으로 펼쳐 둡니다.
       setOpenDataset((prev) => prev ?? (cov.length === 1 ? cov[0].datasetId : null))
+    } catch (error) {
+      setLoadError((error as Error).message)
     } finally {
       setBusy(false)
     }
@@ -2286,7 +2423,9 @@ function StatsView({ isAdmin }: { isAdmin: boolean }) {
     void load()
     // 폰에서 올라오는 조사 결과를 30초마다 자동 갱신
     const t = setInterval(() => void load(), 30_000)
-    return () => clearInterval(t)
+    const refresh = () => { void load().catch(() => {}) }
+    window.addEventListener('inventory-server-updated', refresh)
+    return () => { clearInterval(t); window.removeEventListener('inventory-server-updated', refresh) }
   }, [])
 
   const totalAssets = coverage.reduce((a, d) => a + d.totalAssets, 0)
@@ -2333,7 +2472,7 @@ function StatsView({ isAdmin }: { isAdmin: boolean }) {
           <h3 className="font-h3 text-h3 text-on-surface">조사 통계</h3>
           {lastRefreshed && (
             <p className="text-[10px] text-on-surface-variant">
-              마지막 갱신: {lastRefreshed.toLocaleTimeString('ko-KR')} · 30초 자동 갱신
+              마지막 갱신: {lastRefreshed.toLocaleTimeString('ko-KR')} · {isAdmin ? '업로드 알림 수신 시 갱신 · 30초 보조 갱신' : '30초 자동 갱신'}
             </p>
           )}
         </div>
@@ -2350,6 +2489,8 @@ function StatsView({ isAdmin }: { isAdmin: boolean }) {
       </div>
 
       {/* 전체 요약 — 분모는 데이터셋의 전체 자산 */}
+      <p className="text-caption text-on-surface-variant">집계 기준: 현재 ERP · {sourceName} · 이전 버전·별도 DB 제외 (Settings와 동일)</p>
+      {loadError && <p role="alert" className="text-caption text-error">{loadError} · 기존 표시 값은 최신이 아닐 수 있습니다.</p>}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {([
           ['전체 자산', totalAssets, 'text-on-surface'],

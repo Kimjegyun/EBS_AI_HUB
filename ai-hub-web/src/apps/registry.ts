@@ -102,7 +102,8 @@ function readIds(key: string, fallback: string[]): string[] {
   try {
     const raw = getUserScopedItem(key)
     if (!raw) return [...fallback]
-    return (JSON.parse(raw) as string[]).filter((id) => APP_MAP[id])
+    const ids: unknown = JSON.parse(raw)
+    return Array.isArray(ids) ? ids.filter((id): id is string => typeof id === 'string') : [...fallback]
   } catch {
     return [...fallback]
   }
@@ -114,7 +115,7 @@ export function getInstalledApps(isAdmin = currentIsAdmin()): string[] {
 }
 
 export function setInstalledApps(ids: string[]): void {
-  const set = new Set(ids.filter((id) => APP_MAP[id]))
+  const set = new Set(ids)
   setUserScopedItem(INSTALLED_APPS_KEY, JSON.stringify([...set]))
 }
 
@@ -140,5 +141,5 @@ export function getActiveApps(isAdmin = currentIsAdmin()): string[] {
 }
 
 export function setActiveApps(ids: string[]): void {
-  setUserScopedItem(ACTIVE_WIDGETS_KEY, JSON.stringify(ids.filter((id) => APP_MAP[id])))
+  setUserScopedItem(ACTIVE_WIDGETS_KEY, JSON.stringify([...new Set(ids)]))
 }

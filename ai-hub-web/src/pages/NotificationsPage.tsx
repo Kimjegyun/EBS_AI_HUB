@@ -264,9 +264,9 @@ export default function NotificationsPage() {
   const turnRequests = notifications.filter((n) => n.type === 'turn_request' && n.status === 'pending').length
 
   return (
-    <main className="min-h-[calc(100vh-60px)] p-6 overflow-y-auto custom-scrollbar bg-surface-bright">
+    <main className="min-h-[calc(100vh-48px)] p-3 overflow-y-auto custom-scrollbar bg-surface-bright">
       {/* 헤더 */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-3">
         <div>
           <h1 className="font-h1 text-h1 text-on-surface tracking-tight flex items-center gap-2">
             알림
@@ -291,7 +291,7 @@ export default function NotificationsPage() {
       </div>
 
       {/* 통계 카드 */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
         {[
           { label: '전체', value: notifications.length, icon: 'notifications', tone: 'text-primary bg-primary/10' },
           { label: '미처리', value: pendingCount, icon: 'pending', tone: 'text-warning bg-warning/10' },

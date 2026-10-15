@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom'
 import { AuthProvider } from './auth/AuthContext'
+import { readLastPage } from './lib/lastPage'
 import AppLayout from './components/AppLayout'
 import RequireAdmin from './components/RequireAdmin'
 import RequireAuth from './components/RequireAuth'
@@ -11,6 +12,7 @@ import DashboardPage from './pages/DashboardPage'
 import InstalledAppsPage from './pages/InstalledAppsPage'
 import IoLogPage from './pages/IoLogPage'
 import LoginPage from './pages/LoginPage'
+import GoogleSignupPage from './pages/GoogleSignupPage'
 import MarketplacePage from './pages/MarketplacePage'
 import PlaceholderPage from './pages/PlaceholderPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
@@ -27,9 +29,13 @@ function AssetQrRoute() {
   return <AssetQrPage assetNo={decodeURIComponent(assetNo)} />
 }
 
+function ResumePage() {
+  return <Navigate to={readLastPage()} replace />
+}
+
 function IoLogShell() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <Routes>
         <Route path="/" element={<IoLogPage />} />
         <Route path="/io-log" element={<IoLogPage />} />
@@ -46,11 +52,12 @@ export default function App() {
 
   return (
     <AuthProvider>
-      <BrowserRouter>
+      <BrowserRouter basename={import.meta.env.BASE_URL}>
         <EnvironmentConfigProvider>
           <AppCatalogProvider>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/signup/google" element={<GoogleSignupPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
               <Route
                 path="/io-log"
@@ -73,7 +80,7 @@ export default function App() {
                   </RequireAuth>
                 }
               >
-                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                <Route path="/" element={<ResumePage />} />
                 <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/installed-apps" element={<InstalledAppsPage />} />
                 <Route path="/marketplace" element={<MarketplacePage />} />

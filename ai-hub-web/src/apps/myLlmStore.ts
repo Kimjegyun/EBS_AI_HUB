@@ -58,7 +58,7 @@ export const defaultPaneA: PaneState = {
 
 export const defaultPaneB: PaneState = {
   engine: 'claude',
-  model: 'cd-sonnet-4.6',
+  model: 'cd-sonnet-5',
   mode: 'planning review',
   messages: [],
 }

@@ -1,16 +1,18 @@
 import type { FormEvent } from 'react'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ADMIN_UI_SESSION_KEY, verifyAdminAccessCode } from '../auth/adminAccess'
 import { useAuth } from '../auth/AuthContext'
 import { isLoginIdAvailable, normalizeLoginId, resolveLoginEmail } from '../auth/loginIdentifier'
 import { authenticateLocal, registerLocalAccount } from '../auth/localAccounts'
+import { isPasswordChangeRequired, requestPasswordReset } from '../auth/passwordReset'
 import { notifyAdminSignupApprovalNeeded } from '../auth/signupNotifications'
 import { getSignupProfileFromUser } from '../auth/signupProfile'
 import { ensureAiHubMembership, getAiHubSession } from '../auth/supabaseMembership'
 import type { UserRole } from '../auth/types'
 import EnvironmentSettingsDialog from '../components/EnvironmentSettingsDialog'
 import { Icon } from '../components/Icon'
+import InstallBanner from '../components/InstallBanner'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import {
   getPortalScopedSessionItem,
@@ -18,9 +20,12 @@ import {
   setPortalScopedSessionItem,
 } from '../lib/portalStorage'
 import { withTimeout } from '../lib/withTimeout'
+import { getExternalAppReturnTo, rememberGoogleLoginReturnTo } from '../auth/googleLoginReturnTo'
 
 const SUPABASE_AUTH_TIMEOUT_MS = 25_000
 const LOGIN_PORTAL = import.meta.env.VITE_LOGIN_PORTAL ?? 'user'
+// Must match the manifest name written per portal by scripts/build-public-portals.mjs.
+const HOME_SCREEN_NAME = LOGIN_PORTAL === 'admin' ? 'AI 허브 관리자' : 'EBS AI 허브'
 const IS_ADMIN_PORTAL = LOGIN_PORTAL === 'admin'
 
 export default function LoginPage() {
@@ -28,7 +33,18 @@ export default function LoginPage() {
   const location = useLocation()
   const { login, session } = useAuth()
 
-  const from = (location.state as { from?: string } | null)?.from ?? '/dashboard'
+  const requestedReturnTo = new URLSearchParams(location.search).get('returnTo')
+  const safeReturnTo = getExternalAppReturnTo(requestedReturnTo) ?? '/'
+  const from = (location.state as { from?: string } | null)?.from ?? safeReturnTo
+  const externalAppReturnTo = getExternalAppReturnTo(from)
+
+  const finishLogin = useCallback(() => {
+    if (externalAppReturnTo) {
+      window.location.replace(externalAppReturnTo)
+      return
+    }
+    navigate(from, { replace: true })
+  }, [externalAppReturnTo, from, navigate])
 
   const [role, setRole] = useState<UserRole>(IS_ADMIN_PORTAL ? 'admin' : 'user')
   const [email, setEmail] = useState('')
@@ -39,6 +55,9 @@ export default function LoginPage() {
   const [adminDisplayName, setAdminDisplayName] = useState('')
   const [adminAccessCode, setAdminAccessCode] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(
+    () => (location.state as { notice?: string } | null)?.notice ?? null,
+  )
   const [envDialogOpen, setEnvDialogOpen] = useState(false)
   const [authMode, setAuthMode] = useState<'login' | 'register' | 'reset'>('login')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -58,9 +77,9 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (session) {
-      navigate(from, { replace: true })
+      finishLogin()
     }
-  }, [session, from, navigate])
+  }, [session, finishLogin])
 
   useEffect(() => {
     if (!adminUiRevealed && role === 'admin') {
@@ -143,9 +162,51 @@ export default function LoginPage() {
     setAdminDrawerOpen(false)
   }
 
+  function openResetMode() {
+    // In login mode the first field holds the 아이디; carry it over.
+    if (authMode === 'login' && !email.includes('@')) {
+      if (email.trim()) setLoginId(email.trim())
+      setEmail('')
+    }
+    setAuthMode('reset')
+    setError(null)
+    setNotice(null)
+  }
+
+  async function handleResetRequest() {
+    const loginIdTrim = normalizeLoginId(loginId)
+    const emailTrim = email.trim()
+    if (!loginIdTrim || !emailTrim) {
+      setError('아이디와 가입한 이메일을 모두 입력해 주세요.')
+      return
+    }
+    if (!isSupabaseConfigured()) {
+      setError('이 환경에서는 메일로 비밀번호를 재설정할 수 없습니다. 관리자에게 비밀번호 초기화를 요청해 주세요.')
+      return
+    }
+    setSubmitting(true)
+    try {
+      const result = await requestPasswordReset(loginIdTrim, emailTrim)
+      if (result === 'mismatch') {
+        setError('아이디와 이메일이 일치하는 계정이 없습니다. Google로 가입한 계정은 Google 로그인을 이용해 주세요.')
+        return
+      }
+      setNotice(`${emailTrim} 로 비밀번호 재설정 메일을 보냈습니다. 메일의 링크를 눌러 새 비밀번호를 설정해 주세요. 메일이 없으면 스팸함도 확인해 주세요.`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '재설정 메일을 보내지 못했습니다.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError(null)
+    setNotice(null)
+    if (authMode === 'reset') {
+      await handleResetRequest()
+      return
+    }
 
     const emailTrim = email.trim()
     const loginIdTrim = normalizeLoginId(loginId)
@@ -221,7 +282,11 @@ export default function LoginPage() {
             sb.auth.signUp({
               email: emailTrim,
               password,
-              options: { data: meta },
+              options: {
+                data: meta,
+                // 인증 메일 링크가 Supabase 기본 Site URL(localhost) 대신 현재 접속 주소로 돌아오도록 지정
+                emailRedirectTo: new URL(`${import.meta.env.BASE_URL}login`, window.location.origin).href,
+              },
             }),
             SUPABASE_AUTH_TIMEOUT_MS,
             '회원가입 요청이 시간 초과되었습니다. 네트워크와 Supabase 설정을 확인해 주세요.',
@@ -256,7 +321,7 @@ export default function LoginPage() {
               return
             }
             login(membership)
-            navigate(from, { replace: true })
+            finishLogin()
             return
           }
           const { data: inData, error: inErr } = await withTimeout(
@@ -282,13 +347,13 @@ export default function LoginPage() {
               return
             }
             login(membership)
-            navigate(from, { replace: true })
+            finishLogin()
             return
           }
           const msg = inErr?.message?.toLowerCase() ?? ''
           if (msg.includes('confirm') || msg.includes('verified') || msg.includes('인증')) {
             setError(
-              '가입은 완료되었습니다. Supabase에서 이메일 확인을 켜 둔 경우, 받은 메일의 링크를 누른 뒤 로그인해 주세요.',
+              `가입 요청이 접수되었습니다. ${emailTrim} 로 보낸 인증 메일의 링크를 눌러 주세요. 관리자가 승인하면 아이디로 로그인할 수 있습니다.`,
             )
             return
           }
@@ -318,14 +383,14 @@ export default function LoginPage() {
           displayName: role === 'admin' ? displayNameAdmin : displayNameUser,
           organization: role === 'admin' ? org : null,
         })
-        navigate(from, { replace: true })
+        finishLogin()
         return
       }
 
       if (sb) {
         const authEmail = await resolveLoginEmail(loginIdentifier)
         if (!authEmail) {
-          setError('아이디 또는 비밀번호가 올바르지 않습니다.')
+          setError('아이디 또는 비밀번호가 올바르지 않습니다. Google로 가입했다면 Google로 로그인한 뒤 상단의 열쇠 아이콘에서 아이디·비밀번호를 설정할 수 있습니다.')
           return
         }
         const { data, error: signInErr } = await withTimeout(
@@ -374,8 +439,13 @@ export default function LoginPage() {
           await sb.auth.signOut()
           return
         }
+        if (isPasswordChangeRequired(data.user)) {
+          // Admin-issued temporary password: pick a new one before entering the hub.
+          navigate('/reset-password', { replace: true, state: { required: true } })
+          return
+        }
         login(mapped)
-        navigate(from, { replace: true })
+        finishLogin()
         return
       }
 
@@ -396,7 +466,7 @@ export default function LoginPage() {
         return
       }
       login(localSession)
-      navigate(from, { replace: true })
+      finishLogin()
     } catch (err) {
       setError(err instanceof Error ? err.message : '처리 중 오류가 발생했습니다.')
     } finally {
@@ -656,6 +726,64 @@ export default function LoginPage() {
             </div>
           </div>
 
+          {authMode === 'reset' ? (
+          <form className="space-y-6" onSubmit={handleSubmit}>
+            <div className="space-y-1 px-1">
+              <p className="font-h3 text-h3 text-on-surface flex items-center gap-2">
+                <Icon name="lock_reset" className="text-[20px] text-primary" />
+                비밀번호 찾기
+              </p>
+              <p className="font-caption text-caption text-on-surface-variant">
+                아이디와 가입한 이메일이 같은 계정인지 확인한 뒤, 그 이메일로 비밀번호 재설정 링크를 보냅니다.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <label className="font-h3 text-h3 text-on-surface block px-1" htmlFor="resetLoginId">아이디</label>
+              <input
+                className="w-full h-12 bg-surface-container-high border-outline-variant text-on-surface font-h3 text-h3 rounded-lg px-4 border focus:ring-0 focus:border-primary-light transition-all placeholder:text-on-surface-variant/50"
+                id="resetLoginId"
+                placeholder="user01"
+                value={loginId}
+                onChange={(ev) => setLoginId(ev.target.value)}
+                autoComplete="username"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="font-h3 text-h3 text-on-surface block px-1" htmlFor="resetEmail">가입한 이메일</label>
+              <input
+                className="w-full h-12 bg-surface-container-high border-outline-variant text-on-surface font-h3 text-h3 rounded-lg px-4 border focus:ring-0 focus:border-primary-light transition-all placeholder:text-on-surface-variant/50"
+                id="resetEmail"
+                type="email"
+                placeholder="example@company.ai"
+                value={email}
+                onChange={(ev) => setEmail(ev.target.value)}
+                autoComplete="email"
+                required
+              />
+            </div>
+            {error && (
+              <p className="font-caption text-error bg-error-container/30 border border-error/20 rounded-lg px-3 py-2" role="alert">
+                {error}
+              </p>
+            )}
+            {notice && (
+              <p className="font-caption text-success bg-success/10 border border-success/20 rounded-lg px-3 py-2" role="status">
+                {notice}
+              </p>
+            )}
+            <button
+              className="w-full h-11 bg-primary-container hover:bg-primary-dark text-on-primary-container font-h3 text-h3 rounded-lg shadow-sm active:scale-[0.98] transition-all disabled:opacity-60 disabled:pointer-events-none"
+              type="submit"
+              disabled={submitting}
+            >
+              {submitting ? '확인 중…' : '재설정 메일 받기'}
+            </button>
+            <p className="px-1 font-caption text-caption text-on-surface-variant">
+              이메일을 받을 수 없으면 관리자에게 비밀번호 초기화를 요청하세요. 관리자가 알려 준 임시 비밀번호로 로그인하면 새 비밀번호를 정하는 화면이 열립니다.
+            </p>
+          </form>
+          ) : (
           <form className="space-y-6" onSubmit={handleSubmit}>
             {role === 'admin' && (
               <div className="space-y-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
@@ -779,13 +907,15 @@ export default function LoginPage() {
                 <label className="font-h3 text-h3 text-on-surface block" htmlFor="password">
                   비밀번호
                 </label>
-                <a
-                  className="font-caption text-caption text-primary hover:text-primary-dark transition-colors"
-                  href="#"
-                  onClick={(e) => e.preventDefault()}
-                >
-                  비밀번호 찾기
-                </a>
+                {authMode === 'login' && (
+                  <button
+                    type="button"
+                    className="font-caption text-caption text-primary hover:text-primary-dark transition-colors"
+                    onClick={openResetMode}
+                  >
+                    비밀번호 찾기
+                  </button>
+                )}
               </div>
               <div className="relative shadow-glow rounded-lg">
                 <input
@@ -827,6 +957,11 @@ export default function LoginPage() {
                 {error}
               </p>
             )}
+            {notice && (
+              <p className="font-caption text-success bg-success/10 border border-success/20 rounded-lg px-3 py-2" role="status">
+                {notice}
+              </p>
+            )}
 
             <button
               className="w-full h-11 bg-primary-container hover:bg-primary-dark text-on-primary-container font-h3 text-h3 rounded-lg shadow-sm active:scale-[0.98] transition-all disabled:opacity-60 disabled:pointer-events-none"
@@ -854,6 +989,18 @@ export default function LoginPage() {
             <button
               className="w-full h-11 bg-white hover:bg-slate-50 border border-outline-variant text-on-surface font-h3 text-h3 rounded-lg flex items-center justify-center gap-3 transition-all active:scale-[0.98]"
               type="button"
+              onClick={() => {
+                try {
+                  rememberGoogleLoginReturnTo(externalAppReturnTo)
+                  navigate(externalAppReturnTo
+                    ? `/signup/google?returnTo=${encodeURIComponent(externalAppReturnTo)}`
+                    : '/signup/google')
+                } catch (err) {
+                  setError(err instanceof Error
+                    ? `Google 로그인 후 복귀 경로를 저장하지 못했습니다: ${err.message}`
+                    : 'Google 로그인 후 복귀 경로를 저장하지 못했습니다.')
+                }
+              }}
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden>
                 <path
@@ -876,6 +1023,7 @@ export default function LoginPage() {
               Google 계정으로 계속하기
             </button>
           </form>
+          )}
         </div>
 
         <footer className="text-center">
@@ -913,6 +1061,12 @@ export default function LoginPage() {
             )}
           </p>
         </footer>
+
+        <InstallBanner
+          appName={HOME_SCREEN_NAME}
+          title="EBS AI 허브를 홈 화면에 추가하세요"
+          description="다음부터 주소 입력 없이 앱 아이콘으로 바로 실행할 수 있습니다."
+        />
 
         <EnvironmentSettingsDialog open={envDialogOpen} onClose={() => setEnvDialogOpen(false)} />
       </main>

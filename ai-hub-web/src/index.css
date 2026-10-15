@@ -220,6 +220,19 @@ body {
   cursor: grabbing;
 }
 
+/* Dense workspace spacing. Keep typography, mobile hit targets and the
+   dashboard's stored grid coordinates unchanged. */
+.hub-content > main > .w-full { padding: 8px; }
+@media (min-width: 768px) {
+  .hub-content :where(.p-4, .p-5, .p-6, .p-8) { padding: 12px; }
+  .hub-content :where(.px-4, .px-5, .px-6, .px-8) { padding-left: 12px; padding-right: 12px; }
+  .hub-content :where(.py-4, .py-5, .py-6, .py-8) { padding-top: 8px; padding-bottom: 8px; }
+  .hub-content :where(.gap-4, .gap-5, .gap-6, .gap-8) { gap: 8px; }
+  .hub-content :where(.mb-4, .mb-5, .mb-6, .mb-8) { margin-bottom: 12px; }
+  .hub-content :where(.mt-4, .mt-5, .mt-6, .mt-8) { margin-top: 12px; }
+  .hub-content :where(.space-y-4, .space-y-5, .space-y-6, .space-y-8) > :not([hidden]) ~ :not([hidden]) { margin-top: 12px; }
+}
+
 @media (max-width: 767px) {
   html,
   body,

@@ -1,5 +1,7 @@
 import express from 'express';
 import cors from 'cors';
+import { startSubmissionRecovery } from './services/inventorySubmission';
+import { removeLegacySubmissionFiles } from './services/inventoryMasterFiles';
 import helmet from 'helmet';
 import compression from 'compression';
 import dotenv from 'dotenv';
@@ -13,6 +15,7 @@ import { errorHandler } from './middleware/errorHandler';
 import { aiProxyLimiter, rateLimiter, tencentTokenLimiter } from './middleware/rateLimiter';
 import authRoutes from './routes/auth.routes';
 import userRoutes from './routes/user.routes';
+import userSettingsRoutes from './routes/userSettings.routes';
 import holidayRoutes from './routes/holiday.routes';
 import eventRoutes from './routes/event.routes';
 import environmentRoutes from './routes/environment.routes';
@@ -45,7 +48,10 @@ const HOST = process.env.HOST || '0.0.0.0';
 //   script-src 'self'에 막히면 @vitejs/plugin-react가 초기화되지 못해 화면이
 //   빈 채로 남습니다. 대상은 개발용 Vite dev 서버뿐이며, SERVE_STATIC(빌드 결과
 //   서빙) 모드에는 inline preamble이 없으므로 CSP를 그대로 유지합니다.
-const helmetWithCsp = helmet();
+// 'wasm-unsafe-eval': iOS용 바코드 인식(zxing-cpp WASM) 컴파일만 허용하고 eval은 계속 차단합니다.
+const helmetWithCsp = helmet({
+  contentSecurityPolicy: { directives: { scriptSrc: ["'self'", "'wasm-unsafe-eval'"] } },
+});
 const helmetNoCsp = helmet({ contentSecurityPolicy: false });
 
 app.use((req, res, next) => {
@@ -379,6 +385,8 @@ ${isNgrok ? `
 });
 
 app.use('/api/auth', authRoutes);
+// Must precede /api/users: identified by the Supabase token, not the local JWT.
+app.use('/api/users/me/settings', userSettingsRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/holidays', holidayRoutes);
 app.use('/api/events', eventRoutes);
@@ -388,6 +396,37 @@ app.use('/api/ai', aiProxyLimiter, aiRoutes);
 app.use('/api/tencent', tencentTokenLimiter, tencentRoutes);
 app.use('/api/io-log', ioLogRoutes);
 app.use('/api/inventory', inventoryRoutes);
+
+// Public portals are sanitized production builds, never the development server.
+for (const portal of ['admin', 'user']) {
+  const portalDir = path.resolve(__dirname, `../../.runtime/portals/${portal}`);
+  app.use(`/${portal}`, express.static(portalDir, {
+    index: false,
+    setHeaders(res, filePath) {
+      res.setHeader('Cache-Control', filePath.endsWith('.html') ? 'no-store' : 'public, max-age=3600');
+    },
+  }));
+  app.get([`/${portal}`, `/${portal}/*`], (req, res, next) => {
+    if (!fs.existsSync(path.join(portalDir, 'index.html'))) return next();
+    if (req.path === `/${portal}`) return res.redirect(302, `/${portal}/`);
+    if (path.extname(req.path)) return res.status(404).end();
+    res.setHeader('Cache-Control', 'no-store');
+    return res.sendFile(path.join(portalDir, 'index.html'));
+  });
+}
+
+// QR clients use a dedicated user build containing only the restricted field token.
+const inventoryPublicDir = path.resolve(__dirname, '../../.runtime/inventory-public');
+if (fs.existsSync(path.join(inventoryPublicDir, 'inventory.html'))) {
+  app.use(express.static(inventoryPublicDir, {
+    index: false,
+    etag: true,
+    setHeaders(res, filePath) {
+      res.setHeader('Cache-Control', filePath.endsWith('.html') || filePath.endsWith('sw-inventory.js')
+        ? 'no-store' : 'public, max-age=3600');
+    },
+  }));
+}
 
 // ── 정적 파일 서빙 (프로덕션/SERVE_STATIC 모드) ───────────────────────────────
 // 빌드된 React 앱(../dist)을 API 뒤에 serve.
@@ -418,6 +457,10 @@ app.use(errorHandler);
 const startServer = async () => {
   try {
     await initDatabase();
+    startSubmissionRecovery();
+    void removeLegacySubmissionFiles()
+      .then((removed) => { if (removed) logger.info(`Removed ${removed} legacy submission file(s)`) })
+      .catch((error) => logger.warn(`Legacy submission cleanup failed: ${(error as Error).message}`));
     logger.info('Database initialized');
     app.listen(PORT, HOST, () => {
       logger.info(`Server running on http://${HOST}:${PORT}`);

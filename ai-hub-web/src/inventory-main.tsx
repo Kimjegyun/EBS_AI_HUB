@@ -15,7 +15,7 @@ createRoot(document.getElementById('root')!).render(<InventoryStandaloneApp />)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker
-      .register('/sw-inventory.js', { scope: '/' })
+      .register('/sw-inventory.js', { scope: '/inventory' })
       .then((reg) => {
         console.log('[재물조사 PWA] SW 등록 완료:', reg.scope)
       })

@@ -10,6 +10,7 @@
 // 자세한 규격과 예제는 doc/REMOTE_APPS.md 참고.
 
 import React from 'react'
+import { getLocalApiToken } from '../lib/localApi'
 import type { AppPlugin, AppCategory } from './types'
 
 export interface RemoteAppMeta {
@@ -69,14 +70,7 @@ export interface RemoteAppLoadResult {
 
 const CATEGORIES: AppCategory[] = ['코어', '생산성', '운영', 'AI']
 
-function authToken(): string {
-  return (
-    (import.meta.env.VITE_INVENTORY_TOKEN as string | undefined)?.trim() ||
-    localStorage.getItem('auth_token') ||
-    localStorage.getItem('authToken') ||
-    ''
-  )
-}
+const authToken = getLocalApiToken
 
 async function api(path: string, init: RequestInit = {}): Promise<Response> {
   return fetch(`/api/apps${path}`, {

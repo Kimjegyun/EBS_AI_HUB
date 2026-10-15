@@ -4,7 +4,6 @@ import { Icon } from '../components/Icon'
 import { useAuth } from '../auth/AuthContext'
 import { useAppCatalog } from '../context/AppCatalogContext'
 import AppSubmitPanel from '../components/AppSubmitPanel'
-import { catalogApps } from '../apps/appAccess'
 import type { AppCategory } from '../apps/types'
 
 type Tone = 'primary' | 'secondary' | 'tertiary'
@@ -34,10 +33,10 @@ const toneBar: Record<Tone, string> = {
 
 export default function MarketplacePage() {
   const { isAdmin } = useAuth()
-  const { publishedIds, installedIds, selectApp, loading, refresh } = useAppCatalog()
+  const { catalog, publishedIds, installedIds, selectApp, loading, refresh, error, remoteLoading, reloadRemoteApps } = useAppCatalog()
   const [active, setActive] = useState<string>('전체')
   const [query, setQuery] = useState('')
-  const userCatalog = useMemo(() => catalogApps(false, publishedIds), [publishedIds])
+  const userCatalog = useMemo(() => catalog.filter(app => publishedIds.includes(app.id)), [catalog, publishedIds])
 
   useEffect(() => {
     void refresh()
@@ -60,9 +59,9 @@ export default function MarketplacePage() {
   })
 
   return (
-    <main className="min-h-[calc(100vh-60px)] bg-background text-on-surface font-body text-body">
-      <div className="mx-auto max-w-7xl p-6">
-        <div className="mb-6">
+    <main className="min-h-[calc(100vh-48px)] bg-background text-on-surface font-body text-body">
+      <div className="w-full p-3">
+        <div className="mb-3">
           <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
             <div>
               <h1 className="mb-1 font-display text-display text-on-surface">앱 마켓플레이스</h1>
@@ -71,6 +70,9 @@ export default function MarketplacePage() {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
+              <button type="button" disabled={loading || remoteLoading} onClick={() => { void refresh(); void reloadRemoteApps() }} className="inline-flex items-center gap-1.5 rounded-lg border border-outline-variant px-3 py-1.5 disabled:opacity-50">
+                <Icon name="refresh" className="text-[16px]" />목록 새로고침
+              </button>
               <div className="flex flex-wrap rounded-xl border border-outline-variant bg-surface-container-highest p-1">
                 {categories.map((f) => (
                   <button
@@ -123,21 +125,22 @@ export default function MarketplacePage() {
           )}
         </label>
 
-        {loading && userCatalog.length === 0 ? (
+        {error && <p role="alert" className="mb-3 rounded-lg bg-error/10 p-3 text-error">{error}</p>}
+        {(loading || remoteLoading) && userCatalog.length === 0 ? (
           <p className="text-body-sm text-on-surface-variant">등록된 앱을 불러오는 중입니다.</p>
         ) : visible.length === 0 ? (
           <section className="rounded-xl border border-dashed border-outline-variant bg-surface-container px-6 py-12 text-center">
             <Icon name="storefront" className="mb-2 text-[36px] text-on-surface-variant" />
             <p className="text-body text-on-surface-variant">
               {userCatalog.length === 0
-                ? '아직 등록된 앱이 없습니다. 관리자가 앱을 테스트한 뒤 등록하면 여기에 표시됩니다.'
+                ? error ? '목록 새로고침으로 다시 시도해 주세요.' : '아직 등록된 앱이 없습니다. 관리자가 앱을 테스트한 뒤 등록하면 여기에 표시됩니다.'
                 : query.trim()
                   ? `“${query.trim()}” 검색 결과가 없습니다.`
                   : '이 분류에 해당하는 앱이 없습니다.'}
             </p>
           </section>
         ) : (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
             {visible.map((app) => {
               const tone = categoryTone[app.category]
               const selected = installedIds.includes(app.id)
@@ -147,34 +150,34 @@ export default function MarketplacePage() {
                   className="relative flex h-full flex-col overflow-hidden rounded-xl border border-outline-variant bg-white p-4"
                 >
                   <div className={`absolute left-0 top-0 h-1 w-full ${toneBar[tone]}`} />
-                  <div className="mb-3 flex items-start justify-between">
+                  <div className="mb-2 flex flex-wrap items-center gap-1.5">
                     <div
-                      className={`flex h-10 w-10 items-center justify-center rounded-xl bg-surface-container ${toneIcon[tone]}`}
+                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-surface-container ${toneIcon[tone]}`}
                     >
-                      <Icon name={app.icon} className="text-2xl" />
+                      <Icon name={app.icon} className="text-lg" />
                     </div>
                     <span className={`rounded px-2 py-0.5 font-label text-label ${toneBadge[tone]}`}>
                       {app.category}
                     </span>
-                  </div>
-                  <h2 className="mb-1.5 font-h2 text-h2 text-on-surface">{app.name}</h2>
-                  <p className="mb-4 flex-1 font-body-sm text-on-surface-variant">{app.description}</p>
-                  <div className="flex items-center justify-between">
                     <span className="font-caption text-caption text-outline">
                       {app.version ? `v${app.version}` : '—'}
                     </span>
+                    <span className="font-caption text-caption text-on-surface-variant" role="status">{selected ? '설치됨' : '미설치'}</span>
                     <button
                       type="button"
                       onClick={() => selectApp(app.id, !selected)}
-                      className={`rounded-lg px-4 py-1.5 font-h3 text-h3 font-bold transition-all ${
+                      aria-label={`${app.name} ${selected ? '제거' : '설치'}`}
+                      className={`ml-auto shrink-0 rounded-md px-2 py-1 text-xs font-semibold min-h-8 max-md:min-h-11 transition-colors ${
                         selected
-                          ? 'border border-outline text-on-surface hover:bg-surface-container'
-                          : 'bg-primary text-white hover:opacity-90'
+                          ? 'bg-red-600 text-white hover:bg-red-700 focus-visible:outline-red-600'
+                          : 'bg-blue-600 text-white hover:bg-blue-700 focus-visible:outline-blue-600'
                       }`}
                     >
-                      {selected ? '설치됨 · 제거' : '설치'}
+                      {selected ? '제거' : '설치'}
                     </button>
                   </div>
+                  <h2 className="mb-1 font-h2 text-h2 text-on-surface">{app.name}</h2>
+                  <p className="flex-1 font-body-sm text-on-surface-variant">{app.description}</p>
                 </article>
               )
             })}

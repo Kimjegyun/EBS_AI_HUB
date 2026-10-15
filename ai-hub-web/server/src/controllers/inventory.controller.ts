@@ -8,18 +8,18 @@ import { v4 as uuidv4 } from 'uuid'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as os from 'os'
+import { createHash } from 'crypto'
 import { execFile } from 'child_process'
 import { encrypt as encryptValue, decrypt as decryptValue } from '../lib/crypto'
 import { run as dbRun, get as dbGet, all as dbAll } from '../config/database'
 import {
   listDatasets,
   getDatasetAssets,
+  getDatasetDepartments,
   upsertDataset,
-  confirmAssetInDataset,
   listSessions,
   getSession,
   createSession,
-  upsertResult,
   deleteResult,
   setCompleted,
   deleteSession,
@@ -27,11 +27,11 @@ import {
   registerSseClient,
   countSessionsForDataset,
   getDatasetMetaById,
-  deleteDataset,
   getCoverageStats,
   getUnsurveyedAssets,
 } from '../services/inventory.service'
 import type { Asset } from '../services/inventory.service'
+import { submitConfirmed } from '../services/inventorySubmission'
 
 // ─── Required Excel columns → Asset field mapping ─────────────────────────────
 const REQUIRED_COLS = ['자산번호', '자산명'] as const
@@ -96,14 +96,19 @@ const COL_MAP: Record<string, keyof Asset> = {
 
 export async function getDatasets(req: AuthRequest, res: Response): Promise<void> {
   const rows = await listDatasets()
+  const counts = await dbAll('SELECT dataset_id, COUNT(*) AS n FROM inventory_sessions GROUP BY dataset_id') as { dataset_id: string; n: number }[]
+  const sessionCounts = new Map(counts.map(row => [row.dataset_id, row.n]))
+  const departments = await Promise.all(rows.map((r) => getDatasetDepartments(r.id).catch(() => [] as string[])))
   res.json(
-    rows.map((r) => ({
+    rows.map((r, index) => ({
       id: r.id,
       title: r.title,
       parentDept: r.parent_dept,
       assetCount: r.asset_count,
       uploadedAt: r.uploaded_at,
       source: r.source,
+      sessionCount: sessionCounts.get(r.id) || 0,
+      departments: departments[index],
     })),
   )
 }
@@ -207,12 +212,15 @@ export async function getSessionById(req: AuthRequest, res: Response): Promise<v
 }
 
 export async function createSessionHandler(req: AuthRequest, res: Response): Promise<void> {
-  const { name, datasetId, parentDept, dept } = req.body as Record<string, string>
+  const { name, datasetId, parentDept, dept, id } = req.body as Record<string, string>
   if (!name || !datasetId || !parentDept) {
     res.status(400).json({ error: 'name, datasetId, parentDept는 필수입니다.' })
     return
   }
-  const session = await createSession(name, datasetId, parentDept, dept || '', req.user!.id)
+  if (id && !/^sv-[a-z0-9-]{5,100}$/i.test(id)) { res.status(400).json({ error: '잘못된 조사 ID' }); return }
+  let session
+  try { session = await createSession(name, datasetId, parentDept, dept || '', req.user!.id, id) }
+  catch (error) { res.status(409).json({ error: (error as Error).message }); return }
   res.status(201).json({
     id: session.id,
     name: session.name,
@@ -227,26 +235,8 @@ export async function createSessionHandler(req: AuthRequest, res: Response): Pro
 }
 
 export async function upsertResultHandler(req: AuthRequest, res: Response): Promise<void> {
-  const { id, assetNo } = req.params
-  const result = req.body as { confirmed?: boolean; verifier?: string; [k: string]: unknown }
-  if (!result || !assetNo) {
-    res.status(400).json({ error: '조사 결과가 없습니다.' })
-    return
-  }
-  const out = await upsertResult(id, assetNo, result, req.user!.id)
-
-  // 확인된 자산이면 해당 세션의 dataset(본부별 DB)에 확인 플래그 업데이트 (best-effort)
-  if (result.confirmed) {
-    try {
-      const session = await getSession(id)
-      if (session?.dataset_id) {
-        const verifier = (result.verifier as string | undefined) || req.user!.email
-        await confirmAssetInDataset(session.dataset_id, decodeURIComponent(assetNo), id, verifier)
-      }
-    } catch { /* best-effort, don't fail the main response */ }
-  }
-
-  res.json(out)
+  try { res.json(await submitConfirmed(req.params.id, [{ ...req.body, assetNo: req.params.assetNo }], req.user!.id)) }
+  catch (error) { res.status(409).json({ error: (error as Error).message }) }
 }
 
 export async function deleteResultHandler(req: AuthRequest, res: Response): Promise<void> {
@@ -312,6 +302,7 @@ export function sseHandler(req: AuthRequest, res: Response): void {
 
   const write = (event: string, data: unknown) => {
     res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+    ;(res as Response & { flush?: () => void }).flush?.()
   }
 
   write('connected', { sessionId, ts: new Date().toISOString() })
@@ -364,7 +355,8 @@ function parseWorksheetRows(
   const detectedHeaderIndex = previewRows.slice(0, 50).findIndex((row) =>
     row.some((cell) => String(cell ?? '').trim() === '자산번호'),
   )
-  const resolvedHeaderRow = detectedHeaderIndex >= 0 ? detectedHeaderIndex + 1 : headerRow
+  const resolvedHeaderRow = detectedHeaderIndex >= 0
+    ? XLSX.utils.decode_range(sourceWorksheet['!ref'] ?? 'A1').s.r + detectedHeaderIndex + 1 : headerRow
 
   // range override: shift start row to skip title/guide rows
   const ref = ws['!ref'] ?? 'A1'
@@ -872,11 +864,11 @@ export async function uploadSurveyResult(req: AuthRequest, res: Response): Promi
   }
 
   // 자산 목록에서 결과 생성
-  let updated = 0
+  const confirmedResults: Record<string, unknown>[] = []
   const now = new Date().toISOString()
 
   for (const a of assets) {
-    if (!a.assetNo) continue
+    if (!a.assetNo || !a.surveyStatus) continue
     const surveyStatusVal = a.surveyStatus || '정상'
     const result = {
       assetNo: a.assetNo,
@@ -890,19 +882,16 @@ export async function uploadSurveyResult(req: AuthRequest, res: Response): Promi
       note: a.remark || '',
       confirmed: !!a.surveyStatus,
       verifier: req.user!.email,
+      verifierDept: dept || (await getSession(targetSessionId))?.dept || '',
       surveyedAt: now,
       matched: true,
     }
-    await upsertResult(targetSessionId, a.assetNo, result, req.user!.id)
-    updated++
+    confirmedResults.push(result)
   }
-
-  res.status(201).json({
-    ok: true,
-    sessionId: targetSessionId,
-    updated,
-    total: assets.length,
-  })
+  try {
+    const submitted = await submitConfirmed(targetSessionId, confirmedResults, req.user!.id)
+    res.status(submitted.ok ? 201 : 409).json({ ...submitted, sessionId: targetSessionId, updated: submitted.submitted, total: confirmedResults.length })
+  } catch (error) { res.status(409).json({ error: (error as Error).message }) }
 }
 
 
@@ -1002,9 +991,20 @@ export async function uploadInventoryFile(req: AuthRequest, res: Response): Prom
   }
 
   fs.mkdirSync(INVENTORY_FILE_DIR, { recursive: true })
-  const id = uuidv4()
-  const storedName = `${id}.xlsx`
-  fs.writeFileSync(path.join(INVENTORY_FILE_DIR, storedName), file.buffer)
+  // A survey's ERP workbook is updated in place, not appended as a new file
+  // on every autosave or final submission. Keep the latest existing file id.
+  const workingSessionId = kind === 'erp-inspection' ? sessionId?.trim() : ''
+  const existing = workingSessionId ? await dbGet(
+    'SELECT id, stored_name FROM inventory_files WHERE session_id = ? AND kind = ? ORDER BY created_at DESC, rowid DESC LIMIT 1',
+    [workingSessionId, kind],
+  ) as { id: string; stored_name: string } | undefined : undefined
+  const id = existing?.id ?? (workingSessionId
+    ? `workbook-${createHash('sha256').update(workingSessionId).digest('hex')}`
+    : uuidv4())
+  const storedName = existing?.stored_name ?? `${id}.xlsx`
+  const tempPath = path.join(INVENTORY_FILE_DIR, `${uuidv4()}.tmp`)
+  fs.writeFileSync(tempPath, file.buffer)
+  fs.renameSync(tempPath, path.join(INVENTORY_FILE_DIR, storedName))
 
   // multer(busboy)는 파일명을 latin1로 디코드해서 넘겨줍니다. 한글 파일명이
   // 깨진 채 저장되지 않도록 UTF-8로 되돌립니다.
@@ -1013,7 +1013,10 @@ export async function uploadInventoryFile(req: AuthRequest, res: Response): Prom
   await dbRun(
     `INSERT INTO inventory_files
        (id, kind, parent_dept, session_id, file_name, stored_name, size, summary, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       file_name = excluded.file_name, size = excluded.size,
+       summary = excluded.summary, parent_dept = excluded.parent_dept`,
     [
       id, kind, (parentDept ?? '').trim(), (sessionId ?? '').trim() || null,
       originalName, storedName, file.size, (summary ?? '').trim() || null,
@@ -1061,6 +1064,8 @@ export async function listInventoryFiles(req: AuthRequest, res: Response): Promi
       LIMIT 200`,
     params,
   )) as InventoryFileRow[]
+  const bookStates = await dbAll('SELECT file_id, state FROM inventory_submission_books').catch(() => []) as { file_id: string; state: string }[]
+  const states = new Map(bookStates.map(book => [book.file_id, book.state]))
   res.json(
     rows.map((r) => ({
       id: r.id,
@@ -1072,12 +1077,18 @@ export async function listInventoryFiles(req: AuthRequest, res: Response): Promi
       summary: r.summary,
       createdBy: r.created_by,
       createdAt: r.created_at,
+      workbookStatus: states.get(r.id),
     })),
   )
 }
 
 /** GET /files/:id/download — 보관된 산출물 내려받기 */
 export async function downloadInventoryFile(req: AuthRequest, res: Response): Promise<void> {
+  res.setHeader('Cache-Control', 'no-store')
+  if (req.params.id.startsWith('submission-')) {
+    const book = await dbGet('SELECT state FROM inventory_submission_books WHERE file_id=?', [req.params.id]) as { state: string } | undefined
+    if (!book || book.state !== 'ready') { res.status(409).json({ error: '최신 조사 결과를 엑셀에 반영 중입니다. 잠시 후 다시 받거나 제출 파일 갱신을 눌러 주세요.' }); return }
+  }
   const row = (await dbGet('SELECT * FROM inventory_files WHERE id = ?', [req.params.id])) as InventoryFileRow | undefined
   if (!row) {
     res.status(404).json({ error: '파일을 찾을 수 없습니다.' })
@@ -1100,7 +1111,7 @@ export async function downloadInventoryFile(req: AuthRequest, res: Response): Pr
  * DELETE /datasets/:id — 자산 데이터셋 삭제 (관리자)
  *
  * 이 데이터셋을 쓰는 조사 세션이 남아 있으면 기본적으로 거부합니다.
- * 세션까지 정리할 생각이라면 ?force=true 로 다시 호출하세요.
+ * 조사 기록 보호를 위해 강제 삭제 옵션으로 우회할 수 없습니다.
  */
 export async function deleteDatasetHandler(req: AuthRequest, res: Response): Promise<void> {
   const id = req.params.id
@@ -1111,8 +1122,7 @@ export async function deleteDatasetHandler(req: AuthRequest, res: Response): Pro
   }
 
   const sessionCount = await countSessionsForDataset(id)
-  const force = String(req.query.force ?? '') === 'true'
-  if (sessionCount > 0 && !force) {
+  if (sessionCount > 0) {
     res.status(409).json({
       error: `이 데이터셋을 사용하는 조사 세션이 ${sessionCount}건 있습니다.`,
       sessionCount,
@@ -1121,7 +1131,8 @@ export async function deleteDatasetHandler(req: AuthRequest, res: Response): Pro
     return
   }
 
-  await deleteDataset(id)
+  const removed = await dbRun('DELETE FROM inventory_datasets WHERE id=? AND NOT EXISTS (SELECT 1 FROM inventory_sessions WHERE dataset_id=?)', [id, id])
+  if (!removed.changes) { res.status(409).json({ error: '삭제 중 연결된 조사가 변경되었습니다. 목록을 새로고침해 주세요.' }); return }
   res.json({ ok: true, id, title: meta.title, assetCount: meta.assetCount, sessionCount })
 }
 
@@ -1143,6 +1154,7 @@ function isDivisionSheet(name: string): boolean {
 }
 
 interface SurveyFormRow {
+  retired_at?: string | null
   id: string
   file_name: string
   stored_name: string
@@ -1183,6 +1195,11 @@ export async function uploadSurveyForm(req: AuthRequest, res: Response): Promise
     return
   }
 
+  const preparedSheets = new Map(sheetNames.filter(isDivisionSheet).map(name => [name, parseWorksheetRows(workbook, name, 7, SURVEY_COL_MAP)]))
+  if (![...preparedSheets.values()].some(assets => assets.length > 0)) {
+    res.status(400).json({ error: '자산번호와 자산 데이터가 있는 본부 시트를 찾지 못했습니다. 기존 등록은 유지됩니다.' })
+    return
+  }
   fs.mkdirSync(SURVEY_FORM_DIR, { recursive: true })
   const id = uuidv4()
   const storedName = `${id}.xlsx`
@@ -1198,14 +1215,12 @@ export async function uploadSurveyForm(req: AuthRequest, res: Response): Promise
 
   // 전사 ERP의 본부별 시트를 즉시 데이터셋으로 변환합니다.
   // 따라서 관리자가 본부별 파일을 별도로 업로드할 필요가 없습니다.
-  const existing = await listDatasets()
-  const existingIdByDept = new Map(existing.map((dataset) => [dataset.parent_dept, dataset.id]))
   let datasetsCreated = 0
   let assetCount = 0
   const skippedSheets: string[] = []
 
   for (const sheetName of sheetNames.filter(isDivisionSheet)) {
-    const assets = parseWorksheetRows(workbook, sheetName, 7, SURVEY_COL_MAP)
+    const assets = preparedSheets.get(sheetName) || []
     if (assets.length === 0) {
       skippedSheets.push(sheetName)
       continue
@@ -1215,7 +1230,7 @@ export async function uploadSurveyForm(req: AuthRequest, res: Response): Promise
       asset._source = 'survey'
     }
     await upsertDataset(
-      existingIdByDept.get(sheetName) ?? '',
+      '', // A new master version must never overwrite datasets used by older surveys.
       sheetName,
       sheetName,
       assets,
@@ -1241,9 +1256,9 @@ export async function uploadSurveyForm(req: AuthRequest, res: Response): Promise
 /** GET /datasets/survey-form — 가장 최근에 올린 전사 양식 */
 export async function getLatestSurveyForm(_req: AuthRequest, res: Response): Promise<void> {
   const row = (await dbGet(
-    'SELECT * FROM inventory_survey_forms ORDER BY uploaded_at DESC LIMIT 1',
+    'SELECT * FROM inventory_survey_forms ORDER BY rowid DESC LIMIT 1',
   )) as SurveyFormRow | undefined
-  if (!row) {
+  if (!row || row.retired_at) {
     res.json(null)
     return
   }
@@ -1255,6 +1270,13 @@ export async function getLatestSurveyForm(_req: AuthRequest, res: Response): Pro
   res.json(toSurveyFormDto(row))
 }
 
+export async function downloadSurveyForm(req: AuthRequest, res: Response): Promise<void> {
+  const full = await resolveStoredSurveyForm(req.params.id)
+  if (!full) { res.status(404).json({ error: '마스터 원본을 찾을 수 없습니다.' }); return }
+  res.setHeader('Cache-Control', 'no-store')
+  res.download(full, 'master.xlsx')
+}
+
 /** DELETE /datasets/survey-form/:id — 전사 양식 삭제 */
 export async function deleteSurveyForm(req: AuthRequest, res: Response): Promise<void> {
   const row = (await dbGet('SELECT * FROM inventory_survey_forms WHERE id = ?', [
@@ -1264,10 +1286,10 @@ export async function deleteSurveyForm(req: AuthRequest, res: Response): Promise
     res.status(404).json({ error: '양식을 찾을 수 없습니다.' })
     return
   }
-  const full = path.join(SURVEY_FORM_DIR, row.stored_name)
-  if (fs.existsSync(full)) fs.unlinkSync(full)
-  await dbRun('DELETE FROM inventory_survey_forms WHERE id = ?', [row.id])
-  res.json({ ok: true, id: row.id })
+  // Retire the registration; existing sessions still need their original workbook.
+  // Keep this row as a tombstone so an older version cannot become active again.
+  await dbRun('UPDATE inventory_survey_forms SET retired_at = COALESCE(retired_at, ?) WHERE id = ?', [new Date().toISOString(), row.id])
+  res.json({ ok: true, id: row.id, archived: true })
 }
 
 /** 영속 보관된 전사 양식의 파일 경로 (없으면 undefined) */

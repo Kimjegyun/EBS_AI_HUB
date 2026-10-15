@@ -87,7 +87,7 @@ export default {
         12: '48px',
         16: '64px',
         gutter: '16px',
-        'topbar-height': '60px',
+        'topbar-height': '48px',
         'sidebar-expanded': '184px',
         'sidebar-collapsed': '64px',
       },

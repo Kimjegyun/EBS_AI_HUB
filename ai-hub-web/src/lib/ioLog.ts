@@ -1,4 +1,4 @@
-import { getLocalApiBaseUrl } from './localApi'
+import { getLocalApiBaseUrl, getLocalApiToken } from './localApi'
 
 export type IoLogDirection = 'out' | 'in' | 'cmd' | 'info' | 'error'
 
@@ -90,7 +90,9 @@ function apiUrl(path = ''): string {
 
 async function pullRemote(): Promise<IoLogEntry[]> {
   try {
-    const res = await fetch(apiUrl())
+    const token = getLocalApiToken()
+    if (!token) return []
+    const res = await fetch(apiUrl(), { headers: { Authorization: `Bearer ${token}` } })
     if (!res.ok) return []
     const data = (await res.json()) as { entries?: IoLogEntry[] }
     return Array.isArray(data.entries) ? data.entries : []
@@ -100,9 +102,11 @@ async function pullRemote(): Promise<IoLogEntry[]> {
 }
 
 function pushRemote(entry: IoLogEntry): void {
+  const token = getLocalApiToken()
+  if (!token) return
   void fetch(apiUrl(), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify(entry),
   }).catch(() => undefined)
 }
@@ -147,7 +151,10 @@ export function clearIoLog(): void {
   writeEntries([])
   getChannel()?.postMessage({ type: 'clear' })
   notify([])
-  void fetch(apiUrl(), { method: 'DELETE' }).catch(() => undefined)
+  const token = getLocalApiToken()
+  if (token) {
+    void fetch(apiUrl(), { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }).catch(() => undefined)
+  }
 }
 
 export function subscribeIoLog(listener: Listener): () => void {

@@ -8,7 +8,7 @@ import { idbGet, idbPut, idbDelete, STORE_ERP } from './idb'
 import { parseErpFile } from './excelService'
 import { indexLookup, looseAssetKey, normalizeAssetNo } from './datasetService'
 import type { ErpAsset } from './types'
-import { downloadDatasetExcelBlob, downloadErpFileBlob, fetchErpFileMeta } from './inventoryApiClient'
+import { downloadDatasetExcelBlob, downloadErpFileBlob, fetchErpFileMeta, fetchServerDatasets } from './inventoryApiClient'
 
 const ERP_KEY = 'erp'
 
@@ -99,8 +99,13 @@ export async function syncErpFromServer(
     // 이 경우 서버 데이터셋 자체를 Excel로 내려받아 동일한 대조 인덱스를 자동 구성합니다.
     if (datasetId) {
       const current = await loadErpIndex()
-      const fallbackId = `dataset:${datasetId}`
-      if (current?.serverFileId === fallbackId) return { store: current, status: 'already' }
+      // Uploads replace the dataset in place, preserving its id. Include the
+      // source file and upload time so a new workbook replaces the cached one.
+      const dataset = (await fetchServerDatasets()).find((item) => item.id === datasetId)
+      const fallbackId = dataset
+        ? `dataset:${datasetId}:${dataset.source ?? ''}:${dataset.uploadedAt}`
+        : `dataset:${datasetId}`
+      if (dataset && current?.serverFileId === fallbackId) return { store: current, status: 'already' }
       const blob = await downloadDatasetExcelBlob(datasetId)
       if (blob) {
         try {

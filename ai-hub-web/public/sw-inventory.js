@@ -2,10 +2,14 @@
 // /inventory 전용. 앱 셸 + 핵심 에셋을 캐싱해 오프라인에서도 완전히 동작합니다.
 // 자산 데이터(dataset JSON)와 사진은 앱이 IndexedDB에 저장하므로 여기서는 캐싱하지 않습니다.
 
-const CACHE = 'inventory-shell-v4'
+const CACHE = 'inventory-shell-v6'
 
 // 설치 시 캐싱할 앱 셸 파일 (최소한만 — JS 번들은 항상 네트워크에서)
 const SHELL = [
+  '/inventory.html',
+  '/inventory-ebs-icon-192.png',
+  '/inventory-ebs-icon-512.png',
+  '/inventory-ebs-icon-180.png',
   '/manifest-inventory.webmanifest',
   '/pwa-icon.svg',
   '/favicon.svg',
@@ -35,7 +39,7 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k.startsWith('inventory-shell-') && k !== CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim()),
   )
 })
@@ -49,6 +53,8 @@ self.addEventListener('fetch', (event) => {
 
   // 외부 도메인(폰트, CDN 등)은 그대로 통과
   if (url.origin !== self.location.origin) return
+  // Version checks must report the server build, never an offline cached build.
+  if (url.pathname === '/inventory-version.json') return
 
   // Vite 개발 경로는 SW 가로채기 금지 — 항상 네트워크에서 최신 버전
   if (isViteDevPath(url.pathname)) return
@@ -61,6 +67,7 @@ self.addEventListener('fetch', (event) => {
 
   // 페이지 내비게이션 → inventory.html로 fallback (SPA 라우팅)
   if (req.mode === 'navigate') {
+    if (!['/inventory.html', '/inventory'].includes(url.pathname)) return
     event.respondWith(
       fetch(req)
         .then((res) => {
