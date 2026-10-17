@@ -1,0 +1,7 @@
+{
+  "id": "ebs-aihub",
+  "githubRepository": "Kimjegyun/EBS_AI_HUB",
+  "primaryBranch": "main",
+  "defaultRemote": "origin",
+  "forbiddenBranches": ["remote-version", "acap-local", "acap-remote"]
+}

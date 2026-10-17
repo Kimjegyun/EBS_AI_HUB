@@ -1,0 +1,3 @@
+#!/bin/sh
+set -eu
+node ai-hub-web/scripts/verify-development-target.mjs --pre-push "$1" "$2"
