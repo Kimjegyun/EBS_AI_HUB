@@ -34,6 +34,9 @@ OAuth 설정이 있다는 것과 Drive 연결·공용 저장소 활성화가 완
 - 관리자 초기 설정: 프로그램이 실행 중인 서버 PC의 `http://localhost:8081/ACAP/`
 - 승인된 JavaScript 원본: `http://localhost:8081`
 - 승인된 리디렉션 URI: `http://localhost:8081/ACAP/auth/callback`
+- 서버의 허용 Origin: `https://ebs-aihub.com,http://localhost:8081,http://127.0.0.1:8081`
+
+2026-10-17 복귀 오류 복구: `허용되지 않은 Origin입니다.`는 이 서버의 `GOOGLE_ALLOWED_ORIGINS`가 외부 도메인만 포함해 로컬 복귀 요청을 차단한 오류였다. 기존 외부 주소를 유지하고 위 로컬 주소를 추가했으며, 로컬 요청의 Origin 검사 통과와 다른 출처 차단을 확인했다. Google 계정이나 Client Secret은 교체하지 않았다. 이전 요청은 연결을 저장하기 전에 중단되었으므로 오류 화면을 새로고침하지 말고 메인에서 Drive 장기 연결을 새로 시작한다.
 
 1. Cloud 콘솔 관리 계정으로 현재 ACAP OAuth 클라이언트에 위 원본과 리디렉션 URI가 등록되어 있는지 확인한다. 기존에 필요한 다른 주소는 유지한다.
 2. 서버 PC의 로컬 ACAP에서 `인증 · API 설정 → Google API 설정`을 열고, 저장용 Drive 계정으로 Google 연결과 Drive·Sheets 권한 승인을 완료한다.
