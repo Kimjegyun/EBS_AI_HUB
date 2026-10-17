@@ -1,10 +1,11 @@
 import type { FormEvent } from 'react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ADMIN_UI_SESSION_KEY, verifyAdminAccessCode } from '../auth/adminAccess'
 import { useAuth } from '../auth/AuthContext'
 import { isLoginIdAvailable, normalizeLoginId, resolveLoginEmail } from '../auth/loginIdentifier'
 import { authenticateLocal, registerLocalAccount } from '../auth/localAccounts'
+import { canLoginWithRole } from '../auth/loginRolePolicy'
 import { isPasswordChangeRequired, requestPasswordReset } from '../auth/passwordReset'
 import { notifyAdminSignupApprovalNeeded } from '../auth/signupNotifications'
 import { getSignupProfileFromUser } from '../auth/signupProfile'
@@ -13,7 +14,7 @@ import type { UserRole } from '../auth/types'
 import EnvironmentSettingsDialog from '../components/EnvironmentSettingsDialog'
 import { Icon } from '../components/Icon'
 import InstallBanner from '../components/InstallBanner'
-import { isSupabaseConfigured, supabase } from '../lib/supabase'
+import { getRuntimeSupabaseConfig, isSupabaseConfigured, supabase } from '../lib/supabase'
 import {
   getPortalScopedSessionItem,
   removePortalScopedSessionItem,
@@ -37,13 +38,53 @@ export default function LoginPage() {
   const safeReturnTo = getExternalAppReturnTo(requestedReturnTo) ?? '/'
   const from = (location.state as { from?: string } | null)?.from ?? safeReturnTo
   const externalAppReturnTo = getExternalAppReturnTo(from)
+  const redirecting = useRef(false)
+  const [externalAccessError, setExternalAccessError] = useState<string | null>(null)
 
-  const finishLogin = useCallback(() => {
-    if (externalAppReturnTo) {
-      window.location.replace(externalAppReturnTo)
+  const finishLogin = useCallback(async (automatic = false) => {
+    if (!externalAppReturnTo) {
+      navigate(from, { replace: true })
       return
     }
-    navigate(from, { replace: true })
+    if (redirecting.current) return
+    redirecting.current = true
+    try {
+      setExternalAccessError(null)
+      const guardKey = 'ai-hub-external-login-redirect-v1'
+      const previous = sessionStorage.getItem(guardKey)
+      if (automatic && previous) {
+        const attempt = JSON.parse(previous) as { target?: string; at?: number }
+        if (attempt.target === externalAppReturnTo && typeof attempt.at === 'number' && Date.now() - attempt.at < 30_000) {
+          throw new Error('앱에서 로그인을 확인하지 못해 반복 이동을 중단했습니다. Google로 다시 로그인해 주세요. 계속되면 포털과 앱의 세션 연동을 확인해야 합니다.')
+        }
+      }
+      if (!supabase) throw new Error('앱 접속에는 Google 또는 아이디 계정 로그인이 필요합니다.')
+      const { data, error: sessionError } = await withTimeout(supabase.auth.getSession(), SUPABASE_AUTH_TIMEOUT_MS)
+      if (sessionError || !data.session?.access_token) {
+        throw new Error('저장된 로그인 정보가 만료되었습니다. Google 또는 아이디로 다시 로그인해 주세요.')
+      }
+      const configResponse = await fetch('/api/auth/portal-config', { cache: 'no-store', signal: AbortSignal.timeout(10_000) })
+      if (!configResponse.ok) throw new Error('앱 인증 설정을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.')
+      const config = await configResponse.json() as { url?: string }
+      if (config.url?.replace(/\/+$/, '') !== getRuntimeSupabaseConfig().url.replace(/\/+$/, '')) {
+        throw new Error('포털과 앱의 인증 프로젝트 설정이 다릅니다. 환경 설정의 Supabase 연결을 확인해 주세요.')
+      }
+      const response = await fetch('/api/auth/verify-ai-hub-session', {
+        method: 'POST', cache: 'no-store',
+        headers: { Authorization: `Bearer ${data.session.access_token}` },
+        signal: AbortSignal.timeout(20_000),
+      })
+      if (response.status === 401) throw new Error('로그인 세션이 유효하지 않습니다. Google로 다시 로그인해 주세요.')
+      if (response.status === 403) throw new Error('앱을 이용하려면 계정 승인이 필요합니다. 관리자에게 승인 상태를 확인해 주세요.')
+      const verified = response.ok ? await response.json() as { approved?: boolean } : null
+      if (!verified?.approved) throw new Error('앱 접근 권한을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.')
+      sessionStorage.setItem(guardKey, JSON.stringify({ target: externalAppReturnTo, at: Date.now() }))
+      window.location.replace(externalAppReturnTo)
+    } catch (err) {
+      setExternalAccessError(err instanceof Error ? err.message : '앱 로그인 확인에 실패했습니다.')
+    } finally {
+      redirecting.current = false
+    }
   }, [externalAppReturnTo, from, navigate])
 
   const [role, setRole] = useState<UserRole>(IS_ADMIN_PORTAL ? 'admin' : 'user')
@@ -76,16 +117,10 @@ export default function LoginPage() {
   const [adminDrawerOpen, setAdminDrawerOpen] = useState(false)
 
   useEffect(() => {
-    if (session) {
-      finishLogin()
-    }
+    if (!session) return
+    const timer = setTimeout(() => { void finishLogin(true) }, 0)
+    return () => clearTimeout(timer)
   }, [session, finishLogin])
-
-  useEffect(() => {
-    if (!adminUiRevealed && role === 'admin') {
-      setRole('user')
-    }
-  }, [adminUiRevealed, role])
 
   useEffect(() => {
     if (!adminDrawerOpen) return
@@ -324,43 +359,14 @@ export default function LoginPage() {
             finishLogin()
             return
           }
-          const { data: inData, error: inErr } = await withTimeout(
-            sb.auth.signInWithPassword({
-              email: emailTrim,
-              password,
-            }),
-            SUPABASE_AUTH_TIMEOUT_MS,
-            '가입 후 로그인 확인이 시간 초과되었습니다.',
-          )
-          if (!inErr && inData.session && inData.user) {
-            const membership = await ensureAiHubMembership({
-              displayName: role === 'admin' ? displayNameAdmin : displayNameUser,
-              organization: role === 'admin' ? org : null,
-              requestedRole: role,
-            })
-            if (!membership || membership.status !== 'approved') {
-              if (membership) {
-                await notifyAdminSignupApprovalNeeded(membership)
-              }
-              await sb.auth.signOut()
-              setError('가입 요청이 저장되었습니다. 관리자의 승인 후 로그인할 수 있습니다.')
-              return
-            }
-            login(membership)
-            finishLogin()
+          // No session means signup did not authenticate the user. Supabase may
+          // also return an obfuscated user for an already registered address.
+          if (signedUser.identities?.length === 0) {
+            setError('이 이메일로 가입을 완료하지 못했습니다. 이미 가입한 이메일이면 기존 아이디·비밀번호 또는 Google로 로그인해 주세요. 비밀번호를 잊었다면 비밀번호 재설정을 이용해 주세요.')
             return
           }
-          const msg = inErr?.message?.toLowerCase() ?? ''
-          if (msg.includes('confirm') || msg.includes('verified') || msg.includes('인증')) {
-            setError(
-              `가입 요청이 접수되었습니다. ${emailTrim} 로 보낸 인증 메일의 링크를 눌러 주세요. 관리자가 승인하면 아이디로 로그인할 수 있습니다.`,
-            )
-            return
-          }
-          setError(
-            inErr
-              ? `가입은 되었으나 바로 로그인되지 않았습니다: ${inErr.message}`
-              : '가입은 완료되었습니다. 이메일 인증이 필요하면 메일함을 확인한 뒤 로그인해 주세요.',
+          setNotice(
+            `가입 요청을 접수했습니다. ${emailTrim} 메일함에서 인증 링크를 확인해 주세요. 이메일 인증과 기존 관리자의 승인이 완료된 뒤 로그인할 수 있습니다. 이미 가입한 이메일이라면 기존 계정으로 로그인하거나 비밀번호를 재설정해 주세요.`,
           )
           return
         }
@@ -434,7 +440,7 @@ export default function LoginPage() {
           await sb.auth.signOut()
           return
         }
-        if (role === 'user' && mapped.role !== 'user') {
+        if (!canLoginWithRole(role, mapped.role, externalAppReturnTo)) {
           setError('이 계정은 일반 사용자가 아닙니다. 관리자 탭에서 로그인해 주세요.')
           await sb.auth.signOut()
           return
@@ -461,7 +467,7 @@ export default function LoginPage() {
         setError('이 계정은 관리자가 아닙니다. 일반 사용자로 로그인해 주세요.')
         return
       }
-      if (role === 'user' && localSession.role !== 'user') {
+      if (!canLoginWithRole(role, localSession.role, externalAppReturnTo)) {
         setError('이 계정은 일반 사용자가 아닙니다. 관리자 탭에서 로그인해 주세요.')
         return
       }
@@ -1022,6 +1028,12 @@ export default function LoginPage() {
               </svg>
               Google 계정으로 계속하기
             </button>
+            {externalAccessError && <p role="alert" className="rounded-lg bg-error/10 p-3 text-body-sm text-error">{externalAccessError}</p>}
+            {authMode === 'login' && (
+              <p className="text-center text-caption text-on-surface-variant">
+                Google 가입자도 아이디로 로그인할 수 있습니다. 먼저 Google로 로그인한 뒤 내정보/설정에서 ‘아이디·비밀번호 설정’을 완료해 주세요.
+              </p>
+            )}
           </form>
           )}
         </div>

@@ -1,6 +1,7 @@
 import express from '../server/node_modules/express/index.js'
 import { pathToFileURL } from 'node:url'
 import { proxyHttp, proxyUpgrade } from './portalProxy.mjs'
+import { legacyPortalLocation } from './portalLegacyRoutes.mjs'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -42,6 +43,12 @@ if (fs.existsSync(moduleFile)) {
   }
 }
 for (const application of applications) app.use((req,res,next) => application.handle(req,res,next,proxyHttp))
+app.use((req, res, next) => {
+  const location = legacyPortalLocation(req)
+  if (!location) return next()
+  res.setHeader('Cache-Control', 'no-store')
+  return res.redirect(302, location)
+})
 // No catch-all backend publishing: only explicit application endpoints.
 const publicAuthPaths = new Set([
   '/api/auth/login',

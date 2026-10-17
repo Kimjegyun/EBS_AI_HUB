@@ -23,7 +23,8 @@
     "inventory:autostart": "powershell -ExecutionPolicy Bypass -File scripts/install-inventory-auto-start.ps1",
     "tencent:create-token": "node scripts/create-tencent-aigc-token.mjs",
     "tencent:show-token": "node scripts/show-tencent-aigc-token.mjs",
-    "test:portals": "node --test scripts/portal-proxy.test.mjs && bun test scripts/google-login-return-to.test.mjs"
+    "verify:production-feedback": "npm run test:portals && node scripts/portal-login-browser-harness.mjs",
+    "test:portals": "node --test scripts/portal-proxy.test.mjs scripts/portal-legacy-routes.test.mjs scripts/google-login-return-to.test.mjs scripts/login-role-policy.test.mjs scripts/verify-development-target.test.mjs scripts/admin-permission-group.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.3",
@@ -49,6 +50,7 @@
     "zxing-wasm": "^3.1.3"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.10",
     "@eslint/js": "^10.0.1",
     "@tailwindcss/forms": "^0.5.11",
     "@types/file-saver": "^2.0.7",

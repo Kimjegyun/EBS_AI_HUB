@@ -1,3 +1,5 @@
+import { isPortalPagePath } from '../lib/portalRoutes.mjs'
+
 const RETURN_URL_ORIGIN = 'https://portal-return.invalid'
 const GOOGLE_RETURN_TO_KEY = 'ai-hub-google-login-return-to-v1'
 const GOOGLE_RETURN_TO_TTL_MS = 15 * 60 * 1000
@@ -9,7 +11,7 @@ export function getExternalAppReturnTo(value: string | null | undefined): string
 
   try {
     const url = new URL(value, RETURN_URL_ORIGIN)
-    if (url.origin !== RETURN_URL_ORIGIN) return null
+    if (url.origin !== RETURN_URL_ORIGIN || isPortalPagePath(url.pathname)) return null
     if (!/^\/[A-Za-z][A-Za-z0-9_-]*(?:\/|$)/.test(url.pathname) || /^\/(?:user|admin|api)(?:\/|$)/.test(url.pathname)) return null
     return `${url.pathname}${url.search}${url.hash}`
   } catch {

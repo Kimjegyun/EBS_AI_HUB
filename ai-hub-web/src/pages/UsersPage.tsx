@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { deleteAiHubMember, listAiHubMembers, updateAiHubMember, type AiHubMember } from '../auth/supabaseMembership'
+import { deleteAiHubMember, setAiHubMemberRole, listAiHubMembers, updateAiHubMember, type AiHubMember } from '../auth/supabaseMembership'
 import { useAuth } from '../auth/AuthContext'
 import { Icon } from '../components/Icon'
 import MemberEditDialog from '../components/MemberEditDialog'
@@ -121,6 +121,7 @@ function GroupPanel({
             <div key={group.groupId} className="px-3 py-2 flex items-center gap-4">
               <div className="flex-1">
                 <p className="font-h3 text-[14px] text-on-surface">{group.groupName}</p>
+                {group.groupId === 'ADMIN' && <p className="text-caption text-primary">소속 사용자에게 ADMIN 권한을 부여합니다.</p>}
                 <p className="text-caption text-on-surface-variant">소속 {group.memberCount ?? 0}명</p>
               </div>
               <div className="flex items-center gap-2">
@@ -147,6 +148,7 @@ function GroupPanel({
                 <button
                   type="button"
                   onClick={() => onDelete(group.groupId)}
+                  disabled={group.groupId === 'ADMIN'}
                   className="h-8 w-8 rounded-md text-on-surface-variant hover:bg-error/10 hover:text-error flex items-center justify-center"
                   title="그룹 삭제"
                 >
@@ -203,7 +205,8 @@ export default function UsersPage() {
   }, [])
 
   useEffect(() => {
-    loadMembers().catch(() => undefined)
+    const timer = setTimeout(() => { void loadMembers() }, 0)
+    return () => clearTimeout(timer)
   }, [loadMembers])
 
   const stats = useMemo(() => {
@@ -232,6 +235,19 @@ export default function UsersPage() {
       await loadMembers()
     } catch (err) {
       setError(err instanceof Error ? err.message : '사용자 상태를 변경하지 못했습니다.')
+    } finally {
+      setUpdatingUserId(null)
+    }
+  }
+
+  async function changeRole(member: AiHubMember, role: 'admin' | 'user') {
+    setUpdatingUserId(member.userId)
+    setError(null)
+    try {
+      await setAiHubMemberRole(member.userId, role)
+      await loadMembers()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '역할 변경에 실패했습니다.')
     } finally {
       setUpdatingUserId(null)
     }
@@ -469,17 +485,29 @@ export default function UsersPage() {
                         {member.contactPhone && <div className="text-caption">{member.contactPhone}</div>}
                       </td>
                       <td className="px-3 py-2">
-                        <span title={member.role === 'owner' ? '관리자 (소유자)' : isAdministrator ? '관리자' : '사용자'} className={`whitespace-nowrap font-label text-label px-2 py-1 rounded-md ${isAdministrator ? 'bg-primary text-white font-bold' : 'bg-surface border border-outline-variant text-on-surface'}`}>
+                        <select
+                          value={member.role}
+                          onChange={(event) => void changeRole(member, event.target.value as 'admin' | 'user')}
+                          disabled={member.role === 'owner' || member.userId === myUserId || updatingUserId === member.userId || usage?.groupId === 'ADMIN'}
+                          aria-label={member.displayName + ' 역할'}
+                          title={usage?.groupId === 'ADMIN' ? 'ADMIN 그룹에서 제외한 뒤 역할을 변경하세요.' : '역할 변경'}
+                          className="w-full rounded-md border border-outline-variant bg-surface px-1 py-1 text-body-sm disabled:opacity-60"
+                        >
+                          {member.role === 'owner' && <option value="owner">OWNER</option>}
+                          <option value="user">USER</option>
+                          <option value="admin">ADMIN</option>
+                        </select>
+                        <span hidden title={member.role === 'owner' ? '관리자 (소유자)' : isAdministrator ? '관리자' : '사용자'} className={`whitespace-nowrap font-label text-label px-2 py-1 rounded-md ${isAdministrator ? 'bg-primary text-white font-bold' : 'bg-surface border border-outline-variant text-on-surface'}`}>
                           {member.role === 'owner' ? 'OWNER' : isAdministrator ? 'ADMIN' : 'USER'}
                         </span>
                       </td>
                       <td className="px-3 py-2">
-                        {member.role === 'user' ? (
+                        {member.role !== 'owner' ? (
                           <div className="space-y-0.5">
                             <select
                               value={usage?.groupId ?? ''}
                               onChange={(event) => void assignGroup(member, event.target.value)}
-                              disabled={updatingUserId === member.userId}
+                              disabled={updatingUserId === member.userId || member.userId === myUserId}
                               className="w-full rounded-md border border-outline-variant bg-surface px-2 py-1 text-body-sm disabled:opacity-60"
                               aria-label={`${member.displayName} 그룹`}
                             >

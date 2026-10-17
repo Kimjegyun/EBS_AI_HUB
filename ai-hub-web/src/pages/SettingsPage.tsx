@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Icon } from '../components/Icon'
+import AccountLoginDialog from '../components/AccountLoginDialog'
 import TencentLlmSettingsForm from '../components/TencentLlmSettingsForm'
 import TogetherSttSettingsForm from '../components/TogetherSttSettingsForm'
 import { useAuth } from '../auth/AuthContext'
@@ -335,6 +336,22 @@ function UserTurnsSection() {
 }
 
 // ── 메인 페이지 ───────────────────────────────────────────────────────────────
+function AccountLoginSection() {
+  const [open, setOpen] = useState(false)
+  return (
+    <section className="mb-4 rounded-xl border border-outline-variant bg-surface-container px-5 py-4">
+      <h2 className="font-h3 text-h3">로그인 아이디·비밀번호</h2>
+      <p className="mt-2 text-body-sm text-on-surface-variant">
+        Google로 가입했어도 아이디와 비밀번호를 설정하면 두 가지 방법으로 같은 계정에 로그인할 수 있습니다.
+      </p>
+      <button type="button" onClick={() => setOpen(true)} className="mt-3 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-label text-on-primary">
+        <Icon name="key" className="text-[18px]" />아이디·비밀번호 설정
+      </button>
+      {open && <AccountLoginDialog onClose={() => setOpen(false)} />}
+    </section>
+  )
+}
+
 export default function SettingsPage() {
   const { isAdmin } = useAuth()
   const { config, refetch } = useEnvironmentConfig()
@@ -361,6 +378,8 @@ export default function SettingsPage() {
     return (
       <main className="min-h-[calc(100vh-48px)] bg-background text-on-surface font-body text-body">
         <div className="w-full p-2">
+          <h1 className="mb-3 font-h1 text-h1">내정보</h1>
+          <AccountLoginSection />
           <section className="rounded-xl border border-outline-variant bg-surface-container px-5 py-5">
             <div className="flex items-start gap-3">
               <Icon name="lock" className="mt-0.5 text-[22px] text-primary" />
@@ -391,6 +410,7 @@ export default function SettingsPage() {
           </p>
         </div>
 
+        <AccountLoginSection />
         <div className="grid gap-4 lg:grid-cols-[200px_minmax(0,1fr)]">
           {/* 앱 목록 사이드바 */}
           <aside className="space-y-1">

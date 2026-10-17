@@ -23,10 +23,14 @@ export default function AccountLoginDialog({ onClose }: { onClose: () => void })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  const [loadFailed, setLoadFailed] = useState(false)
 
   useEffect(() => {
     if (!supabase) return
-    void supabase.auth.getUser().then(({ data: { user } }) => {
+    let active = true
+    void supabase.auth.getUser().then(({ data: { user }, error: userError }) => {
+      if (!active) return
+      if (userError || !user) throw new Error('계정 정보를 확인하지 못했습니다. 다시 로그인해 주세요.')
       const id = typeof user?.user_metadata?.login_id === 'string' ? user.user_metadata.login_id : ''
       const providers = (user?.app_metadata?.providers as string[] | undefined) ?? []
       setAccountEmail(user?.email ?? '')
@@ -34,7 +38,13 @@ export default function AccountLoginDialog({ onClose }: { onClose: () => void })
       setLoginId(id)
       setIsGoogle(providers.includes('google'))
       setLoaded(true)
-    }).catch(() => setLoaded(true))
+    }).catch((err: unknown) => {
+      if (!active) return
+      setLoadFailed(true)
+      setLoaded(true)
+      setError(err instanceof Error ? err.message : '계정 정보를 불러오지 못했습니다.')
+    })
+    return () => { active = false }
   }, [])
 
   const submit = async (event: FormEvent) => {
@@ -44,6 +54,11 @@ export default function AccountLoginDialog({ onClose }: { onClose: () => void })
     const nextId = normalizeLoginId(loginId)
     const idChanged = nextId !== currentLoginId
     const wantsPassword = password.length > 0
+    if (!loaded || loadFailed || saving) return
+    if (isGoogle && !currentLoginId && !wantsPassword) {
+      setError('Google 계정에 아이디 로그인을 추가하려면 새 비밀번호도 함께 입력해 주세요.')
+      return
+    }
     if (!idChanged && !wantsPassword) { setError('바꿀 아이디나 새 비밀번호를 입력해 주세요.'); return }
     if (idChanged && !/^[a-z0-9._-]{3,32}$/.test(nextId)) {
       setError('아이디는 영문 소문자, 숫자, 점, 밑줄, 하이픈으로 3~32자만 사용할 수 있습니다.')
@@ -96,7 +111,7 @@ export default function AccountLoginDialog({ onClose }: { onClose: () => void })
             <p className="font-h3 text-h3">로그인 아이디·비밀번호</p>
             <p className="truncate text-caption text-on-surface-variant">{accountEmail}</p>
           </div>
-          <button type="button" onClick={onClose} aria-label="닫기" className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-surface-container-high">
+          <button type="button" onClick={onClose} disabled={saving} aria-label="닫기" className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-surface-container-high">
             <Icon name="close" />
           </button>
         </div>
@@ -138,7 +153,7 @@ export default function AccountLoginDialog({ onClose }: { onClose: () => void })
 
         <div className="flex gap-2 border-t border-outline-variant px-4 py-3">
           <button type="button" onClick={onClose} disabled={saving} className="flex-1 rounded-lg border border-outline-variant py-2.5 text-body-sm">닫기</button>
-          <button type="submit" disabled={saving || !supabase || !loaded} className="flex-1 rounded-lg bg-primary py-2.5 text-body-sm font-semibold text-on-primary disabled:opacity-60">
+          <button type="submit" disabled={saving || !supabase || !loaded || loadFailed} className="flex-1 rounded-lg bg-primary py-2.5 text-body-sm font-semibold text-on-primary disabled:opacity-60">
             {saving ? '저장 중…' : '저장'}
           </button>
         </div>

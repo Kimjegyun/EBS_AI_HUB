@@ -283,3 +283,9 @@ export async function updateAiHubMember(params: {
   )
   if (error) throwRpcSetupError(error)
 }
+
+export async function setAiHubMemberRole(userId: string, role: 'admin' | 'user'): Promise<void> {
+  if (!supabase) throw new Error('Supabase 연결 설정이 필요합니다.')
+  const { error } = await supabase.rpc('ai_hub_set_member_role_v1', { p_user_id: userId, p_role: role })
+  if (error) throw new Error(error.message)
+}
