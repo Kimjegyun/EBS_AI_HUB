@@ -10,6 +10,7 @@
 // 자세한 규격과 예제는 doc/REMOTE_APPS.md 참고.
 
 import React from 'react'
+import SandboxedRemoteApp from './SandboxedRemoteApp'
 import { getLocalApiToken } from '../lib/localApi'
 import type { AppPlugin, AppCategory } from './types'
 
@@ -448,6 +449,7 @@ export async function loadLocalPreview(file: File): Promise<RemoteAppLoadResult>
     description: '로컬 파일 미리보기 — 서버에 올라가지 않았습니다.',
     category: pkg?.app.category || 'AI',
     version: 'preview',
+    permissions: pkg?.app.permissions ?? [],
     author: null,
     license: null,
     sourceUrl: null,
@@ -461,19 +463,13 @@ export async function loadLocalPreview(file: File): Promise<RemoteAppLoadResult>
 
 /** 코드 문자열을 실행해 플러그인으로 만든다. 번들 로딩과 미리보기가 함께 쓴다. */
 async function instantiate(meta: RemoteAppMeta, code: string): Promise<RemoteAppLoadResult> {
-  let objectUrl: string | undefined
   try {
-    objectUrl = URL.createObjectURL(new Blob([code], { type: 'text/javascript' }))
-    const mod = (await import(/* @vite-ignore */ objectUrl)) as { default?: unknown }
-    const factory = mod.default
-    if (typeof factory !== 'function') {
-      throw new Error('export default 가 팩토리 함수가 아닙니다.')
-    }
-    const produced = await (factory as (host: { React: typeof React }) => unknown)({ React })
-    return { meta, plugin: toPlugin(meta, produced) }
+    // App code is never imported or evaluated in the authenticated host window.
+    return { meta, plugin: toPlugin(meta, {
+      Body: (context: import('./types').AppContext) => React.createElement(SandboxedRemoteApp, { code, appId: meta.id, permissions: meta.permissions || [], context }),
+      defaultSize: { w: 4, h: 3, minW: 2, minH: 2 },
+    }) }
   } catch (e) {
     return { meta, error: e instanceof Error ? e.message : String(e) }
-  } finally {
-    if (objectUrl) URL.revokeObjectURL(objectUrl)
   }
 }

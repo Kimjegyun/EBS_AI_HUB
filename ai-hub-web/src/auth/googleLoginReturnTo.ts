@@ -11,6 +11,7 @@ export function getExternalAppReturnTo(value: string | null | undefined): string
 
   try {
     const url = new URL(value, RETURN_URL_ORIGIN)
+    if (url.origin === RETURN_URL_ORIGIN && url.pathname === '/inventory.html') return `${url.pathname}${url.search}${url.hash}`
     if (url.origin !== RETURN_URL_ORIGIN || isPortalPagePath(url.pathname)) return null
     if (!/^\/[A-Za-z][A-Za-z0-9_-]*(?:\/|$)/.test(url.pathname) || /^\/(?:user|admin|api)(?:\/|$)/.test(url.pathname)) return null
     return `${url.pathname}${url.search}${url.hash}`

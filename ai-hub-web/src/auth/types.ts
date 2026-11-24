@@ -12,4 +12,5 @@ export type AuthSession = {
   organization: string | null
   department?: string
   contactPhone?: string
+  needsGoogleProfile?: boolean
 }

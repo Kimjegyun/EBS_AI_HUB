@@ -158,7 +158,7 @@ export default function PublishedSubmissionDownload({ children, showPreview = fa
   </section>
 }
 
-const controlClass = 'block w-full min-w-0 rounded-lg border border-outline-variant bg-surface px-3 py-2 text-[16px] leading-6 text-on-surface disabled:opacity-50'
+const controlClass = 'block w-full min-w-0 rounded-lg border border-outline-variant bg-surface px-3 py-2 text-[12.8px] leading-6 text-on-surface disabled:opacity-50'
 
 function FilterSelect({ label, value, options, labelOf = (option: string) => option, allLabel, disabled, onChange }: {
   label: string; value: string; options: string[]; labelOf?: (option: string) => string; allLabel: string; disabled: boolean; onChange: (value: string) => void

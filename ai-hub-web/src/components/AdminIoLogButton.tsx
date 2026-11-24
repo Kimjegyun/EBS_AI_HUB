@@ -19,7 +19,7 @@ export default function AdminIoLogButton({ compact = false }: Props) {
         aria-label="명령 로그 창 열기"
         title="명령 로그 창"
       >
-        <Icon name="terminal" className="text-[20px]" />
+        <Icon name="terminal" className="text-[16px]" />
       </button>
     )
   }
@@ -32,7 +32,7 @@ export default function AdminIoLogButton({ compact = false }: Props) {
       aria-label="명령 로그 창 열기"
       title="명령 로그 창"
     >
-      <Icon name="terminal" className="text-[18px]" />
+      <Icon name="terminal" className="text-[14.4px]" />
       <span className="hidden md:inline">로그 탭</span>
     </button>
   )

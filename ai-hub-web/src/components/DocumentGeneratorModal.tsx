@@ -30,7 +30,7 @@ function getFirstEnabledModel(): string {
 const OUTPUT_FORMATS: { id: OutputFormat; icon: string; label: string; color: string }[] = [
   { id: 'docx', icon: 'description',    label: '.docx',  color: 'bg-primary text-on-primary border-primary' },
   { id: 'pdf',  icon: 'picture_as_pdf', label: '.pdf',   color: 'bg-error text-white border-error' },
-  { id: 'png',  icon: 'image',          label: '.png',   color: 'bg-emerald-600 text-white border-emerald-600' },
+  { id: 'png',  icon: 'image',          label: '.png',   color: 'bg-primary text-on-primary border-primary' },
 ]
 
 export default function DocumentGeneratorModal({ onClose }: { onClose: () => void }) {
@@ -253,11 +253,11 @@ export default function DocumentGeneratorModal({ onClose }: { onClose: () => voi
         {/* 헤더 */}
         <div className="flex items-center gap-3 px-5 py-3.5 border-b border-outline-variant shrink-0">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
-            <Icon name="auto_awesome" className="text-primary text-[20px]" />
+            <Icon name="auto_awesome" className="text-primary text-[16px]" />
           </div>
           <div className="flex-1 min-w-0">
             <h2 className="font-h2 text-h2 text-on-surface">AI 문서 생성</h2>
-            <p className="text-[11px] text-on-surface-variant truncate">
+            <p className="text-[8.8px] text-on-surface-variant truncate">
               {step === 'generating' ? 'AI가 문서를 작성 중입니다…' :
                step === 'preview'    ? '생성된 문서를 확인하고 다운로드하세요.' :
                step === 'done'       ? '다운로드가 완료되었습니다.' :
@@ -266,7 +266,7 @@ export default function DocumentGeneratorModal({ onClose }: { onClose: () => voi
           </div>
           <button type="button" onClick={onClose}
             className="h-8 w-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-high">
-            <Icon name="close" className="text-[20px]" />
+            <Icon name="close" className="text-[16px]" />
           </button>
         </div>
 
@@ -277,7 +277,7 @@ export default function DocumentGeneratorModal({ onClose }: { onClose: () => voi
           {step === 'done' && (
             <div className="flex flex-col items-center gap-4 py-8">
               <div className="flex h-14 w-14 items-center justify-center rounded-full bg-success/10">
-                <Icon name="check_circle" className="text-success text-[32px]" />
+                <Icon name="check_circle" className="text-success text-[25.6px]" />
               </div>
               <p className="font-h3 text-h3 text-on-surface">다운로드 완료!</p>
               <p className="text-body-sm text-on-surface-variant text-center">
@@ -299,7 +299,7 @@ export default function DocumentGeneratorModal({ onClose }: { onClose: () => voi
           {/* ── 생성 중 ── */}
           {step === 'generating' && (
             <div className="flex flex-col items-center gap-4 py-12">
-              <Icon name="progress_activity" className="text-primary text-[40px] animate-spin" />
+              <Icon name="progress_activity" className="text-primary text-[32px] animate-spin" />
               <p className="text-body-sm text-on-surface-variant">
                 {mode === 'blank'    ? `"${topic}" 문서를 작성하고 있습니다…` :
                  mode === 'template' ? '템플릿 구조를 분석하며 문서를 작성 중입니다…' :
@@ -334,7 +334,7 @@ export default function DocumentGeneratorModal({ onClose }: { onClose: () => voi
                       className={`inline-flex h-8 items-center gap-1 rounded-lg border px-3 text-caption font-medium transition-colors ${
                         outputFormat === fmt.id ? fmt.color : 'border-outline-variant text-on-surface-variant hover:bg-surface-container-high'
                       }`}>
-                      <Icon name={fmt.icon} className="text-[14px]" />
+                      <Icon name={fmt.icon} className="text-[11.2px]" />
                       {fmt.label}
                     </button>
                   ))}
@@ -342,14 +342,14 @@ export default function DocumentGeneratorModal({ onClose }: { onClose: () => voi
                 <div className="flex gap-2">
                   <button type="button" onClick={() => { setStep('input'); setGeneratedText('') }}
                     className="h-9 rounded-lg border border-outline-variant px-3 text-label text-on-surface-variant hover:bg-surface-container-high flex items-center gap-1">
-                    <Icon name="refresh" className="text-[15px]" />
+                    <Icon name="refresh" className="text-[12px]" />
                     다시 생성
                   </button>
                   <button type="button" onClick={() => void handleDownload(outputFormat)} disabled={downloading}
                     className="h-9 rounded-lg bg-primary px-4 text-label text-on-primary hover:bg-primary/90 disabled:opacity-60 flex items-center gap-1.5">
                     {downloading
-                      ? <Icon name="progress_activity" className="animate-spin text-[15px]" />
-                      : <Icon name="download" className="text-[15px]" />}
+                      ? <Icon name="progress_activity" className="animate-spin text-[12px]" />
+                      : <Icon name="download" className="text-[12px]" />}
                     {downloading ? '생성 중…' : `${outputFormat.toUpperCase()} 다운로드`}
                   </button>
                 </div>
@@ -369,10 +369,10 @@ export default function DocumentGeneratorModal({ onClose }: { onClose: () => voi
                       mode === m.id ? 'border-primary bg-primary/5' : 'border-outline-variant bg-surface-container hover:bg-surface-container-high'
                     }`}>
                     <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${mode === m.id ? 'bg-primary text-on-primary' : 'bg-surface-container-highest text-primary'}`}>
-                      <Icon name={m.icon} className="text-[16px]" />
+                      <Icon name={m.icon} className="text-[12.8px]" />
                     </div>
                     <span className="font-label text-label text-on-surface">{m.label}</span>
-                    <span className="text-[11px] text-on-surface-variant leading-snug">{m.desc}</span>
+                    <span className="text-[8.8px] text-on-surface-variant leading-snug">{m.desc}</span>
                   </button>
                 ))}
               </div>
@@ -424,18 +424,18 @@ export default function DocumentGeneratorModal({ onClose }: { onClose: () => voi
                           : 'border-outline-variant bg-surface-container-low text-on-surface-variant hover:border-primary/50 hover:text-primary hover:bg-primary/5'
                       }`}>
                       {templateLoading ? (
-                        <><Icon name="progress_activity" className="animate-spin text-[22px]" /><span className="text-caption">분석 중…</span></>
+                        <><Icon name="progress_activity" className="animate-spin text-[17.6px]" /><span className="text-caption">분석 중…</span></>
                       ) : templateFile ? (
-                        <><Icon name="check_circle" className="text-[22px]" /><span className="text-caption font-medium">{templateFile.name}</span><span className="text-[10px]">클릭하여 다른 파일 선택</span></>
+                        <><Icon name="check_circle" className="text-[17.6px]" /><span className="text-caption font-medium">{templateFile.name}</span><span className="text-[8px]">클릭하여 다른 파일 선택</span></>
                       ) : (
-                        <><Icon name="upload_file" className="text-[22px]" /><span className="text-caption font-medium">클릭하여 .docx 파일 업로드</span><span className="text-[10px]">.doc / .docx 지원</span></>
+                        <><Icon name="upload_file" className="text-[17.6px]" /><span className="text-caption font-medium">클릭하여 .docx 파일 업로드</span><span className="text-[8px]">.doc / .docx 지원</span></>
                       )}
                     </button>
                   </div>
                   {templateStructure && (
                     <div className="rounded-lg border border-outline-variant bg-surface-container-low p-3 max-h-[100px] overflow-y-auto custom-scrollbar">
-                      <p className="text-[10px] font-semibold text-on-surface-variant mb-1 uppercase tracking-wider">문서 구조 분석</p>
-                      <p className="text-[11px] text-on-surface whitespace-pre-wrap leading-relaxed">
+                      <p className="text-[8px] font-semibold text-on-surface-variant mb-1 uppercase tracking-wider">문서 구조 분석</p>
+                      <p className="text-[8.8px] text-on-surface whitespace-pre-wrap leading-relaxed">
                         {templateStructure.rawText.slice(0, 500)}{templateStructure.rawText.length > 500 ? '…' : ''}
                       </p>
                     </div>
@@ -468,22 +468,22 @@ export default function DocumentGeneratorModal({ onClose }: { onClose: () => voi
                           : 'border-outline-variant bg-surface-container-low text-on-surface-variant hover:border-error/50 hover:text-error hover:bg-error/5'
                       }`}>
                       {pdfLoading ? (
-                        <><Icon name="progress_activity" className="animate-spin text-[22px]" /><span className="text-caption">텍스트 추출 중…</span></>
+                        <><Icon name="progress_activity" className="animate-spin text-[17.6px]" /><span className="text-caption">텍스트 추출 중…</span></>
                       ) : pdfFile ? (
                         <>
-                          <Icon name="picture_as_pdf" className="text-[22px]" />
+                          <Icon name="picture_as_pdf" className="text-[17.6px]" />
                           <span className="text-caption font-medium">{pdfFile.name}</span>
-                          {pdfResult && <span className="text-[10px]">{pdfResult.pageCount}페이지 · {Math.round(pdfResult.text.length / 100) / 10}KB 텍스트 추출됨</span>}
+                          {pdfResult && <span className="text-[8px]">{pdfResult.pageCount}페이지 · {Math.round(pdfResult.text.length / 100) / 10}KB 텍스트 추출됨</span>}
                         </>
                       ) : (
-                        <><Icon name="upload_file" className="text-[22px]" /><span className="text-caption font-medium">클릭하여 PDF 업로드</span><span className="text-[10px]">.pdf 지원 (텍스트 기반 PDF 권장)</span></>
+                        <><Icon name="upload_file" className="text-[17.6px]" /><span className="text-caption font-medium">클릭하여 PDF 업로드</span><span className="text-[8px]">.pdf 지원 (텍스트 기반 PDF 권장)</span></>
                       )}
                     </button>
                   </div>
                   {pdfResult && (
                     <div className="rounded-lg border border-outline-variant bg-surface-container-low p-3 max-h-[100px] overflow-y-auto custom-scrollbar">
-                      <p className="text-[10px] font-semibold text-on-surface-variant mb-1 uppercase tracking-wider">추출된 텍스트 미리보기</p>
-                      <p className="text-[11px] text-on-surface whitespace-pre-wrap leading-relaxed">
+                      <p className="text-[8px] font-semibold text-on-surface-variant mb-1 uppercase tracking-wider">추출된 텍스트 미리보기</p>
+                      <p className="text-[8.8px] text-on-surface whitespace-pre-wrap leading-relaxed">
                         {pdfResult.text.slice(0, 600)}{pdfResult.text.length > 600 ? '…' : ''}
                       </p>
                     </div>
@@ -519,19 +519,19 @@ export default function DocumentGeneratorModal({ onClose }: { onClose: () => voi
                       onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageUpload(f) }} />
                     <button type="button" onClick={() => imageInputRef.current?.click()}
                       className={`w-full h-24 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-1 transition-colors overflow-hidden relative ${
-                        imageDataUrl ? 'border-emerald-400 bg-emerald-50' : 'border-outline-variant bg-surface-container-low text-on-surface-variant hover:border-emerald-400/50 hover:text-emerald-700 hover:bg-emerald-50'
+                        imageDataUrl ? 'border-success/50 bg-success/10' : 'border-outline-variant bg-surface-container-low text-on-surface-variant hover:border-success/50 hover:text-success hover:bg-success/10'
                       }`}>
                       {imageDataUrl ? (
                         <>
                           <img src={imageDataUrl} alt="preview" className="absolute inset-0 w-full h-full object-cover opacity-30" />
                           <div className="relative flex flex-col items-center gap-0.5">
-                            <Icon name="check_circle" className="text-[22px] text-emerald-600" />
-                            <span className="text-caption font-medium text-emerald-700">{imageFile?.name}</span>
-                            <span className="text-[10px] text-emerald-600">클릭하여 다른 파일 선택</span>
+                            <Icon name="check_circle" className="text-[17.6px] text-success" />
+                            <span className="text-caption font-medium text-success">{imageFile?.name}</span>
+                            <span className="text-[8px] text-success">클릭하여 다른 파일 선택</span>
                           </div>
                         </>
                       ) : (
-                        <><Icon name="add_photo_alternate" className="text-[24px]" /><span className="text-caption font-medium">클릭하여 이미지 업로드</span><span className="text-[10px]">JPG / PNG / GIF / WebP 지원</span></>
+                        <><Icon name="add_photo_alternate" className="text-[19.2px]" /><span className="text-caption font-medium">클릭하여 이미지 업로드</span><span className="text-[8px]">JPG / PNG / GIF / WebP 지원</span></>
                       )}
                     </button>
                   </div>
@@ -548,7 +548,7 @@ export default function DocumentGeneratorModal({ onClose }: { onClose: () => voi
                       {['이미지를 설명해줘', '텍스트 추출 (OCR)', '차트/그래프 분석', '문서 내용 정리', '표 데이터 추출', '이미지 속 문제 해결'].map((t) => (
                         <button key={t} type="button" onClick={() => setImageInstruction(t)}
                           className={`h-7 px-2.5 rounded-full text-caption border transition-colors ${
-                            imageInstruction === t ? 'bg-emerald-600 text-white border-emerald-600' : 'border-outline-variant text-on-surface-variant hover:border-emerald-500/50 hover:text-emerald-700'
+                            imageInstruction === t ? 'bg-primary text-on-primary border-primary' : 'border-outline-variant text-on-surface-variant hover:border-primary/50 hover:text-primary-light'
                           }`}>{t}</button>
                       ))}
                     </div>
@@ -562,7 +562,7 @@ export default function DocumentGeneratorModal({ onClose }: { onClose: () => voi
 
               {error && (
                 <p className="text-caption text-error flex items-center gap-1">
-                  <Icon name="error" className="text-[14px]" />
+                  <Icon name="error" className="text-[11.2px]" />
                   {error}
                 </p>
               )}
@@ -574,15 +574,15 @@ export default function DocumentGeneratorModal({ onClose }: { onClose: () => voi
         {step === 'input' && (
           <div className="px-5 py-3 border-t border-outline-variant flex items-center justify-between gap-3 shrink-0">
             <div className="space-y-0.5">
-              <p className="text-[11px] text-on-surface-variant/70">활성화된 모델로 문서를 생성합니다. 1턴이 소비됩니다.</p>
+              <p className="text-[8.8px] text-on-surface-variant/70">활성화된 모델로 문서를 생성합니다. 1턴이 소비됩니다.</p>
               {/* 출력 형식 선택 */}
               <div className="flex gap-1">
                 {OUTPUT_FORMATS.map((fmt) => (
                   <button key={fmt.id} type="button" onClick={() => setOutputFormat(fmt.id)}
-                    className={`inline-flex h-6 items-center gap-0.5 rounded border px-2 text-[11px] font-medium transition-colors ${
+                    className={`inline-flex h-6 items-center gap-0.5 rounded border px-2 text-[8.8px] font-medium transition-colors ${
                       outputFormat === fmt.id ? fmt.color : 'border-outline-variant text-on-surface-variant hover:bg-surface-container-high'
                     }`}>
-                    <Icon name={fmt.icon} className="text-[12px]" />
+                    <Icon name={fmt.icon} className="text-[9.6px]" />
                     {fmt.label}
                   </button>
                 ))}
@@ -601,7 +601,7 @@ export default function DocumentGeneratorModal({ onClose }: { onClose: () => voi
                   (mode === 'image'    && (!imageDataUrl || !imageInstruction.trim()))
                 }
                 className="h-9 rounded-lg bg-primary px-5 text-label text-on-primary hover:bg-primary/90 disabled:opacity-50 flex items-center gap-1.5">
-                <Icon name="auto_awesome" className="text-[16px]" />
+                <Icon name="auto_awesome" className="text-[12.8px]" />
                 AI 생성
               </button>
             </div>

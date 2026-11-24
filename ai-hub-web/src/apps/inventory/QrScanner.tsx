@@ -480,7 +480,7 @@ export default function QrScanner({ onResult, onClose, feedback, onOcrFrame }: Q
                   disabled={ocrBusy}
                   className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-primary/40 bg-primary/5 py-2.5 text-body-sm font-semibold text-primary disabled:opacity-60"
                 >
-                  <Icon name={ocrBusy ? 'progress_activity' : 'text_fields'} className={`text-[20px] ${ocrBusy ? 'animate-spin' : ''}`} />
+                  <Icon name={ocrBusy ? 'progress_activity' : 'text_fields'} className={`text-[16px] ${ocrBusy ? 'animate-spin' : ''}`} />
                   {ocrBusy ? '자산번호 글자 읽는 중…' : '코드 없는 라벨 · 번호 글자 읽기'}
                 </button>
               )}
@@ -488,7 +488,7 @@ export default function QrScanner({ onResult, onClose, feedback, onOcrFrame }: Q
 
               {phase === 'starting' && (
                 <div className="flex flex-col items-center justify-center gap-2 py-6 text-body-sm text-on-surface-variant">
-                  <Icon name="progress_activity" className="animate-spin text-[24px]" />
+                  <Icon name="progress_activity" className="animate-spin text-[19.2px]" />
                   <p>카메라 권한 요청 중...</p>
                   <p className="text-center text-caption">브라우저 상단의 카메라 허용 알림을 수락하세요.</p>
                 </div>
@@ -515,7 +515,7 @@ export default function QrScanner({ onResult, onClose, feedback, onOcrFrame }: Q
                   {/* 줌 */}
                   {zoomRange ? (
                     <div className="flex items-center gap-2">
-                      <Icon name="zoom_in" className="shrink-0 text-[18px] text-on-surface-variant" />
+                      <Icon name="zoom_in" className="shrink-0 text-[14.4px] text-on-surface-variant" />
                       <input
                         type="range"
                         min={zoomRange.min}

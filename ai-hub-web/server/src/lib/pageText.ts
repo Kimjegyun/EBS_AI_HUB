@@ -1,4 +1,5 @@
-import { fetchText, stripHtml } from './searchHttp'
+import { stripHtml } from './searchHttp'
+import { fetchPublicHtml } from './publicPageFetch'
 
 function isPublicHttpUrl(raw: string): boolean {
   try {
@@ -18,6 +19,6 @@ function isPublicHttpUrl(raw: string): boolean {
 export async function fetchPublicPageText(url: string): Promise<string> {
   if (!isPublicHttpUrl(url)) return ''
   if (/\.(pdf|zip|png|jpe?g|gif|webp|mp4|mp3)(\?|$)/i.test(url)) return ''
-  const html = await fetchText(url, 5000)
+  const html = await fetchPublicHtml(url, 5000)
   return stripHtml(html).slice(0, 1800)
 }

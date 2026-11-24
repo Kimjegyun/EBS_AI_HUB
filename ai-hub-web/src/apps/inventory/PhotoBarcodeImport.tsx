@@ -104,7 +104,7 @@ export default function PhotoBarcodeImport({ disabled, photoIds, resolve, resolv
         title="첨부한 라벨 사진에서 QR·바코드를 읽어 조사에 반영합니다"
         className="no-drag inline-flex items-center gap-1 px-3 py-2.5 rounded-lg border border-outline-variant text-body-sm font-medium text-on-surface-variant hover:bg-surface-container-high disabled:opacity-50"
       >
-        <Icon name={progress ? 'progress_activity' : 'image_search'} className={`text-[18px] ${progress ? 'animate-spin' : ''}`} />
+        <Icon name={progress ? 'progress_activity' : 'image_search'} className={`text-[14.4px] ${progress ? 'animate-spin' : ''}`} />
         {progress ? `${progress.ocr ? '글자 ' : ''}${progress.done}/${progress.total}` : '사진 분석'}
       </button>
 
@@ -127,7 +127,7 @@ export default function PhotoBarcodeImport({ disabled, photoIds, resolve, resolv
                       <div key={match.assetNo ?? match.code} className="flex items-center justify-between gap-2 text-body-sm">
                         <span className="min-w-0 truncate">
                           <span className="font-medium">{match.assetNo ?? match.code}</span>
-                          {match.viaOcr && <span className="ml-1 rounded bg-secondary/15 px-1 text-[10px] font-semibold text-secondary">글자 인식</span>}
+                          {match.viaOcr && <span className="ml-1 rounded bg-secondary/15 px-1 text-[8px] font-semibold text-secondary">글자 인식</span>}
                           {match.assetNo && match.assetNo.replace(/[^A-Z0-9]/gi, '') !== match.code.replace(/[^A-Z0-9]/gi, '') && <span className="text-on-surface-variant"> (라벨 {match.code})</span>}
                           {match.name && <span className="text-on-surface-variant"> · {match.name}</span>}
                         </span>

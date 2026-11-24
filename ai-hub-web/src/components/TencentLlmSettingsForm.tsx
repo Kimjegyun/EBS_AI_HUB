@@ -204,7 +204,7 @@ export default function TencentLlmSettingsForm({ config, onSaved }: Props) {
       <section className="overflow-hidden rounded-xl border border-outline-variant bg-surface-container">
         <div className="flex items-center gap-3 border-b border-outline-variant px-5 py-4">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Icon name="vpn_key" className="text-[22px]" />
+            <Icon name="vpn_key" className="text-[17.6px]" />
           </div>
           <div className="min-w-0">
             <h2 className="font-h3 text-h3 text-on-surface">Tencent API</h2>
@@ -286,7 +286,7 @@ export default function TencentLlmSettingsForm({ config, onSaved }: Props) {
             >
               <Icon
                 name={issuing ? 'progress_activity' : 'vpn_key'}
-                className={`text-[18px] ${issuing ? 'animate-spin' : ''}`}
+                className={`text-[14.4px] ${issuing ? 'animate-spin' : ''}`}
               />
               {issuing ? '발급 중...' : 'ApiToken 발급 후 저장'}
             </button>
@@ -310,7 +310,7 @@ export default function TencentLlmSettingsForm({ config, onSaved }: Props) {
                 className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-on-surface-variant hover:text-on-surface"
                 aria-label={showKey ? '키 숨기기' : '키 보기'}
               >
-                <Icon name={showKey ? 'visibility_off' : 'visibility'} className="text-[18px]" />
+                <Icon name={showKey ? 'visibility_off' : 'visibility'} className="text-[14.4px]" />
               </button>
             </div>
             {configured && !apiKey && (
@@ -353,7 +353,7 @@ export default function TencentLlmSettingsForm({ config, onSaved }: Props) {
             >
               <Icon
                 name={test.status === 'testing' ? 'progress_activity' : 'wifi_tethering'}
-                className={`text-[18px] ${test.status === 'testing' ? 'animate-spin' : ''}`}
+                className={`text-[14.4px] ${test.status === 'testing' ? 'animate-spin' : ''}`}
               />
               {test.status === 'testing' ? '테스트 중...' : '연결 테스트'}
             </button>
@@ -363,13 +363,13 @@ export default function TencentLlmSettingsForm({ config, onSaved }: Props) {
                 onClick={() => void handleClear()}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-error/30 bg-error/5 px-4 py-2.5 font-label text-label text-error hover:bg-error/10"
               >
-                <Icon name="delete" className="text-[18px]" />
+                <Icon name="delete" className="text-[14.4px]" />
                 키 삭제
               </button>
             )}
             {saved && (
               <span className="inline-flex items-center gap-1 text-caption text-success">
-                <Icon name="check" className="text-[16px]" />
+                <Icon name="check" className="text-[12.8px]" />
                 저장되었습니다
               </span>
             )}
@@ -377,7 +377,7 @@ export default function TencentLlmSettingsForm({ config, onSaved }: Props) {
               to="/dashboard"
               className="ml-auto inline-flex items-center gap-1.5 text-label text-primary hover:underline"
             >
-              <Icon name="open_in_new" className="text-[16px]" />
+              <Icon name="open_in_new" className="text-[12.8px]" />
               대시보드에서 사용
             </Link>
           </div>
@@ -387,7 +387,7 @@ export default function TencentLlmSettingsForm({ config, onSaved }: Props) {
       <section className="overflow-hidden rounded-xl border border-outline-variant bg-surface-container">
         <div className="flex items-center gap-3 border-b border-outline-variant px-5 py-4">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary/10 text-secondary">
-            <Icon name="tune" className="text-[22px]" />
+            <Icon name="tune" className="text-[17.6px]" />
           </div>
           <div className="min-w-0">
             <h2 className="font-h3 text-h3 text-on-surface">모델 / API 주소</h2>
@@ -418,7 +418,7 @@ export default function TencentLlmSettingsForm({ config, onSaved }: Props) {
               onClick={addCustomModel}
               className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 font-label text-label text-primary hover:bg-primary/10"
             >
-              <Icon name="add" className="text-[17px]" />
+              <Icon name="add" className="text-[13.6px]" />
               추가
             </button>
             <button
@@ -456,7 +456,7 @@ export default function TencentLlmSettingsForm({ config, onSaved }: Props) {
               onClick={resetCatalog}
               className="inline-flex items-center gap-1.5 rounded-lg border border-outline-variant bg-surface-container-high px-3 py-2 font-label text-label text-on-surface hover:bg-surface-container-highest"
             >
-              <Icon name="restart_alt" className="text-[17px]" />
+              <Icon name="restart_alt" className="text-[13.6px]" />
               문서 기본값으로 되돌리기
             </button>
           </div>
@@ -545,7 +545,7 @@ export default function TencentLlmSettingsForm({ config, onSaved }: Props) {
                       className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-on-surface-variant hover:bg-error/10 hover:text-error"
                       aria-label="모델 삭제"
                     >
-                      <Icon name="delete" className="text-[18px]" />
+                      <Icon name="delete" className="text-[14.4px]" />
                     </button>
                   )}
                 </div>
@@ -562,7 +562,7 @@ export default function TencentLlmSettingsForm({ config, onSaved }: Props) {
       </section>
 
       <div className="flex items-start gap-2 rounded-xl border border-outline-variant bg-surface-container-low px-5 py-3">
-        <Icon name="lock" className="mt-0.5 shrink-0 text-[18px] text-on-surface-variant" />
+        <Icon name="lock" className="mt-0.5 shrink-0 text-[14.4px] text-on-surface-variant" />
         <p className="text-caption leading-relaxed text-on-surface-variant">
           API 키는 서버에만 저장됩니다. 모델 목록과 API 주소는 USER 포털의 나만의 LLM에 반영됩니다.
         </p>
@@ -580,7 +580,7 @@ function StatusBadge({ configured }: { configured: boolean }) {
           : 'border-outline-variant bg-surface-container-highest text-on-surface-variant'
       }`}
     >
-      <Icon name={configured ? 'check_circle' : 'cancel'} className="text-[16px]" />
+      <Icon name={configured ? 'check_circle' : 'cancel'} className="text-[12.8px]" />
       {configured ? '설정됨' : '미설정'}
     </span>
   )
@@ -620,7 +620,7 @@ function PrimaryButton({
       onClick={onClick}
       className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 font-label text-label text-on-primary transition-colors hover:bg-primary/90"
     >
-      <Icon name={icon} className="text-[18px]" />
+      <Icon name={icon} className="text-[14.4px]" />
       {children}
     </button>
   )
@@ -636,7 +636,7 @@ function Notice({ tone, message }: { tone: 'success' | 'error'; message: string 
           : 'border-error/30 bg-error/5 text-error'
       }`}
     >
-      <Icon name={success ? 'check_circle' : 'error'} className="mt-0.5 shrink-0 text-[18px]" />
+      <Icon name={success ? 'check_circle' : 'error'} className="mt-0.5 shrink-0 text-[14.4px]" />
       <span>{message}</span>
     </div>
   )

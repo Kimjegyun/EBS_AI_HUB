@@ -134,7 +134,7 @@ function parseInline(text: string, key: string | number): React.ReactNode {
     } else if (m[0].startsWith('`')) {
       parts.push(
         <code key={`${key}-c-${m.index}`} style={{
-          background: '#f3f4f6', border: '1px solid #e5e7eb',
+          background: 'var(--color-surface-container-high)', border: '1px solid var(--color-outline-variant)',
           borderRadius: 3, padding: '1px 5px', fontFamily: 'monospace', fontSize: '0.9em',
         }}>{m[4]}</code>
       )
@@ -149,13 +149,14 @@ function parseInline(text: string, key: string | number): React.ReactNode {
 
 // ── Word 스타일 상수 ─────────────────────────────────────────────────────────
 const DOC_FONT = '"맑은 고딕", "Malgun Gothic", "Noto Sans KR", system-ui, sans-serif'
-const H1_COLOR = '#1a56db'
-const H2_COLOR = '#1e3a5f'
-const H3_COLOR = '#374151'
-const H4_COLOR = '#6b7280'
-const TABLE_HEAD_BG = '#1e3a5f'
-const TABLE_ROW_ALT = '#f0f4f8'
-const CODE_BG = '#f8fafc'
+const H1_COLOR = 'var(--color-primary-light)'
+const H2_COLOR = 'var(--color-primary-light)'
+const H3_COLOR = 'var(--color-on-surface)'
+const H4_COLOR = 'var(--color-on-surface-variant)'
+const TABLE_HEAD_BG = 'var(--color-primary-container)'
+const TABLE_ROW_ALT = 'var(--color-surface-container-high)'
+const CODE_BG = 'var(--color-surface-container-low)'
+const scaledType = (pixels: number) => pixels * 0.8
 
 // ── 렌더러 ───────────────────────────────────────────────────────────────────
 export default function MarkdownDocViewer({
@@ -170,7 +171,7 @@ export default function MarkdownDocViewer({
   return (
     <div
       className={className}
-      style={{ fontFamily: DOC_FONT, fontSize: 14, lineHeight: 1.75, color: '#1f2328' }}
+      style={{ fontFamily: DOC_FONT, fontSize: scaledType(14), lineHeight: 1.75, color: 'var(--color-on-surface)' }}
     >
       {tokens.map((token, idx) => {
         switch (token.type) {
@@ -178,7 +179,7 @@ export default function MarkdownDocViewer({
           case 'h1':
             return (
               <h1 key={idx} style={{
-                fontSize: 22, fontWeight: 800, color: H1_COLOR,
+                fontSize: scaledType(22), fontWeight: 800, color: H1_COLOR,
                 margin: '20px 0 10px', lineHeight: 1.3,
                 paddingBottom: 6, borderBottom: `2.5px solid ${H1_COLOR}`,
               }}>
@@ -189,7 +190,7 @@ export default function MarkdownDocViewer({
           case 'h2':
             return (
               <h2 key={idx} style={{
-                fontSize: 17, fontWeight: 700, color: H2_COLOR,
+                fontSize: scaledType(17), fontWeight: 700, color: H2_COLOR,
                 margin: '18px 0 8px', lineHeight: 1.35,
               }}>
                 {parseInline(token.text, idx)}
@@ -199,7 +200,7 @@ export default function MarkdownDocViewer({
           case 'h3':
             return (
               <h3 key={idx} style={{
-                fontSize: 14, fontWeight: 700, color: H3_COLOR,
+                fontSize: scaledType(14), fontWeight: 700, color: H3_COLOR,
                 margin: '14px 0 6px', lineHeight: 1.4,
               }}>
                 {parseInline(token.text, idx)}
@@ -209,7 +210,7 @@ export default function MarkdownDocViewer({
           case 'h4':
             return (
               <h4 key={idx} style={{
-                fontSize: 13, fontWeight: 600, color: H4_COLOR,
+                fontSize: scaledType(13), fontWeight: 600, color: H4_COLOR,
                 margin: '10px 0 4px',
               }}>
                 {parseInline(token.text, idx)}
@@ -217,20 +218,20 @@ export default function MarkdownDocViewer({
             )
 
           case 'hr':
-            return <hr key={idx} style={{ border: 'none', borderTop: '1.5px solid #e5e7eb', margin: '14px 0' }} />
+            return <hr key={idx} style={{ border: 'none', borderTop: '1.5px solid var(--color-outline-variant)', margin: '14px 0' }} />
 
           case 'table':
             return (
               <div key={idx} style={{ overflowX: 'auto', margin: '12px 0' }}>
-                <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 13 }}>
+                <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: scaledType(13) }}>
                   <thead>
                     <tr>
                       {token.headers.map((h, ci) => (
                         <th key={ci} style={{
-                          background: TABLE_HEAD_BG, color: '#fff',
+                          background: TABLE_HEAD_BG, color: 'var(--color-on-primary-container)',
                           padding: '7px 12px', textAlign: 'left',
                           fontWeight: 600, whiteSpace: 'nowrap',
-                          border: '1px solid #d1d5db',
+                          border: '1px solid var(--color-outline-variant)',
                         }}>
                           {parseInline(h, `${idx}-th-${ci}`)}
                         </th>
@@ -239,10 +240,10 @@ export default function MarkdownDocViewer({
                   </thead>
                   <tbody>
                     {token.rows.map((row, ri) => (
-                      <tr key={ri} style={{ background: ri % 2 === 1 ? TABLE_ROW_ALT : '#fff' }}>
+                      <tr key={ri} style={{ background: ri % 2 === 1 ? TABLE_ROW_ALT : 'var(--color-surface-container)' }}>
                         {row.map((cell, ci) => (
                           <td key={ci} style={{
-                            padding: '6px 12px', border: '1px solid #e5e7eb',
+                            padding: '6px 12px', border: '1px solid var(--color-outline-variant)',
                             verticalAlign: 'top', lineHeight: 1.6,
                           }}>
                             {parseInline(cell, `${idx}-td-${ri}-${ci}`)}
@@ -280,13 +281,13 @@ export default function MarkdownDocViewer({
           case 'code':
             return (
               <pre key={idx} style={{
-                background: CODE_BG, border: '1px solid #e5e7eb', borderRadius: 6,
+                background: CODE_BG, border: '1px solid var(--color-outline-variant)', borderRadius: 6,
                 padding: '10px 14px', margin: '8px 0', overflowX: 'auto',
-                fontFamily: '"Courier New", monospace', fontSize: 12.5, lineHeight: 1.6,
-                color: '#1f2328',
+                fontFamily: '"Courier New", monospace', fontSize: scaledType(12.5), lineHeight: 1.6,
+                color: 'var(--color-on-surface)',
               }}>
                 {token.lang && (
-                  <div style={{ color: '#6b7280', fontSize: 10, marginBottom: 4, fontFamily: DOC_FONT }}>
+                  <div style={{ color: 'var(--color-on-surface-variant)', fontSize: scaledType(10), marginBottom: 4, fontFamily: DOC_FONT }}>
                     {token.lang}
                   </div>
                 )}
@@ -298,7 +299,7 @@ export default function MarkdownDocViewer({
             return (
               <blockquote key={idx} style={{
                 borderLeft: `3px solid ${H1_COLOR}`, margin: '8px 0',
-                paddingLeft: 14, color: '#374151', fontStyle: 'italic',
+                paddingLeft: 14, color: 'var(--color-on-surface-variant)', fontStyle: 'italic',
               }}>
                 {parseInline(token.text, idx)}
               </blockquote>

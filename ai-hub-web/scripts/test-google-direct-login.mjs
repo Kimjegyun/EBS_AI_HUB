@@ -32,13 +32,12 @@ window.authTest={saves:0,oldMemberships:0,logins:0};
 window.fetch=async(input,init)=>{
  const url=String(input instanceof Request?input.url:input);
  const json=(data,status=200)=>Promise.resolve(new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json'}}));
- if(url.includes('/auth/v1/user')) {if(init?.method==='PUT')authTest.saves++;return json(user)}
+ if(url.includes('/auth/v1/user')) {if(init?.method==='PUT'){authTest.saves++;Object.assign(user.user_metadata,JSON.parse(init.body).data)}return json(user)}
  if(url.includes('/auth/v1/logout'))return json({});
  if(url.includes('/rest/v1/rpc/ai_hub_google_login')){
   authTest.logins++;
   if(scenario==='error')return json({message:'Test service unavailable'},503);
-  if(!member)member={user_id:user.id,email:user.email,role:'user',status:'approved',display_name:'Google user'};
-  if(member.role==='user'&&member.status==='pending')member.status='approved';
+  if(!member)member={user_id:user.id,email:user.email,role:'user',status:'pending',display_name:'Google user'};
   return json(member);
  }
  if(url.includes('/rest/v1/rpc/ai_hub_get_session_v2'))return json(member);
@@ -55,11 +54,20 @@ for(const scenario of ['anonymous','new','pending','approved','rejected','pendin
  await send('Page.navigate',{url:'about:blank'});await pause(100);
  const hash=scenario==='anonymous'?'':'#'+new URLSearchParams({access_token:token,refresh_token:'synthetic-refresh',expires_in:'3600',token_type:'bearer'});
  await send('Page.navigate',{url:origin+'/user/signup/google?scenario='+scenario+hash});await pause(2500);
+ if(['approved','approved-admin'].includes(scenario)) {
+  const initial=await evaluate('({inputs:document.querySelectorAll("input").length,saves:authTest.saves})');
+  if(initial.inputs!==3||initial.saves)throw Error('Missing first login profile form: '+JSON.stringify(initial));
+  await evaluate(`(()=>{const values=['Test HQ','Test Department','0200000000'];document.querySelectorAll('input').forEach((input,i)=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,values[i]);input.dispatchEvent(new Event('input',{bubbles:true}))})})()`);
+  await pause(100);
+  await evaluate("document.querySelector('form').requestSubmit()");
+  await pause(1500);
+ }
  const state=await evaluate('({inputs:document.querySelectorAll("input,select").length,path:location.pathname,alert:!!document.querySelector("[role=alert]"),counts:window.authTest,session:JSON.parse(sessionStorage.getItem("ai-hub:user:ai-hub-auth")||"null")})');
- if(state.counts.saves||state.counts.oldMemberships)throw Error('Unexpected profile/signup write: '+JSON.stringify(state));
- if(['new','pending','approved','approved-admin'].includes(scenario)) {
+ if(state.counts.oldMemberships)throw Error('Unexpected signup write: '+JSON.stringify(state));
+ if(['approved','approved-admin'].includes(scenario)) {
   if(!state.session||state.path.includes('/signup'))throw Error('Direct login failed: '+scenario+JSON.stringify(state));
   if(state.session.role!==(scenario==='approved-admin'?'admin':'user'))throw Error('Role changed');
+  if(state.counts.saves!==1||state.session.needsGoogleProfile||state.session.department!=='Test Department')throw Error('Profile not saved: '+JSON.stringify(state));
  }else{
   if(state.session||state.inputs)throw Error('Unexpected access or form: '+scenario+JSON.stringify(state));
   if(scenario!=='anonymous'&&!state.alert)throw Error('Missing error: '+scenario);

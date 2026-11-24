@@ -1,0 +1,11 @@
+{
+  "id": "import-example",
+  "name": "가져오기 예제",
+  "version": "1.0.0",
+  "category": "생산성",
+  "description": "폴더에서 패키지로 변환하는 최소 예제",
+  "icon": "extension",
+  "entry": "app.js",
+  "permissions": [],
+  "license": "MIT"
+}

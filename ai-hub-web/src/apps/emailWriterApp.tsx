@@ -140,7 +140,7 @@ function EmailWriterBody() {
             <span className="font-h3 text-h3 text-on-surface">완성된 메일</span>
             {result && (
               <button type="button" onClick={() => copy('all')} className="inline-flex items-center gap-1 text-caption font-medium text-primary hover:text-primary-dark">
-                <Icon name={copied === 'all' ? 'check' : 'content_copy'} className="text-[15px]" />
+                <Icon name={copied === 'all' ? 'check' : 'content_copy'} className="text-[12px]" />
                 {copied === 'all' ? '복사됨' : '전체 복사'}
               </button>
             )}
@@ -151,14 +151,14 @@ function EmailWriterBody() {
                 <div className="mb-1 flex items-center justify-between gap-2">
                   <span className="font-label text-label text-on-surface-variant">제목</span>
                   <button type="button" onClick={() => copy('subject')} aria-label="제목 복사" className="text-on-surface-variant hover:text-primary">
-                    <Icon name={copied === 'subject' ? 'check' : 'content_copy'} className="text-[15px]" />
+                    <Icon name={copied === 'subject' ? 'check' : 'content_copy'} className="text-[12px]" />
                   </button>
                 </div>
                 <p className="font-h3 text-h3 text-on-surface">{result.subject || '제목 없음'}</p>
               </div>
               <div className="relative min-h-[110px] flex-1 whitespace-pre-wrap rounded-lg bg-surface-container-low p-3 pr-9 text-body text-on-surface">
                 <button type="button" onClick={() => copy('body')} aria-label="본문 복사" className="absolute right-3 top-3 text-on-surface-variant hover:text-primary">
-                  <Icon name={copied === 'body' ? 'check' : 'content_copy'} className="text-[15px]" />
+                  <Icon name={copied === 'body' ? 'check' : 'content_copy'} className="text-[12px]" />
                 </button>
                 {result.body}
               </div>
@@ -179,7 +179,7 @@ function EmailWriterBody() {
         disabled={!draft.trim() || loading}
         className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 font-h3 text-h3 text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
       >
-        <Icon name={loading ? 'progress_activity' : 'auto_awesome'} className={`text-[18px] ${loading ? 'animate-spin' : ''}`} />
+        <Icon name={loading ? 'progress_activity' : 'auto_awesome'} className={`text-[14.4px] ${loading ? 'animate-spin' : ''}`} />
         {loading ? '메일을 정리하는 중...' : result ? '다시 생성하기' : '메일 생성하기'}
       </button>
     </div>

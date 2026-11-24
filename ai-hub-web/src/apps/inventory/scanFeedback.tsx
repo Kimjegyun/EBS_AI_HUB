@@ -19,7 +19,7 @@ export function ScanFeedbackBanner({ feedback }: { feedback: ScanFeedback }) {
   const look = LOOK[feedback.kind]
   return (
     <div key={feedback.key} role="alert" className={`mt-2 flex items-start gap-2 rounded-xl border px-3 py-2.5 ${look.className}`}>
-      <Icon name={look.icon} className="mt-0.5 shrink-0 text-[22px]" />
+      <Icon name={look.icon} className="mt-0.5 shrink-0 text-[17.6px]" />
       <div className="min-w-0">
         <p className="text-body font-bold">{look.title}</p>
         {feedback.detail && <p className="text-caption text-on-surface break-words">{feedback.detail}</p>}

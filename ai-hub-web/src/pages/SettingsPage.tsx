@@ -4,6 +4,7 @@ import { Icon } from '../components/Icon'
 import AccountLoginDialog from '../components/AccountLoginDialog'
 import TencentLlmSettingsForm from '../components/TencentLlmSettingsForm'
 import TogetherSttSettingsForm from '../components/TogetherSttSettingsForm'
+import ResourceSettingsPanel from '../components/ResourceSettingsPanel'
 import { useAuth } from '../auth/AuthContext'
 import { useAppCatalog } from '../context/AppCatalogContext'
 import { useEnvironmentConfig } from '../context/EnvironmentConfigContext'
@@ -54,17 +55,17 @@ function CollapsibleSection({
         className="w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-surface-container-low/50 transition-colors select-none"
       >
         <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-          <Icon name={icon} className="text-[16px]" />
+          <Icon name={icon} className="text-[12.8px]" />
         </div>
         <span className="flex-1 font-h3 text-h3 text-on-surface">{title}</span>
         {badge && (
-          <span className="rounded-full bg-primary/10 text-primary px-1.5 py-0.5 text-[10px] font-semibold">
+          <span className="rounded-full bg-primary/10 text-primary px-1.5 py-0.5 text-[8px] font-semibold">
             {badge}
           </span>
         )}
         <Icon
           name={open ? 'expand_less' : 'expand_more'}
-          className="text-[18px] text-on-surface-variant transition-transform"
+          className="text-[14.4px] text-on-surface-variant transition-transform"
         />
       </button>
       {open && (
@@ -108,7 +109,7 @@ function GlobalTurnsSection() {
           onClick={handleSave}
           className="h-8 rounded-md bg-primary px-4 text-label text-on-primary hover:bg-primary/90 flex items-center gap-1"
         >
-          {saved ? <Icon name="check" className="text-[14px]" /> : <Icon name="save" className="text-[14px]" />}
+          {saved ? <Icon name="check" className="text-[11.2px]" /> : <Icon name="save" className="text-[11.2px]" />}
           {saved ? '저장됨' : '저장'}
         </button>
         <span className="text-caption text-on-surface-variant/70">
@@ -178,7 +179,7 @@ function GroupTurnsSection() {
           disabled={!newName.trim()}
           className="h-7 rounded-md bg-primary text-on-primary px-3 text-caption flex items-center gap-1 hover:opacity-90 disabled:opacity-50"
         >
-          <Icon name="add" className="text-[14px]" />
+          <Icon name="add" className="text-[11.2px]" />
           추가
         </button>
       </div>
@@ -192,7 +193,7 @@ function GroupTurnsSection() {
           {Object.values(groups).map((g) => (
             <div key={g.groupId} className="flex items-center gap-2 px-3 py-1.5 bg-surface-container-lowest hover:bg-surface-container-low transition-colors">
               <div className="flex-1 min-w-0">
-                <span className="text-[13px] font-medium text-on-surface">{g.groupName}</span>
+                <span className="text-[10.4px] font-medium text-on-surface">{g.groupName}</span>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 <span className="text-caption text-on-surface-variant">월 턴:</span>
@@ -210,7 +211,7 @@ function GroupTurnsSection() {
                     savedId === g.groupId ? 'bg-success/10 text-success' : 'bg-primary/10 text-primary hover:bg-primary/20'
                   }`}
                 >
-                  {savedId === g.groupId ? <Icon name="check" className="text-[13px]" /> : null}
+                  {savedId === g.groupId ? <Icon name="check" className="text-[10.4px]" /> : null}
                   {savedId === g.groupId ? '완료' : '저장'}
                 </button>
                 <button
@@ -219,7 +220,7 @@ function GroupTurnsSection() {
                   className="h-7 w-7 rounded-md text-on-surface-variant hover:bg-error/10 hover:text-error flex items-center justify-center"
                   title="삭제"
                 >
-                  <Icon name="delete" className="text-[14px]" />
+                  <Icon name="delete" className="text-[11.2px]" />
                 </button>
               </div>
             </div>
@@ -290,18 +291,18 @@ function UserTurnsSection() {
               <div key={m.userId} className="flex items-center gap-2 px-3 py-1.5 bg-surface-container-lowest hover:bg-surface-container-low transition-colors">
                 {/* 아바타 */}
                 <div className="h-7 w-7 shrink-0 rounded-md bg-surface-dim flex items-center justify-center border border-outline-variant">
-                  <span className="text-[10px] font-bold text-primary">{m.displayName.slice(0, 2).toUpperCase()}</span>
+                  <span className="text-[8px] font-bold text-primary">{m.displayName.slice(0, 2).toUpperCase()}</span>
                 </div>
                 {/* 이름 + 사용률 */}
                 <div className="flex-1 min-w-0 flex items-center gap-2">
-                  <span className="text-[13px] font-medium text-on-surface truncate min-w-[80px]">{m.displayName}</span>
+                  <span className="text-[10.4px] font-medium text-on-surface truncate min-w-[80px]">{m.displayName}</span>
                   <div className="h-1.5 rounded-full bg-surface-container-highest overflow-hidden w-20 shrink-0">
                     <div
                       className={`h-full rounded-full ${pct >= 90 ? 'bg-error' : pct >= 70 ? 'bg-warning' : 'bg-primary'}`}
                       style={{ width: `${pct}%` }}
                     />
                   </div>
-                  <span className="text-[10px] text-on-surface-variant whitespace-nowrap">{used.toLocaleString()} / {limit.toLocaleString()}</span>
+                  <span className="text-[8px] text-on-surface-variant whitespace-nowrap">{used.toLocaleString()} / {limit.toLocaleString()}</span>
                 </div>
                 {/* 한도 편집 */}
                 <div className="flex items-center gap-1.5 shrink-0">
@@ -321,8 +322,8 @@ function UserTurnsSection() {
                       savedId === m.userId ? 'bg-success/10 text-success' : 'bg-primary/10 text-primary hover:bg-primary/20'
                     }`}
                   >
-                    {savingId === m.userId && <Icon name="progress_activity" className="animate-spin text-[12px]" />}
-                    {savedId === m.userId ? <Icon name="check" className="text-[12px]" /> : null}
+                    {savingId === m.userId && <Icon name="progress_activity" className="animate-spin text-[9.6px]" />}
+                    {savedId === m.userId ? <Icon name="check" className="text-[9.6px]" /> : null}
                     {savingId === m.userId ? '…' : savedId === m.userId ? '완료' : '저장'}
                   </button>
                 </div>
@@ -345,7 +346,7 @@ function AccountLoginSection() {
         Google로 가입했어도 아이디와 비밀번호를 설정하면 두 가지 방법으로 같은 계정에 로그인할 수 있습니다.
       </p>
       <button type="button" onClick={() => setOpen(true)} className="mt-3 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-label text-on-primary">
-        <Icon name="key" className="text-[18px]" />아이디·비밀번호 설정
+        <Icon name="key" className="text-[14.4px]" />아이디·비밀번호 설정
       </button>
       {open && <AccountLoginDialog onClose={() => setOpen(false)} />}
     </section>
@@ -382,14 +383,14 @@ export default function SettingsPage() {
           <AccountLoginSection />
           <section className="rounded-xl border border-outline-variant bg-surface-container px-5 py-5">
             <div className="flex items-start gap-3">
-              <Icon name="lock" className="mt-0.5 text-[22px] text-primary" />
+              <Icon name="lock" className="mt-0.5 text-[17.6px] text-primary" />
               <div>
                 <h1 className="font-h2 text-h2 text-on-surface">API 설정은 관리자 전용입니다</h1>
                 <p className="mt-2 text-body-sm text-on-surface-variant">
                   USER 모드에서는 API 키를 입력하거나 변경할 수 없습니다.
                 </p>
                 <Link to="/dashboard" className="mt-4 inline-flex items-center gap-1.5 text-label text-primary hover:underline">
-                  <Icon name="arrow_back" className="text-[16px]" />
+                  <Icon name="arrow_back" className="text-[12.8px]" />
                   대시보드로 돌아가기
                 </Link>
               </div>
@@ -411,6 +412,7 @@ export default function SettingsPage() {
         </div>
 
         <AccountLoginSection />
+        <ResourceSettingsPanel />
         <div className="grid gap-4 lg:grid-cols-[200px_minmax(0,1fr)]">
           {/* 앱 목록 사이드바 */}
           <aside className="space-y-1">
@@ -430,16 +432,16 @@ export default function SettingsPage() {
                   }`}
                 >
                   <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-surface-container-highest text-primary">
-                    <Icon name={app.icon} className="text-[16px]" />
+                    <Icon name={app.icon} className="text-[12.8px]" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-label text-label text-on-surface">{app.name}</div>
-                    <div className="text-[10px] text-on-surface-variant">
+                    <div className="text-[8px] text-on-surface-variant">
                       {app.category}{isPublished(app.id) ? ' · 등록됨' : ''}
                     </div>
                   </div>
                   {hasAppSettings(app.id) ? (
-                    <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] ${configured ? 'bg-success/10 text-success' : 'bg-surface-container-highest text-on-surface-variant'}`}>
+                    <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[8px] ${configured ? 'bg-success/10 text-success' : 'bg-surface-container-highest text-on-surface-variant'}`}>
                       {configured ? '설정됨' : '미설정'}
                     </span>
                   ) : null}
@@ -504,7 +506,7 @@ function SelectedAppSettings({
           <div className="rounded-lg border border-outline-variant bg-surface-container-lowest overflow-hidden shadow-sm">
             <div className="flex items-center gap-2 px-4 py-2.5 border-b border-outline-variant bg-surface-container-low/50">
               <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-                <Icon name="token" className="text-[16px]" />
+                <Icon name="token" className="text-[12.8px]" />
               </div>
               <span className="font-h3 text-h3 text-on-surface">AI 턴 관리</span>
               <span className="text-caption text-on-surface-variant ml-1">· 월별 사용량 제한 설정</span>
@@ -524,7 +526,7 @@ function SelectedAppSettings({
         <CollapsibleSection title="DB 파일 관리" icon="database" defaultOpen>
           <Suspense fallback={
             <div className="py-6 flex items-center justify-center gap-2 text-on-surface-variant text-body-sm">
-              <Icon name="progress_activity" className="animate-spin text-[16px]" />불러오는 중...
+              <Icon name="progress_activity" className="animate-spin text-[12.8px]" />불러오는 중...
             </div>
           }>
             <InventorySettingsPanel />
@@ -533,7 +535,7 @@ function SelectedAppSettings({
       ) : (
         <CollapsibleSection title="앱 설정" icon="tune">
           <div className="py-2 text-center">
-            <Icon name="tune" className="text-[22px] text-on-surface-variant" />
+            <Icon name="tune" className="text-[17.6px] text-on-surface-variant" />
             <h3 className="mt-2 font-h3 text-h3 text-on-surface">이 앱은 추가 설정이 없습니다</h3>
             <p className="mt-1 text-caption text-on-surface-variant">
               현재 API 키와 모델 주소는 나만의 LLM에서만 설정합니다.

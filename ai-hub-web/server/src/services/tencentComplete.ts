@@ -1,3 +1,4 @@
+import { providerFetch } from '../lib/providerFetch'
 import { appendServerIoLog } from '../lib/ioLogStore'
 import {
   describeTencentHeaderError,
@@ -172,7 +173,7 @@ export async function completeTencent(options: {
 
   let res: Response
   try {
-    res = await fetch(apiUrl, {
+    res = await providerFetch(apiUrl, {
       method: 'POST',
       headers,
       body: JSON.stringify(body),
@@ -231,7 +232,7 @@ export async function pingTencent(config: Record<string, unknown>): Promise<Chat
   })
 
   try {
-    const catalogRes = await fetch(modelsUrl, {
+    const catalogRes = await providerFetch(modelsUrl, {
       method: 'GET',
       headers: tencentAuthHeaders(apiKey),
     })
@@ -256,7 +257,7 @@ export async function pingTencent(config: Record<string, unknown>): Promise<Chat
       title: `POST ${chatUrl}`,
       body: `connection test fallback · ${shape}`,
     })
-    const chatRes = await fetch(chatUrl, {
+    const chatRes = await providerFetch(chatUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

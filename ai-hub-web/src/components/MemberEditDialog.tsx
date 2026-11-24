@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { updateAiHubMemberProfile, type AiHubMember } from '../auth/supabaseMembership'
+import { updateAiHubMemberProfile, type AiHubMember, type MemberApprovalOutcome } from '../auth/supabaseMembership'
 import { Icon } from './Icon'
 
 type Props = {
@@ -10,7 +10,7 @@ type Props = {
   canManageOwner: boolean
   organizationOptions: string[]
   onClose: () => void
-  onSaved: () => void
+  onSaved: (approvalOutcome?: MemberApprovalOutcome) => void
 }
 
 const inputClass = 'mt-1 block w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-body-sm text-on-surface outline-none focus:border-primary disabled:opacity-60'
@@ -34,7 +34,7 @@ export default function MemberEditDialog({ member, isSelf, canManageOwner, organ
     setSaving(true)
     setError('')
     try {
-      await updateAiHubMemberProfile({
+      const approvalOutcome = await updateAiHubMemberProfile({
         userId: member.userId,
         displayName: displayName.trim(),
         realName: realName.trim(),
@@ -44,7 +44,7 @@ export default function MemberEditDialog({ member, isSelf, canManageOwner, organ
         role,
         status,
       })
-      onSaved()
+      onSaved(approvalOutcome)
     } catch (err) {
       setError(err instanceof Error ? err.message : '사용자 정보를 저장하지 못했습니다.')
     } finally {
@@ -71,7 +71,7 @@ export default function MemberEditDialog({ member, isSelf, canManageOwner, organ
           </label>
           <label className="block">성명
             <input value={realName} onChange={(e) => setRealName(e.target.value)} maxLength={30} placeholder="예: 홍길동" autoComplete="off" className={inputClass} />
-            <span className="mt-1 block text-[11px]">표시 이름이 영문 약자일 때 실제 성명을 적어 두면 사용자 목록에서 바로 알아볼 수 있습니다.</span>
+            <span className="mt-1 block text-[8.8px]">표시 이름이 영문 약자일 때 실제 성명을 적어 두면 사용자 목록에서 바로 알아볼 수 있습니다.</span>
           </label>
           <label className="block">소속(본부)
             <input value={organization} onChange={(e) => setOrganization(e.target.value)} maxLength={60} list="member-edit-orgs" placeholder="예: 융합기술본부" className={inputClass} />

@@ -1,0 +1,31 @@
+{
+  "id": "/admin/approvals/app.html",
+  "name": "EBS 관리자",
+  "short_name": "EBS 관리자",
+  "description": "EBS AI HUB admin app for reviewing member requests",
+  "start_url": "/admin/approvals/app.html",
+  "scope": "/admin/approvals/",
+  "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
+  "orientation": "portrait",
+  "background_color": "#f5f7fb",
+  "theme_color": "#312e81",
+  "lang": "ko",
+  "icons": [
+    {
+      "src": "approval-app-icon-v4-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "approval-app-icon-v4-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

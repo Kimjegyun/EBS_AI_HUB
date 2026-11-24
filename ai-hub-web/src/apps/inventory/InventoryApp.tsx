@@ -407,7 +407,7 @@ function SurveyProgressPanel({ parentDept, datasetId }: { parentDept: string; da
   if (busy && coverage.length === 0) {
     return (
       <div className="flex items-center gap-2 rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-caption text-on-surface-variant">
-        <Icon name="progress_activity" className="animate-spin text-[15px]" />진행 현황 불러오는 중...
+        <Icon name="progress_activity" className="animate-spin text-[12px]" />진행 현황 불러오는 중...
       </div>
     )
   }
@@ -417,11 +417,11 @@ function SurveyProgressPanel({ parentDept, datasetId }: { parentDept: string; da
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
-        <Icon name="donut_large" className="text-primary text-[18px]" />
+        <Icon name="donut_large" className="text-primary text-[14.4px]" />
         <h3 className="flex-1 text-body-sm font-semibold text-on-surface">{parentDept} 조사 진행 현황</h3>
         <button type="button" onClick={() => void load()} disabled={busy}
           className="no-drag inline-flex items-center gap-1 text-caption text-on-surface-variant hover:text-primary disabled:opacity-50">
-          <Icon name={busy ? 'progress_activity' : 'refresh'} className={`text-[14px] ${busy ? 'animate-spin' : ''}`} />갱신
+          <Icon name={busy ? 'progress_activity' : 'refresh'} className={`text-[11.2px] ${busy ? 'animate-spin' : ''}`} />갱신
         </button>
       </div>
 
@@ -434,9 +434,9 @@ function SurveyProgressPanel({ parentDept, datasetId }: { parentDept: string; da
               <div className="flex items-center gap-2">
                 <span className="min-w-0 flex-1 truncate text-body-sm font-medium text-on-surface">{d.parentDept}</span>
                 {done ? (
-                  <span className="shrink-0 rounded bg-success/15 px-1.5 py-0.5 text-[10px] font-semibold text-success">100% 완료</span>
+                  <span className="shrink-0 rounded bg-success/15 px-1.5 py-0.5 text-[8px] font-semibold text-success">100% 완료</span>
                 ) : (
-                  <span className="shrink-0 rounded bg-error/12 px-1.5 py-0.5 text-[10px] font-semibold text-error">
+                  <span className="shrink-0 rounded bg-error/12 px-1.5 py-0.5 text-[8px] font-semibold text-error">
                     미확인 {d.unsurveyed.toLocaleString()}
                   </span>
                 )}
@@ -449,7 +449,7 @@ function SurveyProgressPanel({ parentDept, datasetId }: { parentDept: string; da
               {d.unsurveyed > 0 && (
                 <button type="button" onClick={() => setOpenDataset(open ? null : d.datasetId)}
                   className="no-drag inline-flex items-center gap-1 text-caption text-primary hover:underline">
-                  <Icon name={open ? 'expand_less' : 'expand_more'} className="text-[15px]" />
+                  <Icon name={open ? 'expand_less' : 'expand_more'} className="text-[12px]" />
                   미확인 자산 {open ? '접기' : '상세 보기'}
                 </button>
               )}
@@ -643,7 +643,7 @@ function SessionList({
             disabled={resetTargets.length === 0 || resetting}
             className="no-drag inline-flex items-center gap-1.5 rounded-lg border border-error/40 px-3 py-1.5 text-label font-medium text-error hover:bg-error/10 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            <Icon name={resetting ? 'progress_activity' : 'restart_alt'} className={`text-[18px] ${resetting ? 'animate-spin' : ''}`} />
+            <Icon name={resetting ? 'progress_activity' : 'restart_alt'} className={`text-[14.4px] ${resetting ? 'animate-spin' : ''}`} />
             {resetting ? '초기화 중' : '초기화'}
           </button>}
           <button
@@ -651,7 +651,7 @@ function SessionList({
             onClick={() => setShowForm((v) => !v)}
             className="no-drag inline-flex items-center gap-1.5 rounded-lg bg-primary text-on-primary px-3 py-1.5 text-label font-medium hover:bg-primary/90"
           >
-            <Icon name={showForm ? 'close' : 'add'} className="text-[18px]" />
+            <Icon name={showForm ? 'close' : 'add'} className="text-[14.4px]" />
             {showForm ? '닫기' : '새 조사'}
           </button>
         </div>
@@ -735,7 +735,7 @@ function SessionList({
           >
             {busy ? (
               <>
-                <Icon name="progress_activity" className="animate-spin text-[18px]" />
+                <Icon name="progress_activity" className="animate-spin text-[14.4px]" />
                 {busy}
               </>
             ) : (
@@ -763,17 +763,17 @@ function SessionList({
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-h3 text-h3 text-on-surface truncate">{s.name}</span>
                     {s.completed && (
-                      <span className="shrink-0 px-1.5 py-0.5 rounded bg-success/15 text-success text-[10px] font-semibold">
+                      <span className="shrink-0 px-1.5 py-0.5 rounded bg-success/15 text-success text-[8px] font-semibold">
                         완료
                       </span>
                     )}
                     {(s as SurveySession & { submittedAt?: string }).submittedAt && (
-                      <span className="shrink-0 px-1.5 py-0.5 rounded bg-secondary/15 text-secondary text-[10px] font-semibold">
+                      <span className="shrink-0 px-1.5 py-0.5 rounded bg-secondary/15 text-secondary text-[8px] font-semibold">
                         서버 등록됨
                       </span>
                     )}
                     {s.uploadedAt && !(s as SurveySession & { submittedAt?: string }).submittedAt && (
-                      <span className="shrink-0 px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-semibold">
+                      <span className="shrink-0 px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[8px] font-semibold">
                         동기화됨
                       </span>
                     )}
@@ -792,7 +792,7 @@ function SessionList({
                     className="no-drag w-8 h-8 flex items-center justify-center rounded-full text-primary hover:bg-primary/10 disabled:opacity-50"
                     aria-label="자산현황 다운로드"
                   >
-                    <Icon name={downloadingId === s.datasetId ? 'progress_activity' : 'download'} className={`text-[18px] ${downloadingId === s.datasetId ? 'animate-spin' : ''}`} />
+                    <Icon name={downloadingId === s.datasetId ? 'progress_activity' : 'download'} className={`text-[14.4px] ${downloadingId === s.datasetId ? 'animate-spin' : ''}`} />
                   </button>
                   {/* ③ 완성된 재물조사 엑셀 업로드 */}
                   {isAdmin && <button
@@ -806,7 +806,7 @@ function SessionList({
                     className="no-drag w-8 h-8 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-error/10 hover:text-error"
                     aria-label="삭제"
                   >
-                    <Icon name="delete" className="text-[18px]" />
+                    <Icon name="delete" className="text-[14.4px]" />
                   </button>}
                 </div>
               </div>
@@ -882,7 +882,7 @@ function SessionListInstallQr() {
         </button>
         <div className="space-y-1">
           <p className="text-body-sm font-semibold text-on-surface">📱 QR로 재물조사 앱 설치</p>
-          <p className="text-[11px] text-on-surface-variant leading-relaxed">
+          <p className="text-[8.8px] text-on-surface-variant leading-relaxed">
             QR을 <strong>클릭하면 크게</strong> 볼 수 있습니다.<br />
             폰 카메라로 찍으면 설치 안내 페이지가 열립니다.
           </p>
@@ -891,7 +891,7 @@ function SessionListInstallQr() {
           href={installUrl}
           target="_blank"
           rel="noreferrer"
-          className="no-drag text-[10px] font-mono text-primary underline bg-surface-container rounded-lg px-2 py-1 break-all max-w-xs"
+          className="no-drag text-[8px] font-mono text-primary underline bg-surface-container rounded-lg px-2 py-1 break-all max-w-xs"
         >
           {installUrl}
         </a>
@@ -1479,22 +1479,22 @@ function SurveyRunner({
                 {/* 파일③: 본부별 결과 */}
                 <button type="button" onClick={exportDivisionResult}
                   className="no-drag inline-flex items-center gap-1.5 rounded-lg bg-primary/10 text-primary px-3 py-1.5 text-label hover:bg-primary/20">
-                  <Icon name="table_chart" className="text-[16px]" />본부별 결과 엑셀
+                  <Icon name="table_chart" className="text-[12.8px]" />본부별 결과 엑셀
                 </button>
                 {/* 기존 세션 엑셀 */}
                 <button type="button" onClick={exportExcel}
                   className="no-drag inline-flex items-center gap-1.5 rounded-lg border border-outline-variant px-3 py-1.5 text-label hover:bg-surface-container-high">
-                  <Icon name="download" className="text-[16px]" />전체 내보내기
+                  <Icon name="download" className="text-[12.8px]" />전체 내보내기
                 </button>
               </div>
 
               {/* 검수 결과 반영 — 서버 보관 + 기기 저장 */}
               {isAdmin && <div className="pt-1 border-t border-outline-variant/50 space-y-1.5">
-                <p className="text-[11px] leading-relaxed text-on-surface-variant">
+                <p className="text-[8.8px] leading-relaxed text-on-surface-variant">
                   조사 결과는 같은 작업파일에 자동 저장됩니다. 다운로드하면 현재까지의 결과 사본을 받습니다.
                 </p>
                 {!erp && (
-                  <p className="text-[11px] text-warning">
+                  <p className="text-[8.8px] text-warning">
                     ERP 자산현황이 필요합니다 — 관리자가 설정 탭에서 이 본부의 ERP 파일을 등록하면 자동으로 불러옵니다.
                   </p>
                 )}
@@ -1506,8 +1506,8 @@ function SurveyRunner({
                     className="no-drag inline-flex items-center gap-1.5 rounded-lg bg-primary/10 text-primary px-3 py-1.5 text-label hover:bg-primary/20 disabled:opacity-50"
                   >
                     {exportBusy === 'erp'
-                      ? <><Icon name="progress_activity" className="animate-spin text-[16px]" />만드는 중...</>
-                      : <><Icon name="playlist_add_check" className="text-[16px]" />누적 작업파일 다운로드</>
+                      ? <><Icon name="progress_activity" className="animate-spin text-[12.8px]" />만드는 중...</>
+                      : <><Icon name="playlist_add_check" className="text-[12.8px]" />누적 작업파일 다운로드</>
                     }
                   </button>
                 </div>
@@ -1544,7 +1544,7 @@ function SurveyRunner({
                   : 'border-outline-variant text-on-surface-variant hover:bg-surface-container-high'
               }`}
             >
-              <Icon name="bolt" className="text-[18px]" />
+              <Icon name="bolt" className="text-[14.4px]" />
               {continuousScan ? '연속ON' : '연속'}
             </button>
             <PhotoBarcodeImport
@@ -1583,7 +1583,7 @@ function SurveyRunner({
                 onClick={() => setRemainingOpen((value) => !value)}
                 className="no-drag flex min-w-0 flex-1 items-center gap-2 px-3 py-2.5 text-left"
               >
-                <Icon name={remainingOpen ? 'expand_less' : 'expand_more'} className="text-[18px] text-primary" />
+                <Icon name={remainingOpen ? 'expand_less' : 'expand_more'} className="text-[14.4px] text-primary" />
                 <span className="min-w-0 flex-1">
                   <span className="block text-body-sm font-semibold text-on-surface">부서 할당 자산 중 미확인 내역</span>
                   <span className="block truncate text-caption text-on-surface-variant">
@@ -1641,11 +1641,11 @@ function SurveyRunner({
 
           {/* ERP 자산현황 — 관리자가 서버에 등록한 본부 파일을 자동으로 받아옵니다. */}
           <div className="flex items-center gap-2 rounded-lg border border-outline-variant bg-surface-container-low px-3 py-2">
-            <Icon name="table_view" className="shrink-0 text-[18px] text-on-surface-variant" />
+            <Icon name="table_view" className="shrink-0 text-[14.4px] text-on-surface-variant" />
             <div className="min-w-0 flex-1">
               {erpSyncing ? (
-                <p className="flex items-center gap-1.5 text-[11px] text-on-surface-variant">
-                  <Icon name="progress_activity" className="animate-spin text-[13px]" />
+                <p className="flex items-center gap-1.5 text-[8.8px] text-on-surface-variant">
+                  <Icon name="progress_activity" className="animate-spin text-[10.4px]" />
                   ERP 자산현황을 서버에서 불러오는 중...
                 </p>
               ) : erp ? (
@@ -1653,17 +1653,17 @@ function SurveyRunner({
                   <p className="truncate text-caption text-on-surface">
                     ERP 자산현황: {erp.fileName}
                     {erpFromServer && (
-                      <span className="ml-1 rounded bg-success/12 px-1 py-0.5 text-[10px] font-semibold text-success">
+                      <span className="ml-1 rounded bg-success/12 px-1 py-0.5 text-[8px] font-semibold text-success">
                         서버 자동
                       </span>
                     )}
                   </p>
-                  <p className="text-[11px] text-on-surface-variant">
+                  <p className="text-[8.8px] text-on-surface-variant">
                     {erp.assets.length.toLocaleString()}건 · 마스터 미조회 자산의 자산명을 자동 입력합니다
                   </p>
                 </>
               ) : (
-                <p className="text-[11px] leading-relaxed text-warning">
+                <p className="text-[8.8px] leading-relaxed text-warning">
                   마스터 자산 목록으로 조사할 수 있습니다. ERP 파일은 추가 조회가 필요한 경우에만 사용합니다.
                 </p>
               )}
@@ -1675,9 +1675,9 @@ function SurveyRunner({
               title="서버에서 다시 불러오기"
               className="no-drag shrink-0 rounded p-1 text-on-surface-variant hover:bg-surface-container-high disabled:opacity-50"
             >
-              <Icon name={erpBusy ? 'progress_activity' : 'cloud_download'} className={`text-[16px] ${erpBusy ? 'animate-spin' : ''}`} />
+              <Icon name={erpBusy ? 'progress_activity' : 'cloud_download'} className={`text-[12.8px] ${erpBusy ? 'animate-spin' : ''}`} />
             </button>
-            <label className="no-drag shrink-0 cursor-pointer rounded-lg border border-outline-variant px-2.5 py-1.5 text-[11px] hover:bg-surface-container-high">
+            <label className="no-drag shrink-0 cursor-pointer rounded-lg border border-outline-variant px-2.5 py-1.5 text-[8.8px] hover:bg-surface-container-high">
               {erpBusy ? '읽는 중…' : erp ? '직접 교체' : '직접 첨부'}
               <input
                 type="file"
@@ -1698,7 +1698,7 @@ function SurveyRunner({
                 title="ERP 자산현황 삭제"
                 className="no-drag shrink-0 rounded p-1 text-on-surface-variant hover:bg-error/10 hover:text-error"
               >
-                <Icon name="close" className="text-[16px]" />
+                <Icon name="close" className="text-[12.8px]" />
               </button>
             )}
           </div>
@@ -1710,16 +1710,16 @@ function SurveyRunner({
                 <span className="font-mono text-body-sm font-semibold text-on-surface">{draft.assetNo}</span>
                 {notFound ? (
                   erpHit ? (
-                    <span className="px-2 py-0.5 rounded bg-warning/15 text-warning text-[11px] font-semibold">
+                    <span className="px-2 py-0.5 rounded bg-warning/15 text-warning text-[8.8px] font-semibold">
                       마스터 미조회 · ERP 자동 입력
                     </span>
                   ) : (
-                    <span className="px-2 py-0.5 rounded bg-error/15 text-error text-[11px] font-semibold">
+                    <span className="px-2 py-0.5 rounded bg-error/15 text-error text-[8.8px] font-semibold">
                       마스터 미조회
                     </span>
                   )
                 ) : (
-                  <span className="px-2 py-0.5 rounded bg-success/15 text-success text-[11px] font-semibold">
+                  <span className="px-2 py-0.5 rounded bg-success/15 text-success text-[8.8px] font-semibold">
                     조회됨
                   </span>
                 )}
@@ -1728,7 +1728,7 @@ function SurveyRunner({
               {/* ✅ 이번 재물조사에서 이미 확인된 자산 배너 */}
               {confirmedBanner && (
                 <div className="flex items-start gap-2 rounded-lg bg-primary/8 border border-primary/25 px-3 py-2">
-                  <Icon name="verified" className="text-primary text-[18px] shrink-0 mt-0.5" />
+                  <Icon name="verified" className="text-primary text-[14.4px] shrink-0 mt-0.5" />
                   <div className="min-w-0">
                     <p className="text-body-sm font-semibold text-primary">이번 재물조사에서 확인된 자산입니다.</p>
                     <p className="text-caption text-on-surface-variant mt-0.5">
@@ -1777,7 +1777,7 @@ function SurveyRunner({
                   className="no-drag mt-1 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-body-sm outline-none focus:border-primary"
                   placeholder="현물의 현재 설치부서"
                 />
-                <span className="mt-1 block text-[10px] text-on-surface-variant">
+                <span className="mt-1 block text-[8px] text-on-surface-variant">
                   ERP의 기존 설치부서와 다르면 완료 파일에 새 부서가 저장되고 해당 셀이 노란색으로 표시됩니다.
                 </span>
               </label>
@@ -1836,7 +1836,7 @@ function SurveyRunner({
               </label>
               {aiVerdict && (
                 <div className="rounded-lg bg-surface-container-high p-2 text-caption text-on-surface flex gap-1.5">
-                  <Icon name="smart_toy" className="text-primary text-[16px] shrink-0" />
+                  <Icon name="smart_toy" className="text-primary text-[12.8px] shrink-0" />
                   <span>{aiVerdict}</span>
                 </div>
               )}
@@ -1849,7 +1849,7 @@ function SurveyRunner({
                     disabled={aiBusy}
                     className="no-drag inline-flex items-center gap-1.5 rounded-lg border border-outline-variant px-3 py-2 text-body-sm hover:bg-surface-container-high disabled:opacity-60"
                   >
-                    <Icon name={aiBusy ? 'progress_activity' : 'smart_toy'} className={aiBusy ? 'animate-spin text-[16px]' : 'text-[16px]'} />
+                    <Icon name={aiBusy ? 'progress_activity' : 'smart_toy'} className={aiBusy ? 'animate-spin text-[12.8px]' : 'text-[12.8px]'} />
                     AI 확인
                   </button>
                 )}
@@ -1866,7 +1866,7 @@ function SurveyRunner({
                   disabled={photoBusy}
                   className="no-drag flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary text-on-primary px-3 py-2 text-body-sm font-medium hover:bg-primary/90"
                 >
-                  <Icon name="save" className="text-[16px]" />
+                  <Icon name="save" className="text-[12.8px]" />
                   건별 저장
                 </button>
               </div>
@@ -1881,23 +1881,23 @@ function SurveyRunner({
             {/* ★ QR 스캔 결과 서버 등록 */}
             <div className="rounded-xl border border-outline-variant bg-surface-container-low p-3 space-y-2">
               <p className="text-caption font-semibold text-on-surface flex items-center gap-1.5">
-                <Icon name="cloud_upload" className="text-[16px] text-primary" />
+                <Icon name="cloud_upload" className="text-[12.8px] text-primary" />
                 확인 결과 서버 반영
               </p>
-              <p className="text-[11px] text-on-surface-variant">
+              <p className="text-[8.8px] text-on-surface-variant">
                 확인된 신규·수정 항목만 서버에 전송합니다. 반영 후에도 조사를 계속할 수 있습니다.
               </p>
               <p className="text-caption">대상 {(getLoadedDataset(session.datasetId)?.assets || []).filter(asset => !session.dept || asset.dept.trim() === session.dept.trim()).length}건 · 확인 완료 {stats.confirmed}건 · 서버 미반영 {pendingCount}건 · 서버 반영 {savedCount}건</p>
               <p className="text-caption" role="status">제출 엑셀: {bookState?.status === 'ready' ? '반영 완료' : bookState?.status === 'error' ? '갱신 실패 · 다시 반영을 눌러 재시도' : bookState?.status === 'unknown' ? '상태 확인 불가' : '반영 대기'}{bookState?.generatedAt && ` · ${new Date(bookState.generatedAt).toLocaleString('ko-KR')}`}{!!bookState?.unmatched && ` · 미매칭 ${bookState.unmatched}건 관리자 확인 필요`}</p>
               {submitResult?.ok && (
                 <div className="flex items-center gap-1.5 rounded-lg bg-success/10 border border-success/30 px-2.5 py-2 text-caption text-success">
-                  <Icon name="check_circle" className="text-[16px]" />
+                  <Icon name="check_circle" className="text-[12.8px]" />
                   신규 {submitResult.added}건 · 수정 {submitResult.updated}건 · 중복 {submitResult.duplicates}건 · 실패 {submitResult.failed}건 · 서버 저장 완료
                 </div>
               )}
               {submitResult && !submitResult.ok && (
                 <div className="flex items-center gap-1.5 rounded-lg bg-error/10 border border-error/30 px-2.5 py-2 text-caption text-error">
-                  <Icon name="error" className="text-[16px]" />
+                  <Icon name="error" className="text-[12.8px]" />
                   {submitResult.error}
                 </div>
               )}
@@ -1916,9 +1916,9 @@ function SurveyRunner({
                 className="no-drag w-full inline-flex items-center justify-center gap-2 rounded-lg bg-primary text-on-primary py-2.5 text-body-sm font-medium hover:bg-primary/90 disabled:opacity-60"
               >
                 {submitting ? (
-                  <><Icon name="progress_activity" className="animate-spin text-[18px]" />등록 중...</>
+                  <><Icon name="progress_activity" className="animate-spin text-[14.4px]" />등록 중...</>
                 ) : (
-                  <><Icon name="send" className="text-[18px]" />확인 결과 {pendingCount}건 서버에 반영{pendingCount === 0 ? ' / 엑셀 재확인' : ''}</>
+                  <><Icon name="send" className="text-[14.4px]" />확인 결과 {pendingCount}건 서버에 반영{pendingCount === 0 ? ' / 엑셀 재확인' : ''}</>
                 )}
               </button>
             </div>
@@ -1927,7 +1927,7 @@ function SurveyRunner({
             <div className="flex flex-wrap gap-2">
               <button type="button" onClick={upload}
                 className="no-drag inline-flex items-center gap-1.5 rounded-lg border border-outline-variant px-3 py-1.5 text-label hover:bg-surface-container-high">
-                  <Icon name="sync" className="text-[18px]" />서버 반영 재시도
+                  <Icon name="sync" className="text-[14.4px]" />서버 반영 재시도
               </button>
               <button type="button"
                 onClick={() => markCompleted(session.id, !session.completed)}
@@ -1935,7 +1935,7 @@ function SurveyRunner({
                 className={`no-drag inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-label ${
                   session.completed ? 'bg-success/15 text-success' : 'border border-outline-variant hover:bg-surface-container-high'
                 }`}>
-                <Icon name="check_circle" className="text-[18px]" />
+                <Icon name="check_circle" className="text-[14.4px]" />
                 {session.completed ? '완료됨' : '완료 처리'}
               </button>
             </div>
@@ -1954,16 +1954,16 @@ function SurveyRunner({
               >
                 <button type="button" onClick={() => editExisting(r.assetNo)} className="no-drag flex-1 min-w-0 text-left">
                   <div className="flex items-center gap-1.5">
-                    <span className="font-mono text-[11px] text-on-surface-variant">{r.assetNo}</span>
-                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${STATUS_TONE[r.status]}`}>
+                    <span className="font-mono text-[8.8px] text-on-surface-variant">{r.assetNo}</span>
+                    <span className={`px-1.5 py-0.5 rounded text-[8px] font-semibold ${STATUS_TONE[r.status]}`}>
                       {r.status}
                     </span>
                     {r.stickerMissing && (
-                      <span className="px-1.5 py-0.5 rounded bg-warning/15 text-warning text-[10px]">미부착</span>
+                      <span className="px-1.5 py-0.5 rounded bg-warning/15 text-warning text-[8px]">미부착</span>
                     )}
                     {(r.photoIds?.length ?? 0) > 0 && (
-                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[10px]">
-                        <Icon name="photo_camera" className="text-[12px]" />
+                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[8px]">
+                        <Icon name="photo_camera" className="text-[9.6px]" />
                         {r.photoIds!.length}
                       </span>
                     )}
@@ -1979,7 +1979,7 @@ function SurveyRunner({
                   className="no-drag shrink-0 w-7 h-7 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-error/10 hover:text-error"
                   aria-label="내역 삭제"
                 >
-                  <Icon name="delete" className="text-[16px]" />
+                  <Icon name="delete" className="text-[12.8px]" />
                 </button>}
               </div>
             ))}
@@ -2038,7 +2038,7 @@ function ResultFileRow({ file }: { file: InventoryFileMeta }) {
   return (
     <div className="rounded-lg border border-outline-variant bg-surface-container-low px-3 py-2.5">
       <div className="flex items-center gap-3">
-        <Icon name="description" className="text-primary text-[20px] shrink-0" />
+        <Icon name="description" className="text-primary text-[16px] shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="text-body-sm font-medium text-on-surface truncate">{file.fileName}</p>
           <p className="text-caption text-on-surface-variant truncate">
@@ -2051,7 +2051,7 @@ function ResultFileRow({ file }: { file: InventoryFileMeta }) {
         </div>
         <button type="button" onClick={() => void download()} disabled={busy || (!!file.workbookStatus && file.workbookStatus !== 'ready')}
           className="no-drag shrink-0 inline-flex items-center gap-1 rounded-lg border border-outline-variant px-2.5 py-1.5 text-label hover:bg-surface-container-high disabled:opacity-50">
-          <Icon name={busy ? 'progress_activity' : 'download'} className={`text-[16px] ${busy ? 'animate-spin' : ''}`} />
+          <Icon name={busy ? 'progress_activity' : 'download'} className={`text-[12.8px] ${busy ? 'animate-spin' : ''}`} />
           내려받기
         </button>
       </div>
@@ -2069,11 +2069,11 @@ function ResultFileSection({
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
-        <Icon name={icon} className="text-primary text-[18px]" />
+        <Icon name={icon} className="text-primary text-[14.4px]" />
         <h4 className="text-body-sm font-semibold text-on-surface flex-1">{title}</h4>
         <span className="text-caption text-on-surface-variant">{files.length}건</span>
       </div>
-      <p className="text-[11px] leading-relaxed text-on-surface-variant">{hint}</p>
+      <p className="text-[8.8px] leading-relaxed text-on-surface-variant">{hint}</p>
       {files.length === 0 ? (
         <p className="rounded-lg border border-dashed border-outline-variant py-5 text-center text-caption text-on-surface-variant">
           {emptyText}
@@ -2139,7 +2139,7 @@ function DatasetManager({ isAdmin }: { isAdmin: boolean }) {
         <h3 className="font-h3 text-h3 text-on-surface">자산 데이터셋</h3>
         <button type="button" onClick={() => void refresh()}
           className="no-drag inline-flex items-center gap-1 rounded-lg border border-outline-variant px-3 py-1.5 text-label hover:bg-surface-container-high">
-          <Icon name="refresh" className="text-[16px]" />새로고침
+          <Icon name="refresh" className="text-[12.8px]" />새로고침
         </button>
       </div>
 
@@ -2151,7 +2151,7 @@ function DatasetManager({ isAdmin }: { isAdmin: boolean }) {
 
       {busy ? (
         <div className="flex items-center gap-2 text-on-surface-variant text-caption py-4">
-          <Icon name="progress_activity" className="animate-spin text-[15px]" />불러오는 중...
+          <Icon name="progress_activity" className="animate-spin text-[12px]" />불러오는 중...
         </div>
       ) : (
         <>
@@ -2164,7 +2164,7 @@ function DatasetManager({ isAdmin }: { isAdmin: boolean }) {
             <div className="space-y-2">
               {rows.map((r) => (
                 <div key={r.id} className="rounded-lg border border-outline-variant bg-surface-container-low px-3 py-2.5 flex items-center gap-3">
-                  <Icon name="inventory_2" className="text-primary text-[20px] shrink-0" />
+                  <Icon name="inventory_2" className="text-primary text-[16px] shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-body-sm font-medium text-on-surface truncate">{r.title}</p>
                     <p className="text-caption text-on-surface-variant truncate">
@@ -2209,7 +2209,7 @@ function ProgressBar({ done, total }: { done: number; total: number }) {
           style={{ width: `${Math.min(pct, 100)}%` }}
         />
       </div>
-      <span className={`shrink-0 text-[11px] font-semibold ${complete ? 'text-success' : 'text-on-surface-variant'}`}>
+      <span className={`shrink-0 text-[8.8px] font-semibold ${complete ? 'text-success' : 'text-on-surface-variant'}`}>
         {pct.toFixed(1)}%
       </span>
     </div>
@@ -2252,7 +2252,7 @@ function UnsurveyedAssetList({
   if (busy && assets.length === 0) {
     return (
       <div className="flex items-center gap-2 py-3 text-caption text-on-surface-variant">
-        <Icon name="progress_activity" className="animate-spin text-[15px]" />미확인 자산 불러오는 중...
+        <Icon name="progress_activity" className="animate-spin text-[12px]" />미확인 자산 불러오는 중...
       </div>
     )
   }
@@ -2260,7 +2260,7 @@ function UnsurveyedAssetList({
   if (total === 0) {
     return (
       <p className="flex items-center justify-center gap-1.5 rounded-lg bg-success/8 py-3 text-caption text-success">
-        <Icon name="check_circle" className="text-[16px]" />
+        <Icon name="check_circle" className="text-[12.8px]" />
         미확인 자산이 없습니다 — 100% 조사 완료
       </p>
     )
@@ -2329,13 +2329,13 @@ function DeptCoverageRow({ datasetId, dept }: { datasetId: string; dept: DeptCov
     <div className="rounded-lg border border-outline-variant bg-surface-container-lowest overflow-hidden">
       <button type="button" onClick={() => setOpen((v) => !v)}
         className="no-drag flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-surface-container-low/60">
-        <Icon name={open ? 'expand_less' : 'expand_more'} className="shrink-0 text-[18px] text-on-surface-variant" />
+        <Icon name={open ? 'expand_less' : 'expand_more'} className="shrink-0 text-[14.4px] text-on-surface-variant" />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="truncate text-body-sm font-medium text-on-surface">{dept.dept}</span>
-            {complete && <Icon name="check_circle" className="shrink-0 text-[14px] text-success" />}
+            {complete && <Icon name="check_circle" className="shrink-0 text-[11.2px] text-success" />}
           </div>
-          <p className="text-[11px] text-on-surface-variant">
+          <p className="text-[8.8px] text-on-surface-variant">
             전체 {dept.totalAssets.toLocaleString()} · 확인 {dept.confirmed.toLocaleString()}
             {dept.abnormal > 0 && <> · 이상 {dept.abnormal.toLocaleString()}</>}
             {dept.unsurveyed > 0 && <> · <span className="text-error">미확인 {dept.unsurveyed.toLocaleString()}</span></>}
@@ -2353,20 +2353,20 @@ function DeptCoverageRow({ datasetId, dept }: { datasetId: string; dept: DeptCov
           <div className="space-y-1.5">
             <p className="text-caption font-medium text-on-surface-variant">확인자별 확인 개수</p>
             {dept.verifiers.length === 0 ? (
-              <p className="text-[11px] text-on-surface-variant">아직 이 부서를 조사한 확인자가 없습니다.</p>
+              <p className="text-[8.8px] text-on-surface-variant">아직 이 부서를 조사한 확인자가 없습니다.</p>
             ) : (
               <div className="space-y-1">
                 {dept.verifiers.map((v) => (
                   <div key={`${v.verifier}|${v.verifierDept}`}
                     className="flex items-center gap-2 rounded-md bg-surface px-2.5 py-1.5">
-                    <Icon name="person" className="shrink-0 text-[15px] text-primary" />
+                    <Icon name="person" className="shrink-0 text-[12px] text-primary" />
                     <span className="min-w-0 flex-1 truncate text-caption text-on-surface">
                       {v.verifier}
                       {v.verifierDept && <span className="text-on-surface-variant"> · {v.verifierDept}</span>}
                     </span>
                     <span className="shrink-0 text-caption font-semibold text-success">{v.confirmed.toLocaleString()}건 확인</span>
                     {v.abnormal > 0 && (
-                      <span className="shrink-0 text-[11px] text-error">이상 {v.abnormal}</span>
+                      <span className="shrink-0 text-[8.8px] text-error">이상 {v.abnormal}</span>
                     )}
                   </div>
                 ))}
@@ -2471,7 +2471,7 @@ function StatsView({ isAdmin }: { isAdmin: boolean }) {
         <div>
           <h3 className="font-h3 text-h3 text-on-surface">조사 통계</h3>
           {lastRefreshed && (
-            <p className="text-[10px] text-on-surface-variant">
+            <p className="text-[8px] text-on-surface-variant">
               마지막 갱신: {lastRefreshed.toLocaleTimeString('ko-KR')} · {isAdmin ? '업로드 알림 수신 시 갱신 · 30초 보조 갱신' : '30초 자동 갱신'}
             </p>
           )}
@@ -2479,11 +2479,11 @@ function StatsView({ isAdmin }: { isAdmin: boolean }) {
         <div className="flex gap-2">
           <button type="button" onClick={() => void load()} disabled={busy}
             className="no-drag inline-flex items-center gap-1.5 rounded-lg border border-outline-variant px-3 py-1.5 text-label hover:bg-surface-container-high disabled:opacity-60">
-            <Icon name={busy ? 'progress_activity' : 'refresh'} className={`text-[16px] ${busy ? 'animate-spin' : ''}`} />지금 갱신
+            <Icon name={busy ? 'progress_activity' : 'refresh'} className={`text-[12.8px] ${busy ? 'animate-spin' : ''}`} />지금 갱신
           </button>
           <button type="button" onClick={exportStats}
             className="no-drag inline-flex items-center gap-1.5 rounded-lg border border-outline-variant px-3 py-1.5 text-label hover:bg-surface-container-high">
-            <Icon name="download" className="text-[18px]" />통계 내보내기
+            <Icon name="download" className="text-[14.4px]" />통계 내보내기
           </button>
         </div>
       </div>
@@ -2509,7 +2509,7 @@ function StatsView({ isAdmin }: { isAdmin: boolean }) {
       {totalAssets > 0 && (
         <div className="rounded-xl border border-outline-variant bg-surface-container-low p-3 space-y-1.5">
           <div className="flex items-center gap-2">
-            <Icon name={allDone ? 'verified' : 'donut_large'} className={`text-[18px] ${allDone ? 'text-success' : 'text-primary'}`} />
+            <Icon name={allDone ? 'verified' : 'donut_large'} className={`text-[14.4px] ${allDone ? 'text-success' : 'text-primary'}`} />
             <span className="flex-1 text-body-sm font-medium text-on-surface">
               {allDone ? '전 자산 조사 완료 (100%)' : '자산조사 진행률'}
             </span>
@@ -2539,12 +2539,12 @@ function StatsView({ isAdmin }: { isAdmin: boolean }) {
               <div key={d.datasetId} className="overflow-hidden rounded-xl border border-outline-variant bg-surface-container-low">
                 <button type="button" onClick={() => setOpenDataset(open ? null : d.datasetId)}
                   className="no-drag flex w-full items-center gap-2 px-3 py-2.5 text-left hover:bg-surface-container-high/40">
-                  <Icon name={open ? 'expand_less' : 'expand_more'} className="shrink-0 text-[20px] text-on-surface-variant" />
+                  <Icon name={open ? 'expand_less' : 'expand_more'} className="shrink-0 text-[16px] text-on-surface-variant" />
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="truncate text-body-sm font-semibold text-on-surface">{d.parentDept}</span>
                       {done && (
-                        <span className="shrink-0 rounded bg-success/15 px-1.5 py-0.5 text-[10px] font-semibold text-success">
+                        <span className="shrink-0 rounded bg-success/15 px-1.5 py-0.5 text-[8px] font-semibold text-success">
                           100% 완료
                         </span>
                       )}
@@ -2580,7 +2580,7 @@ function StatsView({ isAdmin }: { isAdmin: boolean }) {
                   <div key={x.id} className="space-y-1.5 rounded-xl border border-outline-variant bg-surface-container-low p-3">
                     <div className="flex items-center justify-between gap-2">
                       <span className="truncate text-body-sm font-medium text-on-surface">{x.name}</span>
-                      <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${x.completed ? 'bg-success/15 text-success' : 'bg-warning/15 text-warning'}`}>
+                      <span className={`shrink-0 rounded px-1.5 py-0.5 text-[8px] font-semibold ${x.completed ? 'bg-success/15 text-success' : 'bg-warning/15 text-warning'}`}>
                         {x.completed ? '완료' : '진행중'}
                       </span>
                     </div>
@@ -2657,7 +2657,7 @@ function InstallQrCard() {
   return (
     <div className="rounded-xl border border-outline-variant bg-surface-container-low p-4 space-y-3">
       <div className="flex items-center gap-2">
-        <Icon name="install_mobile" className="text-primary text-[20px]" />
+        <Icon name="install_mobile" className="text-primary text-[16px]" />
         <p className="text-body-sm font-semibold text-on-surface">📱 핸드폰 앱 설치 QR</p>
       </div>
 
@@ -2670,22 +2670,22 @@ function InstallQrCard() {
 
       {/* URL + 복사 */}
       <div className="flex items-center gap-2">
-        <p className="flex-1 text-[11px] font-mono bg-surface-container-high rounded-lg px-2 py-1.5 break-all text-on-surface-variant">
+        <p className="flex-1 text-[8.8px] font-mono bg-surface-container-high rounded-lg px-2 py-1.5 break-all text-on-surface-variant">
           {inventoryUrl}
         </p>
         <button type="button" onClick={copyUrl}
-          className="no-drag shrink-0 rounded-lg border border-outline-variant px-2 py-1.5 text-[11px] hover:bg-surface-container-high flex items-center gap-1">
-          <Icon name={copied ? 'check' : 'content_copy'} className="text-[14px]" />
+          className="no-drag shrink-0 rounded-lg border border-outline-variant px-2 py-1.5 text-[8.8px] hover:bg-surface-container-high flex items-center gap-1">
+          <Icon name={copied ? 'check' : 'content_copy'} className="text-[11.2px]" />
           {copied ? '복사됨' : '복사'}
         </button>
         <button type="button" onClick={downloadQr}
-          className="no-drag shrink-0 rounded-lg border border-outline-variant px-2 py-1.5 text-[11px] hover:bg-surface-container-high flex items-center gap-1">
-          <Icon name="download" className="text-[14px]" />QR
+          className="no-drag shrink-0 rounded-lg border border-outline-variant px-2 py-1.5 text-[8.8px] hover:bg-surface-container-high flex items-center gap-1">
+          <Icon name="download" className="text-[11.2px]" />QR
         </button>
       </div>
 
       {/* 네트워크 안내 */}
-      <p className={`text-[10px] leading-relaxed rounded-lg px-2.5 py-2 ${
+      <p className={`text-[8px] leading-relaxed rounded-lg px-2.5 py-2 ${
         isLan
           ? 'bg-warning/10 text-warning border border-warning/30'
           : 'bg-success/10 text-success border border-success/30'
@@ -2694,22 +2694,22 @@ function InstallQrCard() {
       </p>
 
       {/* 설치 방법 */}
-      <div className="rounded-xl bg-surface-container p-3 space-y-1.5 text-[11px] text-on-surface-variant">
+      <div className="rounded-xl bg-surface-container p-3 space-y-1.5 text-[8.8px] text-on-surface-variant">
         <p className="font-semibold text-on-surface">설치 방법</p>
         <div className="flex items-start gap-1.5">
-          <span className="shrink-0 w-4 h-4 rounded-full bg-primary/15 text-primary text-[9px] font-bold flex items-center justify-center">1</span>
+          <span className="shrink-0 w-4 h-4 rounded-full bg-primary/15 text-primary text-[7.2px] font-bold flex items-center justify-center">1</span>
           <span>위 QR을 스마트폰 카메라로 촬영하거나 URL을 직접 입력</span>
         </div>
         <div className="flex items-start gap-1.5">
-          <span className="shrink-0 w-4 h-4 rounded-full bg-primary/15 text-primary text-[9px] font-bold flex items-center justify-center">2</span>
+          <span className="shrink-0 w-4 h-4 rounded-full bg-primary/15 text-primary text-[7.2px] font-bold flex items-center justify-center">2</span>
           <span><strong>Android:</strong> Chrome 메뉴(⋮) → &quot;홈 화면에 추가&quot;</span>
         </div>
         <div className="flex items-start gap-1.5">
-          <span className="shrink-0 w-4 h-4 rounded-full bg-primary/15 text-primary text-[9px] font-bold flex items-center justify-center">3</span>
+          <span className="shrink-0 w-4 h-4 rounded-full bg-primary/15 text-primary text-[7.2px] font-bold flex items-center justify-center">3</span>
           <span><strong>iPhone:</strong> Safari 공유(□↑) → &quot;홈 화면에 추가&quot;</span>
         </div>
         <div className="flex items-start gap-1.5">
-          <span className="shrink-0 w-4 h-4 rounded-full bg-primary/15 text-primary text-[9px] font-bold flex items-center justify-center">4</span>
+          <span className="shrink-0 w-4 h-4 rounded-full bg-primary/15 text-primary text-[7.2px] font-bold flex items-center justify-center">4</span>
           <span>설치 후 앱 실행 → 이름 입력 + 배부된 본부 선택 → 재물조사 시작</span>
         </div>
       </div>
@@ -2748,9 +2748,9 @@ function PairingManager() {
   }
 
   const statusBadge = (s: DevicePair['status']) => {
-    if (s === 'approved') return <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-success/15 text-success">승인됨</span>
-    if (s === 'rejected') return <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-error/15 text-error">거부됨</span>
-    return <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-warning/15 text-warning">대기중</span>
+    if (s === 'approved') return <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold bg-success/15 text-success">승인됨</span>
+    if (s === 'rejected') return <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold bg-error/15 text-error">거부됨</span>
+    return <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold bg-warning/15 text-warning">대기중</span>
   }
 
   return (
@@ -2759,7 +2759,7 @@ function PairingManager() {
         <h3 className="font-h3 text-h3 text-on-surface">기기 관리</h3>
         <button type="button" onClick={load}
           className="no-drag inline-flex items-center gap-1 rounded-lg border border-outline-variant px-3 py-1.5 text-label hover:bg-surface-container-high">
-          <Icon name="refresh" className="text-[16px]" />새로고침
+          <Icon name="refresh" className="text-[12.8px]" />새로고침
         </button>
       </div>
 
@@ -2769,12 +2769,12 @@ function PairingManager() {
       {/* 코드 입력 승인 (선택적 페어링 흐름) */}
       <details className="rounded-xl border border-outline-variant overflow-hidden">
         <summary className="flex items-center gap-2 px-3 py-2.5 cursor-pointer select-none bg-surface-container-low hover:bg-surface-container-high">
-          <Icon name="key" className="text-[16px] text-on-surface-variant" />
+          <Icon name="key" className="text-[12.8px] text-on-surface-variant" />
           <span className="text-body-sm font-medium text-on-surface flex-1">수동 페어링 코드 승인</span>
-          <Icon name="expand_more" className="text-[16px] text-on-surface-variant" />
+          <Icon name="expand_more" className="text-[12.8px] text-on-surface-variant" />
         </summary>
         <div className="px-3 pb-3 pt-2 space-y-2 bg-surface-container-lowest border-t border-outline-variant/50">
-          <p className="text-[11px] text-on-surface-variant">
+          <p className="text-[8.8px] text-on-surface-variant">
             /pair 페이지에서 발급된 6자리 코드를 입력해 기기를 수동 승인합니다.
           </p>
           <div className="flex gap-2">
@@ -2810,14 +2810,14 @@ function PairingManager() {
           <div key={d.id} className="rounded-xl border border-outline-variant bg-surface-container-low p-3 space-y-1">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-1.5 min-w-0">
-                <Icon name="smartphone" className="text-[16px] text-on-surface-variant shrink-0" />
+                <Icon name="smartphone" className="text-[12.8px] text-on-surface-variant shrink-0" />
                 <span className="text-body-sm font-medium text-on-surface truncate">{d.deviceName}</span>
               </div>
               {statusBadge(d.status)}
             </div>
             <p className="text-caption text-on-surface-variant">{d.userName} · {d.department || '부서 미지정'}</p>
             {d.approvedAt && (
-              <p className="text-[10px] text-on-surface-variant">승인: {d.approvedAt.slice(0, 10)}</p>
+              <p className="text-[8px] text-on-surface-variant">승인: {d.approvedAt.slice(0, 10)}</p>
             )}
           </div>
         ))}

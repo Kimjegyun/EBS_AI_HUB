@@ -8,8 +8,9 @@
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import InventoryStandaloneApp from './apps/inventory/InventoryStandaloneApp'
+import { AuthProvider } from './auth/AuthContext'
 
-createRoot(document.getElementById('root')!).render(<InventoryStandaloneApp />)
+createRoot(document.getElementById('root')!).render(<AuthProvider><InventoryStandaloneApp /></AuthProvider>)
 
 // dev/prod 모두에서 재물조사 전용 SW 등록
 if ('serviceWorker' in navigator) {

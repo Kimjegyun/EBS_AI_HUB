@@ -203,7 +203,7 @@ export default function EnhancedCalendar({
           className="p-0.5 rounded-full hover:bg-surface-container-high transition-colors"
           aria-label="이전 달"
         >
-          <Icon name="chevron_left" className="text-on-surface text-[18px]" />
+          <Icon name="chevron_left" className="text-on-surface text-[14.4px]" />
         </button>
         <h3 className="text-body font-semibold text-on-surface whitespace-nowrap">
           {currentYear}년 {currentMonth}월
@@ -214,7 +214,7 @@ export default function EnhancedCalendar({
           className="p-0.5 rounded-full hover:bg-surface-container-high transition-colors"
           aria-label="다음 달"
         >
-          <Icon name="chevron_right" className="text-on-surface text-[18px]" />
+          <Icon name="chevron_right" className="text-on-surface text-[14.4px]" />
         </button>
       </div>
 
@@ -291,7 +291,7 @@ export default function EnhancedCalendar({
                 <div className="h-full flex flex-col">
                   <div
                     className={`
-                      text-[11px] leading-tight font-medium text-center mb-0.5
+                      text-[8.8px] leading-tight font-medium text-center mb-0.5
                       ${isToday ? 'text-primary font-bold' : ''}
                       ${hasCompanyHoliday && !biweeklyPrimary ? 'text-error font-bold' : ''}
                       ${hasCompanyHoliday && biweeklyPrimary ? 'font-bold' : ''}
@@ -316,7 +316,7 @@ export default function EnhancedCalendar({
                             e.stopPropagation();
                             if (onEventClick) onEventClick(event);
                           }}
-                          className={`text-[8px] leading-tight px-1 py-0.5 rounded text-white truncate hover:opacity-80 transition-opacity ${biweekly ? '' : 'bg-error'}`}
+                          className={`text-[6.4px] leading-tight px-1 py-0.5 rounded text-white truncate hover:opacity-80 transition-opacity ${biweekly ? '' : 'bg-error'}`}
                           style={biweekly ? { backgroundColor: '#b91c1c' } : undefined}
                           title={event.name}
                         >
@@ -336,7 +336,7 @@ export default function EnhancedCalendar({
                               e.stopPropagation();
                               if (onEventClick) onEventClick(event);
                             }}
-                            className="w-full truncate rounded bg-secondary px-1 py-0.5 text-left text-[8px] font-medium leading-tight text-on-secondary hover:opacity-80 transition-opacity"
+                            className="w-full truncate rounded bg-secondary px-1 py-0.5 text-left text-[6.4px] font-medium leading-tight text-on-secondary hover:opacity-80 transition-opacity"
                             title={event.name}
                             aria-label={`개인 일정 수정: ${event.name}`}
                           >
@@ -344,7 +344,7 @@ export default function EnhancedCalendar({
                           </button>
                         ))}
                         {personalEvents.length > 3 && (
-                          <span className="text-[8px] leading-none text-secondary font-medium">
+                          <span className="text-[6.4px] leading-none text-secondary font-medium">
                             +{personalEvents.length - 3}
                           </span>
                         )}
@@ -378,7 +378,7 @@ export default function EnhancedCalendar({
                               e.stopPropagation();
                               openTaskDialog(dayTasks[4]);
                             }}
-                            className="text-[8px] leading-none font-semibold text-on-surface-variant hover:text-primary"
+                            className="text-[6.4px] leading-none font-semibold text-on-surface-variant hover:text-primary"
                             title={`할 일 ${dayTasks.length}개`}
                           >
                             +{dayTasks.length - 4}
@@ -397,7 +397,7 @@ export default function EnhancedCalendar({
                       }}
                       className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-primary/20 hover:bg-primary/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
                     >
-                      <Icon name="add" className="text-[10px] text-primary" />
+                      <Icon name="add" className="text-[8px] text-primary" />
                     </button>
                   )}
                 </div>
@@ -447,7 +447,7 @@ export default function EnhancedCalendar({
           <div className="flex items-center gap-2">
             <Icon
               name={showCompanyHolidays ? 'visibility' : 'visibility_off'}
-              className="text-[18px]"
+              className="text-[14.4px]"
             />
             <span className="font-label text-label">회사 휴일 표시</span>
           </div>

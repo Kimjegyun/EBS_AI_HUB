@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { syncAccountSettings } from '../lib/settingsSync'
+import GoogleProfileForm from './GoogleProfileForm'
 
 type Props = { children: ReactNode }
 
@@ -9,7 +10,7 @@ type Props = { children: ReactNode }
 const INITIAL_SYNC_TIMEOUT_MS = 4000
 
 export default function RequireAuth({ children }: Props) {
-  const { session } = useAuth()
+  const { session, login } = useAuth()
   const location = useLocation()
   const approved = !!session && (!session.status || session.status === 'approved')
   const account = approved ? (session.userId || session.email) : ''
@@ -37,6 +38,8 @@ export default function RequireAuth({ children }: Props) {
   if (!approved) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />
   }
+
+  if (session.needsGoogleProfile) return <GoogleProfileForm key={account} session={session} onComplete={login} />
 
   if (syncedAccount !== account) {
     return (

@@ -2,6 +2,7 @@ import { Router } from 'express'
 import multer from 'multer'
 import { listPublishedAppIds, setPublishedApp } from '../lib/publishedAppStore'
 import { authenticate, authorize } from '../middleware/auth'
+import { getImportJob, startImportJob } from '../lib/importProgramJob'
 import {
   listRemoteApps,
   listSubmissions,
@@ -20,6 +21,25 @@ import {
 
 const router = Router()
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } })
+
+router.get('/imports', authenticate, authorize('admin'), (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store')
+  res.json({ folder: 'import_program', job: getImportJob() })
+})
+
+router.post('/imports', authenticate, authorize('admin'), (req, res) => {
+  const action = req.body?.action
+  if (!['check', 'build', 'submit'].includes(action)) {
+    res.status(400).json({ error: '지원하지 않는 작업입니다.' })
+    return
+  }
+  try {
+    const token = /^Bearer\s+(\S+)$/i.exec(req.headers.authorization ?? '')?.[1] ?? ''
+    res.status(202).json({ folder: 'import_program', job: startImportJob(action, token) })
+  } catch {
+    res.status(409).json({ error: '이미 실행 중인 작업이 있습니다. 완료 후 다시 실행하세요.' })
+  }
+})
 
 router.get('/published', async (_req, res, next) => {
   try {

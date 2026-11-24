@@ -28,21 +28,25 @@ function ensureTable() {
   return tableReady
 }
 
-// Avoid a Supabase round trip on every request; tokens live ~1h, cache briefly.
-const verified = new Map<string, { userId: string; until: number }>()
 async function supabaseUserId(req: Request): Promise<string | null> {
   const token = req.headers.authorization?.match(/^Bearer\s+(\S+)$/i)?.[1]
   if (!token) return null
-  const cached = verified.get(token)
-  if (cached && cached.until > Date.now()) return cached.userId
+  const headers = { apikey: supabaseAnonKey(), Authorization: `Bearer ${token}` }
   const res = await fetch(`${supabaseUrl()}/auth/v1/user`, {
-    headers: { apikey: supabaseAnonKey(), Authorization: `Bearer ${token}` },
+    headers, signal: AbortSignal.timeout(8_000),
   }).catch(() => null)
   if (!res?.ok) return null
   const user = await res.json().catch(() => null) as { id?: string } | null
-  if (!user?.id) return null
-  if (verified.size > 500) verified.clear()
-  verified.set(token, { userId: user.id, until: Date.now() + 5 * 60_000 })
+  if (typeof user?.id !== 'string' || !user.id) return null
+  const membershipResponse = await fetch(`${supabaseUrl()}/rest/v1/rpc/ai_hub_get_session_v2`, {
+    method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: '{}',
+    signal: AbortSignal.timeout(8_000),
+  }).catch(() => null)
+  if (!membershipResponse?.ok) return null
+  const membership = await membershipResponse.json().catch(() => null)
+  const row = Array.isArray(membership) ? membership[0] : membership
+  if (row?.user_id !== user.id || row?.status !== 'approved') return null
+  if (req.params.portal === 'admin' && !['admin', 'owner'].includes(row.role)) return null
   return user.id
 }
 
@@ -59,18 +63,21 @@ async function identify(req: Request, res: Response) {
 type Entry = { value: string | null; updatedAt: string }
 
 /** GET /api/users/me/settings/:portal → { settings: { key: { value, updatedAt } } } */
-router.get('/:portal', async (req, res) => {
+router.get('/:portal', async (req, res, next) => {
+  try {
   const who = await identify(req, res)
   if (!who) return
   const rows = await all('SELECT key, value, updated_at FROM user_settings WHERE user_id = ? AND portal = ?', [who.userId, who.portal])
   res.json({ settings: Object.fromEntries(rows.map((row) => [row.key, { value: row.value, updatedAt: row.updated_at }])) })
+  } catch (error) { next(error) }
 })
 
 /**
  * PUT /api/users/me/settings/:portal { settings: { key: { value|null, updatedAt } } }
  * Last writer wins per key; a null value records a deletion so it syncs too.
  */
-router.put('/:portal', async (req, res) => {
+router.put('/:portal', async (req, res, next) => {
+  try {
   const who = await identify(req, res)
   if (!who) return
   const incoming = (req.body?.settings ?? {}) as Record<string, Entry>
@@ -89,6 +96,7 @@ router.put('/:portal', async (req, res) => {
     applied++
   }
   res.json({ ok: true, applied })
+  } catch (error) { next(error) }
 })
 
 export default router

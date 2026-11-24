@@ -21,14 +21,14 @@ export default function InstalledAppsPage() {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-1.5 rounded-full border border-outline-variant bg-surface-container-highest px-3 py-1.5 font-label text-label text-on-surface-variant">
-                <Icon name="apps" className="text-[16px] text-primary" />
+                <Icon name="apps" className="text-[12.8px] text-primary" />
                 {apps.length}개 선택 · {activeCount}개 ON
               </span>
               <Link
                 to="/marketplace"
                 className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/5 px-3 py-1.5 font-label text-label text-primary hover:bg-primary/10"
               >
-                <Icon name="storefront" className="text-[16px]" />
+                <Icon name="storefront" className="text-[12.8px]" />
                 앱 선택
               </Link>
             </div>
@@ -37,7 +37,7 @@ export default function InstalledAppsPage() {
 
         {apps.length === 0 ? (
           <section className="rounded-xl border border-dashed border-outline-variant bg-surface-container px-6 py-12 text-center">
-            <Icon name="apps" className="mb-2 text-[36px] text-on-surface-variant" />
+            <Icon name="apps" className="mb-2 text-[28.8px] text-on-surface-variant" />
             <p className="mb-3 text-body text-on-surface-variant">
               아직 선택한 앱이 없습니다. 마켓플레이스에서 사용할 앱을 고르세요.
             </p>
@@ -61,7 +61,7 @@ export default function InstalledAppsPage() {
                 >
                   <div className="mb-2 flex items-center gap-2.5">
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                      <Icon name={app.icon} className="text-[20px]" />
+                      <Icon name={app.icon} className="text-[16px]" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <h2 className="truncate font-h3 text-h3 text-on-surface">{app.name}</h2>

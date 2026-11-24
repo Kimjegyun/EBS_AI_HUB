@@ -82,7 +82,7 @@ function TurnRequestPanel({
   if (done) {
     return (
       <div className="flex items-center gap-2 text-success text-body-sm py-2">
-        <Icon name="check_circle" className="text-[18px]" />
+        <Icon name="check_circle" className="text-[14.4px]" />
         턴이 추가되었습니다.
       </div>
     )
@@ -111,7 +111,7 @@ function TurnRequestPanel({
           disabled={saving}
           className="h-8 rounded-lg bg-primary px-3 text-label text-on-primary hover:bg-primary/90 disabled:opacity-60 flex items-center gap-1"
         >
-          {saving ? <Icon name="progress_activity" className="animate-spin text-[15px]" /> : <Icon name="add" className="text-[15px]" />}
+          {saving ? <Icon name="progress_activity" className="animate-spin text-[12px]" /> : <Icon name="add" className="text-[12px]" />}
           턴 추가
         </button>
         <button
@@ -158,17 +158,17 @@ function NotificationCard({
               notification.type === 'turn_request' ? 'token' :
               notification.type === 'feedback' ? 'chat_bubble' : 'flag'
             }
-            className="text-[18px]"
+            className="text-[14.4px]"
           />
         </div>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-h3 text-[13px] text-on-surface truncate">{notification.subject}</span>
-            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${typeBadge(notification.type)}`}>
+            <span className="font-h3 text-[10.4px] text-on-surface truncate">{notification.subject}</span>
+            <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full ${typeBadge(notification.type)}`}>
               {typeLabel(notification.type)}
             </span>
-            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${statusBadge(notification.status)}`}>
+            <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full ${statusBadge(notification.status)}`}>
               {statusLabel(notification.status)}
             </span>
           </div>
@@ -184,7 +184,7 @@ function NotificationCard({
               onClick={(e) => { e.stopPropagation(); setShowPanel((v) => !v); setExpanded(true) }}
               className="h-7 rounded-lg bg-primary px-2.5 text-caption text-on-primary hover:bg-primary/90 flex items-center gap-1"
             >
-              <Icon name="add" className="text-[14px]" />
+              <Icon name="add" className="text-[11.200000000000001px]" />
               턴 처리
             </button>
           )}
@@ -194,9 +194,9 @@ function NotificationCard({
             className="h-7 w-7 flex items-center justify-center rounded-lg text-on-surface-variant hover:bg-error/10 hover:text-error"
             title="삭제"
           >
-            <Icon name="close" className="text-[15px]" />
+            <Icon name="close" className="text-[12px]" />
           </button>
-          <Icon name={expanded ? 'expand_less' : 'expand_more'} className="text-[18px] text-on-surface-variant" />
+          <Icon name={expanded ? 'expand_less' : 'expand_more'} className="text-[14.4px] text-on-surface-variant" />
         </div>
       </div>
 
@@ -220,7 +220,7 @@ function NotificationCard({
                 onClick={() => { resolveNotification(notification.id); onRefresh() }}
                 className="h-7 rounded-lg bg-success/10 text-success px-3 text-label hover:bg-success/20 flex items-center gap-1"
               >
-                <Icon name="check" className="text-[14px]" />
+                <Icon name="check" className="text-[11.200000000000001px]" />
                 처리 완료
               </button>
               <button
@@ -271,7 +271,7 @@ export default function NotificationsPage() {
           <h1 className="font-h1 text-h1 text-on-surface tracking-tight flex items-center gap-2">
             알림
             {pendingCount > 0 && (
-              <span className="inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-full bg-error text-white text-[11px] font-bold">
+              <span className="inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-full bg-error text-white text-[8.8px] font-bold">
                 {pendingCount}
               </span>
             )}
@@ -343,7 +343,7 @@ export default function NotificationsPage() {
       {/* 알림 목록 */}
       {filtered.length === 0 ? (
         <div className="rounded-xl border border-outline-variant bg-surface-container-lowest py-16 text-center">
-          <Icon name="notifications_none" className="text-[36px] text-on-surface-variant mb-3" />
+          <Icon name="notifications_none" className="text-[28.8px] text-on-surface-variant mb-3" />
           <p className="font-h3 text-h3 text-on-surface">알림이 없습니다</p>
           <p className="text-body-sm text-on-surface-variant mt-1">사용자가 요청이나 피드백을 남기면 여기에 표시됩니다.</p>
         </div>

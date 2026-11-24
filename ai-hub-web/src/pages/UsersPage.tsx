@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthContext'
 import { Icon } from '../components/Icon'
 import MemberEditDialog from '../components/MemberEditDialog'
 import MemberPasswordResetDialog from '../components/MemberPasswordResetDialog'
+import AdminWebPushSettings from '../components/AdminWebPushSettings'
 import {
   listAiUsage,
   setUserAiLimit,
@@ -176,6 +177,7 @@ export default function UsersPage() {
   const [notice, setNotice] = useState<string | null>(null)
   const { session } = useAuth()
   const myUserId = session?.userId
+  const prioritizePending = new URLSearchParams(window.location.search).get('approval') === 'pending'
   const iAmOwner = members.some((m) => m.userId === myUserId && m.role === 'owner' && m.status === 'approved')
   const organizationOptions = useMemo(() => [...new Set(members.map((m) => m.organization?.trim()).filter((org): org is string => !!org))].sort(), [members])
 
@@ -219,19 +221,27 @@ export default function UsersPage() {
   }, [members])
 
   const sortedMembers = useMemo(() => [...members].sort((a, b) => {
+    if (prioritizePending && (a.status === 'pending') !== (b.status === 'pending')) {
+      return a.status === 'pending' ? -1 : 1
+    }
     const rank = { owner: 0, admin: 1, user: 2 }
     return rank[a.role] - rank[b.role]
-  }), [members])
+  }), [members, prioritizePending])
 
   async function updateMember(member: AiHubMember, status: 'approved' | 'rejected') {
     setUpdatingUserId(member.userId)
     setError(null)
+    setNotice(null)
     try {
-      await updateAiHubMember({
+      const outcome = await updateAiHubMember({
         userId: member.userId,
         status,
         role: member.role,
       })
+      if (outcome === 'already-approved') setNotice(`${member.email} 사용자는 이미 다른 관리자가 승인했습니다.`)
+      else if (outcome === 'already-approved-notification-warning') setNotice(`${member.email} 사용자는 이미 승인되어 있습니다. 일부 관리자에게 완료 메일을 보내지 못했습니다.`)
+      else if (outcome === 'approved-notification-warning') setNotice(`${member.email} 사용자를 승인했지만 일부 관리자 알림 메일을 보내지 못했습니다.`)
+      else if (outcome === 'approved') setNotice(`${member.email} 사용자를 승인했고 모든 관리자에게 처리 완료 메일을 보냈습니다.`)
       await loadMembers()
     } catch (err) {
       setError(err instanceof Error ? err.message : '사용자 상태를 변경하지 못했습니다.')
@@ -353,6 +363,8 @@ export default function UsersPage() {
       </div>
 
       {/* 통계 카드 */}
+      <AdminWebPushSettings />
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-3">
         {[
           { label: 'Total Users', value: stats.total, icon: 'group', tone: 'text-primary bg-primary/10' },
@@ -670,8 +682,16 @@ export default function UsersPage() {
           canManageOwner={iAmOwner}
           organizationOptions={organizationOptions}
           onClose={() => setEditing(null)}
-          onSaved={() => {
-            setNotice(`${editing.email} 사용자 정보를 저장했습니다.`)
+          onSaved={(approvalOutcome) => {
+            setNotice(approvalOutcome === 'already-approved'
+              ? `${editing.email} 사용자는 이미 다른 관리자가 승인했습니다. 변경한 사용자 정보는 저장했습니다.`
+              : approvalOutcome === 'already-approved-notification-warning'
+                ? `${editing.email} 사용자는 이미 승인되어 있습니다. 일부 관리자에게 완료 메일을 보내지 못했습니다.`
+              : approvalOutcome === 'approved'
+                ? `${editing.email} 사용자를 승인했고 모든 관리자에게 처리 완료 메일을 보냈습니다.`
+                : approvalOutcome === 'approved-notification-warning'
+                  ? `${editing.email} 사용자를 승인했지만 일부 관리자 알림 메일을 보내지 못했습니다.`
+                : `${editing.email} 사용자 정보를 저장했습니다.`)
             setEditing(null)
             void loadMembers()
           }}

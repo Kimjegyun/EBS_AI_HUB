@@ -8,13 +8,13 @@
 import { getLocalApiBaseUrl } from './localApi'
 import { getPortalMode } from './portalStorage'
 import { supabase } from './supabase'
-import { onUserScopedChange, userScopedStorageKey } from './userScopedStorage'
+import { getCurrentAuthSession, onUserScopedChange, userScopedStorageKey } from './userScopedStorage'
 
 type Entry = { value: string | null; updatedAt: string }
 
 const META_KEY = '__settings-sync'
 // Caches and device-specific or very large state stay local.
-const LOCAL_ONLY_PREFIXES = [META_KEY, 'enhanced-calendar-events', 'my-llm-portal-state', 'last-page', 'inventory-active:']
+const LOCAL_ONLY_PREFIXES = [META_KEY, 'enhanced-calendar-events', 'my-llm-portal-state', 'inventory-active:']
 const MAX_VALUE_LENGTH = 256 * 1024
 export const SETTINGS_SYNCED_EVENT = 'ai-hub:settings-synced'
 
@@ -39,25 +39,28 @@ function localKeys(): string[] {
   return keys
 }
 
-async function request(method: 'GET' | 'PUT', body?: unknown): Promise<Record<string, Entry> | null> {
+async function request(method: 'GET' | 'PUT', body?: unknown, scope = fullKey('')): Promise<Record<string, Entry> | null> {
   if (!supabase) return null
   const { data } = await supabase.auth.getSession()
   const token = data.session?.access_token
-  if (!token) return null
+  const account = getCurrentAuthSession()
+  if (!token || fullKey('') !== scope || !account ||
+    (account.userId ? data.session?.user.id !== account.userId : data.session?.user.email !== account.email)) return null
   const res = await fetch(`${getLocalApiBaseUrl()}/api/users/me/settings/${getPortalMode()}`, {
     method,
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '1' },
     body: body ? JSON.stringify(body) : undefined,
   })
-  if (!res.ok) return null
+  if (!res.ok || fullKey('') !== scope) return null
   return method === 'GET' ? ((await res.json()) as { settings: Record<string, Entry> }).settings : {}
 }
 
 let applyingRemote = false
 let pushTimer: ReturnType<typeof setTimeout> | undefined
-let enabled = false
+let enabledScope = ''
 
-async function pushNow(keys: string[]) {
+async function pushNow(keys: string[], scope = fullKey('')) {
+  if (scope !== fullKey('')) return
   const meta = readMeta()
   const settings: Record<string, Entry> = {}
   for (const key of keys) {
@@ -65,22 +68,23 @@ async function pushNow(keys: string[]) {
     if (value !== null && value.length > MAX_VALUE_LENGTH) continue
     settings[key] = { value, updatedAt: meta[key] ?? new Date().toISOString() }
   }
-  if (Object.keys(settings).length) await request('PUT', { settings })
+  if (Object.keys(settings).length) await request('PUT', { settings }, scope)
 }
 
 const dirty = new Set<string>()
 function schedulePush() {
   clearTimeout(pushTimer)
+  const scope = fullKey('')
   pushTimer = setTimeout(() => {
     const keys = [...dirty]
     dirty.clear()
     // On failure the key stays newer locally, so the next pull pushes it again.
-    void pushNow(keys).catch(() => {})
+    void pushNow(keys, scope).catch(() => {})
   }, 1000)
 }
 
 onUserScopedChange((baseKey) => {
-  if (!enabled || applyingRemote || !isSynced(baseKey)) return
+  if (enabledScope !== fullKey('') || applyingRemote || !isSynced(baseKey)) return
   const meta = readMeta()
   meta[baseKey] = new Date().toISOString()
   writeMeta(meta)
@@ -94,9 +98,15 @@ onUserScopedChange((baseKey) => {
  * when offline, not signed in to Supabase, or nothing differed).
  */
 export async function syncAccountSettings(): Promise<string[]> {
-  const remote = await request('GET').catch(() => null)
-  if (!remote) return []
-  enabled = true
+  const scope = fullKey('')
+  if (enabledScope !== scope) {
+    clearTimeout(pushTimer)
+    dirty.clear()
+    enabledScope = ''
+  }
+  const remote = await request('GET', undefined, scope).catch(() => null)
+  if (!remote || fullKey('') !== scope) return []
+  enabledScope = scope
   const meta = readMeta()
   const changed: string[] = []
   applyingRemote = true

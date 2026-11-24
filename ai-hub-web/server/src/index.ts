@@ -9,6 +9,7 @@ import path from 'path';
 import fs from 'fs';
 import https from 'https';
 import { randomUUID, X509Certificate } from 'crypto';
+import { isIP } from 'net';
 import { initDatabase } from './config/database';
 import { logger } from './utils/logger';
 import { errorHandler } from './middleware/errorHandler';
@@ -19,7 +20,10 @@ import userSettingsRoutes from './routes/userSettings.routes';
 import holidayRoutes from './routes/holiday.routes';
 import eventRoutes from './routes/event.routes';
 import environmentRoutes from './routes/environment.routes';
+import resourceRoutes from './routes/resource.routes';
 import appRoutes from './routes/app.routes';
+import utilityRoutes from './routes/utility.routes';
+import { initUtilityStore } from './lib/utilityStore';
 import aiRoutes from './routes/ai.routes';
 import ioLogRoutes from './routes/ioLog.routes';
 import tencentRoutes from './routes/tencent.routes';
@@ -35,11 +39,20 @@ if (!JWT_SECRET_VALUE || JWT_SECRET_VALUE === 'default-secret') {
 }
 
 const app = express();
+app.disable('x-powered-by');
+app.set('trust proxy', 'loopback');
+app.use((req, _res, next) => {
+  const cf = req.headers['cf-connecting-ip'];
+  if (['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress || '') && typeof cf === 'string' && isIP(cf)) {
+    req.headers['x-forwarded-for'] = cf;
+  }
+  next();
+});
 const PORT = Number(process.env.PORT || 3001);
 
 const SERVE_STATIC = process.env.SERVE_STATIC === 'true' || process.env.NODE_ENV === 'production';
 // 항상 0.0.0.0으로 바인딩 — 폰이 http://[PC-IP]:3001/install 로 CA 설치 페이지에 접근해야 함
-const HOST = process.env.HOST || '0.0.0.0';
+const HOST = process.env.HOST || '127.0.0.1';
 
 // /install, /rootCA.pem 은 CSP 없이 서빙해야 inline script와 다운로드가 동작함
 // 그 외 모든 경로는 CSP 포함 helmet 적용 (SERVE_STATIC 모드에서도 CSP 활성화)
@@ -50,7 +63,7 @@ const HOST = process.env.HOST || '0.0.0.0';
 //   서빙) 모드에는 inline preamble이 없으므로 CSP를 그대로 유지합니다.
 // 'wasm-unsafe-eval': iOS용 바코드 인식(zxing-cpp WASM) 컴파일만 허용하고 eval은 계속 차단합니다.
 const helmetWithCsp = helmet({
-  contentSecurityPolicy: { directives: { scriptSrc: ["'self'", "'wasm-unsafe-eval'"] } },
+    contentSecurityPolicy: { directives: { scriptSrc: ["'self'", 'blob:', "'wasm-unsafe-eval'"] } },
 });
 const helmetNoCsp = helmet({ contentSecurityPolicy: false });
 
@@ -391,13 +404,19 @@ app.use('/api/users', userRoutes);
 app.use('/api/holidays', holidayRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/environment', environmentRoutes);
+app.use('/api/resources', resourceRoutes);
 app.use('/api/apps', appRoutes);
+app.use('/api/utilities', utilityRoutes);
 app.use('/api/ai', aiProxyLimiter, aiRoutes);
 app.use('/api/tencent', tencentTokenLimiter, tencentRoutes);
 app.use('/api/io-log', ioLogRoutes);
 app.use('/api/inventory', inventoryRoutes);
 
 // Public portals are sanitized production builds, never the development server.
+app.get(['/ACAP', '/ACAP/*'], (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.type('html').send('<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>서비스 안내</title></head><body><main><h1>이 서비스는 온라인으로 제공되지 않습니다.</h1></main></body></html>');
+});
 for (const portal of ['admin', 'user']) {
   const portalDir = path.resolve(__dirname, `../../.runtime/portals/${portal}`);
   app.use(`/${portal}`, express.static(portalDir, {
@@ -457,6 +476,7 @@ app.use(errorHandler);
 const startServer = async () => {
   try {
     await initDatabase();
+    await initUtilityStore();
     startSubmissionRecovery();
     void removeLegacySubmissionFiles()
       .then((removed) => { if (removed) logger.info(`Removed ${removed} legacy submission file(s)`) })

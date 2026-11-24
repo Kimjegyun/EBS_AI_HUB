@@ -21,6 +21,7 @@ dist-ssr
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
+!.vscode/tasks.json
 .idea
 .DS_Store
 *.suo
@@ -35,6 +36,13 @@ ngrok-token.env
 # Cloudflare Tunnel binary, credentials reference and local config
 .cloudflared/
 .runtime/
+.utility-files/
+.portal-live/
+
+# Imported third-party sources stay local unless explicitly selected.
+import_program/*
+!import_program/README.md
+!import_program/_example/
 
 # Azure onboarding session artifacts
 .copilot-azure/

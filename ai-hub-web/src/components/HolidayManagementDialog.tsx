@@ -128,7 +128,7 @@ export default function HolidayManagementDialog({ open, onClose, onHolidayChange
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-outline-variant">
           <div className="flex items-center gap-3">
-            <Icon name="event" className="text-primary text-[24px]" />
+            <Icon name="event" className="text-primary text-[19.2px]" />
             <h2 className="font-h2 text-h2 text-on-surface">사내 휴일 관리</h2>
           </div>
           <button
@@ -307,14 +307,14 @@ export default function HolidayManagementDialog({ open, onClose, onHolidayChange
                           className="p-2 rounded-full hover:bg-surface-container transition-colors"
                           title="수정"
                         >
-                          <Icon name="edit" className="text-primary text-[18px]" />
+                          <Icon name="edit" className="text-primary text-[14.4px]" />
                         </button>
                         <button
                           onClick={() => handleDelete(holiday.id)}
                           className="p-2 rounded-full hover:bg-surface-container transition-colors"
                           title="삭제"
                         >
-                          <Icon name="delete" className="text-error text-[18px]" />
+                          <Icon name="delete" className="text-error text-[14.4px]" />
                         </button>
                       </div>
                     )}

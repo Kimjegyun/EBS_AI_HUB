@@ -86,7 +86,7 @@ export default function AccountAvatar({ account, editable }: { account: string; 
       title={editable ? '클릭 또는 마우스 오른쪽 버튼으로 이미지 변경' : character.name}
       onClick={() => editable && setOpen(!open)} onContextMenu={event => { if (editable) { event.preventDefault(); setOpen(true) } }}
       className="w-10 h-10 flex items-center justify-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
-      <span className="relative block w-8 h-8 overflow-hidden rounded-full border border-outline-variant bg-amber-100">
+      <span className="relative block w-8 h-8 overflow-hidden rounded-full border border-outline-variant bg-primary/15">
         {avatar.image ? <img src={avatar.image} alt="계정 프로필" className="w-full h-full object-cover" />
           : <img src={`${import.meta.env.BASE_URL}avatars/${character.file}`} alt={character.name} className="absolute max-w-none" style={{ width: `${character.width / character.size * 100}%`, left: `${-character.x / character.size * 100}%`, top: `${-character.y / character.size * 100}%` }} />}
       </span>

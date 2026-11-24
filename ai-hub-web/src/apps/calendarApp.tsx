@@ -111,7 +111,7 @@ function CalendarHeaderExtra(ctx: AppContext) {
           title="회사 휴일 관리"
           aria-label="회사 휴일 관리"
         >
-          <Icon name="settings" className="text-on-surface-variant text-[18px]" />
+          <Icon name="settings" className="text-on-surface-variant text-[14.4px]" />
         </button>
       )}
       <button
@@ -120,7 +120,7 @@ function CalendarHeaderExtra(ctx: AppContext) {
         title="일정 추가"
         aria-label="일정 추가"
       >
-        <Icon name="add" className="text-on-primary text-[18px]" />
+        <Icon name="add" className="text-on-primary text-[14.4px]" />
       </button>
     </>
   )

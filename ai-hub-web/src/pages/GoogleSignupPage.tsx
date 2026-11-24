@@ -5,6 +5,8 @@ import { useAuth } from '../auth/AuthContext'
 import { loginWithGoogleMembership } from '../auth/supabaseMembership'
 import { withTimeout } from '../lib/withTimeout'
 import { googleOAuthError } from '../auth/googleOAuthError'
+import type { AuthSession } from '../auth/types'
+import GoogleProfileForm from '../components/GoogleProfileForm'
 import {
   clearGoogleLoginReturnTo,
   getExternalAppReturnTo,
@@ -26,6 +28,15 @@ export default function GoogleSignupPage() {
   const [revision, setRevision] = useState(0)
   const [hasUser, setHasUser] = useState(false)
   const completed = useRef(false)
+  const [profileSession, setProfileSession] = useState<AuthSession | null>(null)
+
+  function finishLogin(session: AuthSession) {
+    completed.current = true
+    clearGoogleLoginReturnTo()
+    login(session)
+    if (returnTo) window.location.replace(returnTo)
+    else navigate('/', { replace: true })
+  }
 
   useEffect(() => {
     if (!supabase) return
@@ -57,6 +68,7 @@ export default function GoogleSignupPage() {
         if (!session) throw new Error('로그인 정보를 확인하지 못했습니다. 다시 시도해 주세요.')
         if (session.status === 'rejected') throw new Error('접근이 거절된 계정입니다. 관리자에게 문의해 주세요.')
         if (session.status !== 'approved') throw new Error('이 계정은 관리자 승인이 필요합니다.')
+        if (session.needsGoogleProfile) { setProfileSession(session); return }
         completed.current = true
         clearGoogleLoginReturnTo()
         login(session)
@@ -85,10 +97,12 @@ export default function GoogleSignupPage() {
     finally { setBusy(false) }
   }
 
+  if (profileSession) return <GoogleProfileForm session={profileSession} onComplete={finishLogin} />
+
   return <main className="min-h-screen bg-background p-6 flex items-center justify-center">
     <form onSubmit={submit} className="w-full max-w-md rounded-2xl border border-outline-variant bg-surface p-6 space-y-5">
       <h1 className="text-2xl font-bold">Google 계정으로 로그인</h1>
-      <p>추가 정보 입력 없이 Google 계정으로 바로 이용할 수 있습니다.</p>
+      <p>Google 계정으로 가입한 뒤 관리자 승인을 받아 이용할 수 있습니다.</p>
       {(oauthFailure || error) && <p role="alert" className="text-error">{oauthFailure || error}</p>}
       {!ready && !oauthFailure ? <p role="status">Google 로그인을 확인하고 있습니다…</p> : oauthFailure ?
         <button type="button" onClick={() => {

@@ -39,3 +39,20 @@ ACAP 원격버전의 로고·헤더·제작 화면과 저장폴더 탐색은 원
 - 기능을 공통 적용할 필요가 생기면 두 버전에서 영향과 검증을 각각 판단한 뒤 명시적으로 반영한다.
 
 계정 역할 정보는 [ACAP_GOOGLE_ACCOUNTS.md](ACAP_GOOGLE_ACCOUNTS.md), 플랫폼·앱 소유권은 [DEVELOPMENT_BOUNDARIES.md](DEVELOPMENT_BOUNDARIES.md)에 기록한다.
+
+## 2026-10-27 · ACAP 진입 승인 확인 지연 개선
+
+AI Hub 인증 API의 사용자 확인·회원 승인 조회를 병렬 실행하고, 같은 인증 설정/토큰의 진행 중 요청만 공유한다. 완료 승인 캐시는 두지 않으며 후속 승인 철회 확인·ID 일치·권한 거절·8초 요청 기한을 유지한다. 계정·OAuth·Google 연결 데이터는 변경하지 않았다.
+
+기존/추가 Node 검사 6개와 실제 배포 CommonJS 모듈 검사, 전체 서버 TypeScript를 통과했다. 회귀 검사는 verify:production-feedback에 등록했다. 검토한 portalMembership 소스/실행 모듈만 백업 후 반영했고 인증 API(3003)의 PID·유휴 연결·헬스를 확인해 재시작했다. ACAP 제작 서버·공통 게이트웨이는 재시작하지 않았다.
+
+ACAP 저장소는 승인 대기 UI·재시도 간격·SDK 네트워크 기한을 별도로 수정하고 배포했다. ACAP 배포는 d78810d2-d74e-4d78-8abc-a79850e06353이며 브라우저 시험의 연속 3회 일시 장애 복구는 약 7.1초였다. 실제 사용자의 로그인 시간/제작 완료를 확정한 것은 아니다. 상세 검증·측정·백업은 ACAP docs/production-runtime-recovery-audit.md와 tmp/hub-login-latency/, tmp/login-latency-*.log에 보관한다.
+
+
+## ACAP 제작 중 인증 갱신·TLS 연결 복구 · 2026-10-27
+
+사용자 로그의 외부 인증 갱신 시간 초과와 반복 503을 재현했다. 인증 도메인의 한 DNS 주소는 TLS가 정체되고 다른 주소는 정상 응답했다. 공통 인증 소유권에 따라 Hub에 제한된 refresh-token 중계 POST API와 명시적 게이트웨이 경로를 추가했다. 승인 조회·갱신은 DNS에서 얻은 주소에 검증된 TLS 연결을 먼저 만든 후 HTTP를 한 번 전송한다. 고정 IP·인증서 검증 우회·완료 승인 캐시·서비스 키 브라우저 전달은 하지 않는다. 갱신은 권한 승인이 아니며 기존 승인 검증을 유지한다. API 버전은 소비 SDK와 동일하고 무효 토큰과 일시 장애를 구분한다.
+
+회귀 13개와 실제 배포 JS 7개, 전체 서버 TypeScript를 통과했다. 인증 API와 게이트웨이는 PID/포트/유휴 확인 후 반영했고 ACAP 제작 서버·터널은 유지했다. 원본 소스·실행 파일 백업은 ACAP tmp/hub-session-refresh/에 있다. 공개 갱신 경로의 합성 무효 토큰 400과 권한 검사 거절 응답을 확인했으며 실제 사용자 세션 갱신이나 제작 완료로 해석하지 않는다.
+
+ACAP는 갱신 소비 경로와 화면 오류 진단을 별도 수정·배포했다: 0c1b9afc-a06f-4f7e-8254-1c1f472e0e0b / assets/index-KJtuo-wm.js. 기존 사용자·Google 연결·폴더·저장본은 보존했다. 모델/과금 경로는 변경하지 않았다.

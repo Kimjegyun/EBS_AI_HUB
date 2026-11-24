@@ -89,7 +89,7 @@ export default function MemberPasswordResetDialog({ member, onClose, onDone }: P
                 <div className="flex gap-2">
                   <input value={temporary} onChange={(e) => setTemporary(e.target.value)} maxLength={72} className={`${inputClass} font-mono tracking-wide`} aria-label="임시 비밀번호" disabled={busy !== null} />
                   <button type="button" onClick={() => setTemporary(generateTemporaryPassword())} disabled={busy !== null} title="새로 만들기" aria-label="임시 비밀번호 새로 만들기" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-outline-variant hover:bg-surface-container-high disabled:opacity-60">
-                    <Icon name="refresh" className="text-[18px]" />
+                    <Icon name="refresh" className="text-[14.4px]" />
                   </button>
                 </div>
                 <button type="button" onClick={() => void applyTemporary()} disabled={busy !== null} className="w-full rounded-lg bg-primary py-2.5 text-body-sm font-semibold text-on-primary disabled:opacity-60">

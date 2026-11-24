@@ -55,7 +55,7 @@ export default function PairPage() {
         {/* 헤더 */}
         <div className="text-center">
           <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-3">
-            <Icon name="smartphone" className="text-primary text-[32px]" />
+            <Icon name="smartphone" className="text-primary text-[25.6px]" />
           </div>
           <h2 className="text-h2 font-bold text-on-surface">기기 페어링</h2>
           <p className="text-body-sm text-on-surface-variant mt-1">재물조사 앱과 기기를 연동합니다</p>
@@ -98,7 +98,7 @@ export default function PairPage() {
 
             {error && (
               <div className="flex items-center gap-2 rounded-xl bg-error/10 border border-error/30 px-3 py-2 text-caption text-error">
-                <Icon name="error" className="text-[15px] shrink-0" />
+                <Icon name="error" className="text-[12px] shrink-0" />
                 {error}
               </div>
             )}
@@ -110,13 +110,13 @@ export default function PairPage() {
               disabled={loading}
             >
               {loading
-                ? <><Icon name="progress_activity" className="animate-spin text-[18px]" />처리 중...</>
-                : <><Icon name="key" className="text-[18px]" />페어링 코드 받기</>
+                ? <><Icon name="progress_activity" className="animate-spin text-[14.4px]" />처리 중...</>
+                : <><Icon name="key" className="text-[14.4px]" />페어링 코드 받기</>
               }
             </button>
 
             {/* 도움말 */}
-            <div className="rounded-xl bg-surface-container p-3 space-y-1 text-[11px] text-on-surface-variant">
+            <div className="rounded-xl bg-surface-container p-3 space-y-1 text-[8.8px] text-on-surface-variant">
               <p className="font-semibold">💡 처음 사용하시나요?</p>
               <p>1. 이름과 부서를 입력하고 코드를 받으세요</p>
               <p>2. PC 관리자에게 6자리 코드를 알려주세요</p>
@@ -138,7 +138,7 @@ export default function PairPage() {
               </div>
             </div>
             <div className="flex items-center justify-center gap-2 text-caption text-on-surface-variant">
-              <Icon name="progress_activity" className="animate-spin text-[16px]" />
+              <Icon name="progress_activity" className="animate-spin text-[12.8px]" />
               승인 대기 중...
             </div>
             <button
@@ -155,7 +155,7 @@ export default function PairPage() {
         {step === 'approved' && (
           <div className="text-center space-y-4">
             <div className="w-16 h-16 rounded-full bg-success/15 flex items-center justify-center mx-auto">
-              <Icon name="check_circle" className="text-success text-[36px]" />
+              <Icon name="check_circle" className="text-success text-[28.8px]" />
             </div>
             <div>
               <h3 className="text-h3 font-bold text-success">페어링 완료!</h3>

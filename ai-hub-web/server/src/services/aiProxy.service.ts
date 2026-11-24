@@ -1,3 +1,4 @@
+import { providerFetch } from '../lib/providerFetch'
 import { readEnvironmentData } from '../lib/environmentStore'
 import { spawn } from 'child_process'
 import { mkdtemp, readdir, readFile, rm, writeFile } from 'fs/promises'
@@ -54,10 +55,11 @@ async function prepareTogetherAudio(file: Express.Multer.File): Promise<{
         '-ac', '1', '-ar', '16000', '-b:a', '48k',
         '-f', 'segment', '-segment_time', '600', '-reset_timestamps', '1', outputPattern,
       ], { windowsHide: true })
+      const timer = setTimeout(() => { child.kill(); reject(new Error('음성 변환 제한 시간(120초)을 초과했습니다.')) }, 120_000)
       let stderr = ''
-      child.stderr.on('data', (data: Buffer) => { stderr += String(data) })
-      child.on('error', reject)
-      child.on('close', (code: number | null) => code === 0 ? resolve() : reject(new Error(stderr.trim() || `FFmpeg 종료 코드 ${code}`)))
+      child.stderr.on('data', (data: Buffer) => { stderr = (stderr + String(data)).slice(-4096) })
+      child.on('error', (error) => { clearTimeout(timer); reject(error) })
+      child.on('close', (code: number | null) => { clearTimeout(timer); code === 0 ? resolve() : reject(new Error(stderr.trim() || `FFmpeg 종료 코드 ${code}`)) })
     })
     const names = (await readdir(tempDir)).filter((name) => /^chunk-\d+\.mp3$/.test(name)).sort()
     if (!names.length) throw new Error('분할된 음성 구간이 없습니다.')
@@ -116,7 +118,7 @@ export async function transcribeWithStoredKey(options: {
       form.append('model', model)
       form.append('response_format', 'json')
       if (options.language) form.append('language', options.language)
-      const response = await fetch(`${baseUrl}/audio/transcriptions`, {
+      const response = await providerFetch(`${baseUrl}/audio/transcriptions`, {
         method: 'POST', headers: { Authorization: `Bearer ${apiKey}` }, body: form,
       })
       if (!response.ok) {
@@ -162,7 +164,7 @@ export async function testTogetherConnection(appId = 'voice-summary'): Promise<T
     return { ok: false, error: '저장된 Together AI 키에 한글·공백·안내 문구가 포함되어 있습니다. 전체 API 키를 다시 입력하세요.' }
   }
   try {
-    const response = await fetch(`${baseUrl}/models`, { headers: { Authorization: `Bearer ${apiKey}` } })
+    const response = await providerFetch(`${baseUrl}/models`, { headers: { Authorization: `Bearer ${apiKey}` } })
     if (!response.ok) return { ok: false, error: describeTogetherError(response.status, await response.text()) }
     return { ok: true, text: 'Together AI 연결 성공' }
   } catch {
@@ -181,7 +183,7 @@ export async function summarizeWithTogether(options: {
   const model = asString(config.ai_together_summary_model) || 'MiniMaxAI/MiniMax-M3'
   if (!apiKey) return { ok: false, error: 'Together AI API 키가 설정되지 않았습니다.' }
   try {
-    const response = await fetch(`${baseUrl}/chat/completions`, {
+    const response = await providerFetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -304,14 +306,14 @@ async function completeOpenAi(
     'Content-Type': 'application/json',
     Authorization: `Bearer ${apiKey}`,
   }
-  const res = await fetch(`${baseUrl}/responses`, {
+  const res = await providerFetch(`${baseUrl}/responses`, {
     method: 'POST',
     headers,
     body: JSON.stringify(buildResponsesBody(model, messages)),
   })
   if (!res.ok) {
     if (res.status === 400 || res.status === 404) {
-      const fallback = await fetch(`${baseUrl}/chat/completions`, {
+      const fallback = await providerFetch(`${baseUrl}/chat/completions`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ model, messages }),
@@ -345,7 +347,7 @@ async function completeFal(
   }
 
   const prompt = messages.map((message) => `${message.role}: ${message.content}`).join('\n\n')
-  const res = await fetch(`${baseUrl}/${resolvedEndpoint}`, {
+  const res = await providerFetch(`${baseUrl}/${resolvedEndpoint}`, {
     method: 'POST',
     headers: {
       Authorization: `Key ${apiKey}`,

@@ -4,6 +4,7 @@
 import { Response } from 'express'
 import { AuthRequest } from '../middleware/auth'
 import * as XLSX from 'xlsx'
+import { readWorkbook } from '../lib/safeWorkbook'
 import { v4 as uuidv4 } from 'uuid'
 import * as fs from 'fs'
 import * as path from 'path'
@@ -130,7 +131,7 @@ export async function uploadDataset(req: AuthRequest, res: Response): Promise<vo
     return
   }
 
-  const wb = XLSX.read(file.buffer, { type: 'buffer' })
+  const wb = await readWorkbook(file.buffer)
   const ws = wb.Sheets[wb.SheetNames[0]]
   const rows = XLSX.utils.sheet_to_json<Record<string, string>>(ws, { defval: '' })
 
@@ -275,23 +276,9 @@ export function sseHandler(req: AuthRequest, res: Response): void {
     const rawToken = req.query.token as string | undefined
     if (!rawToken) { res.status(401).end(); return }
 
-    const secret = process.env.JWT_SECRET?.trim()
-    const adminCode = process.env.ADMIN_ACCESS_CODE?.trim()
-    if (!secret) { res.status(401).end(); return }
-
-    // ADMIN_ACCESS_CODE bearer 허용
-    if (adminCode && rawToken === adminCode) {
-      req.user = { id: 'system', email: 'system@local', role: 'admin' }
-    } else {
-      const jwt = require('jsonwebtoken') as typeof import('jsonwebtoken')
-      try {
-        const decoded = jwt.verify(rawToken, secret) as { id: string; email: string; role: string }
-        req.user = decoded
-      } catch {
-        res.status(401).end()
-        return
-      }
-    }
+    // Streaming routes are mounted after authenticate; never accept credentials in URLs.
+    res.status(401).end()
+    return
   }
 
   res.setHeader('Content-Type', 'text/event-stream')
@@ -321,13 +308,13 @@ export function sseHandler(req: AuthRequest, res: Response): void {
 
 // ─── Helper: parse rows from xlsx worksheet ───────────────────────────────────
 
-function parseRows(
+async function parseRows(
   buf: Buffer,
   sheetName: string | undefined,
   headerRow: number,
   colMap: Record<string, keyof Asset>,
-): Asset[] {
-  const wb = XLSX.read(buf, { type: 'buffer' })
+): Promise<Asset[]> {
+  const wb = await readWorkbook(buf)
   return parseWorksheetRows(wb, sheetName, headerRow, colMap)
 }
 
@@ -408,11 +395,11 @@ export async function mergeDatasets(req: AuthRequest, res: Response): Promise<vo
 
   // 파일1: 운영관리부 양식 — 헤더행 7번째, 지정 시트(기본: 융합기술본부)
   const surveySheet = sheetName || '융합기술본부'
-  const surveyAssets = parseRows(surveyFile.buffer, surveySheet, 7, SURVEY_COL_MAP)
+  const surveyAssets = await parseRows(surveyFile.buffer, surveySheet, 7, SURVEY_COL_MAP)
   for (const a of surveyAssets) a._source = 'survey'
 
   // 파일2: ERP 자산현황 — 헤더행 1번째, 단일 시트
-  const erpAssets = parseRows(erpFile.buffer, undefined, 1, ERP_COL_MAP)
+  const erpAssets = await parseRows(erpFile.buffer, undefined, 1, ERP_COL_MAP)
   const erpMap = new Map<string, Asset>()
   const mergeKey = (value?: string) => String(value ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '')
   for (const asset of erpAssets) erpMap.set(mergeKey(asset.assetNo), asset)
@@ -521,7 +508,7 @@ export async function uploadSurveyFile(req: AuthRequest, res: Response): Promise
   // 시트 목록 파싱 (bookSheets: true → 시트 이름만 읽음, 빠름)
   let sheetNames: string[]
   try {
-    const wb = XLSX.read(file.buffer, { type: 'buffer', bookSheets: true })
+    const wb = await readWorkbook(file.buffer, { bookSheets: true })
     sheetNames = wb.SheetNames
   } catch {
     res.status(400).json({ error: '엑셀 파일을 읽을 수 없습니다.' })
@@ -575,10 +562,10 @@ export async function mergeByUploadId(req: AuthRequest, res: Response): Promise<
   }
 
   // 병합 실행
-  const surveyAssets = parseRows(surveyBuffer, sheetName, 7, SURVEY_COL_MAP)
+  const surveyAssets = await parseRows(surveyBuffer, sheetName, 7, SURVEY_COL_MAP)
   for (const a of surveyAssets) a._source = 'survey'
 
-  const erpAssets = parseRows(file.buffer, undefined, 1, ERP_COL_MAP)
+  const erpAssets = await parseRows(file.buffer, undefined, 1, ERP_COL_MAP)
   const erpMap = new Map<string, Asset>()
   const mergeKey = (value?: string) => String(value ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '')
   for (const asset of erpAssets) erpMap.set(mergeKey(asset.assetNo), asset)
@@ -846,7 +833,7 @@ export async function uploadSurveyResult(req: AuthRequest, res: Response): Promi
   if (!datasetRow) { res.status(404).json({ error: '데이터셋을 찾을 수 없습니다.' }); return }
 
   // 엑셀 파싱: 헤더행 5번째(다운로드 양식 기준: 1=제목,2=안내,3=날짜,4=빈행,5=헤더)
-  const assets = parseRows(file.buffer, undefined, 5, SURVEY_RESULT_COL_MAP)
+  const assets = await parseRows(file.buffer, undefined, 5, SURVEY_RESULT_COL_MAP)
   if (!assets.length) {
     res.status(400).json({ error: '유효한 자산 데이터를 찾을 수 없습니다. 다운로드한 양식 파일인지 확인하세요.' })
     return
@@ -1188,7 +1175,7 @@ export async function uploadSurveyForm(req: AuthRequest, res: Response): Promise
   let workbook: XLSX.WorkBook
   let sheetNames: string[]
   try {
-    workbook = XLSX.read(file.buffer, { type: 'buffer' })
+    workbook = await readWorkbook(file.buffer)
     sheetNames = workbook.SheetNames
   } catch {
     res.status(400).json({ error: '엑셀 파일을 읽을 수 없습니다.' })

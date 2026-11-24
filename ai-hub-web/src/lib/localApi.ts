@@ -1,13 +1,14 @@
-import { getPortalScopedItem, getPortalScopedSessionItem } from './portalStorage'
+import { getSupabaseApiToken } from './supabase'
+import { removePortalScopedItem, removePortalScopedSessionItem } from './portalStorage'
 
 export function getLocalApiToken(): string {
+  // Remove the legacy shared admin code from previous browser builds.
+  removePortalScopedSessionItem('api-admin-token')
+  removePortalScopedItem('api-admin-token')
   return (
-    // The admin code verified at admin login; kept until logout (see adminAccess.ts).
-    getPortalScopedSessionItem('api-admin-token') ||
-    getPortalScopedItem('api-admin-token') ||
+    getSupabaseApiToken() ||
     localStorage.getItem('auth_token') ||
     localStorage.getItem('authToken') ||
-    import.meta.env.VITE_INVENTORY_TOKEN?.trim() ||
     ''
   )
 }

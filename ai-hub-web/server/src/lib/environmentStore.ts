@@ -17,7 +17,8 @@ function encryptSecrets(data: Record<string, unknown>): Record<string, unknown> 
   for (const key of SECRET_ENV_KEYS) {
     const val = result[key]
     if (typeof val === 'string' && val.trim() && !val.startsWith('enc:v1:')) {
-      try { result[key] = encrypt(val) } catch { /* ENCRYPTION_KEY 미설정 시 평문 유지 */ }
+      // Do not silently store a plaintext credential when encryption is unavailable.
+      result[key] = encrypt(val)
     }
   }
   // ai_app_settings 내부의 per-app secret도 암호화

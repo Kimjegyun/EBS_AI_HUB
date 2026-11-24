@@ -49,6 +49,7 @@ export default function AppLayout() {
       { to: '/dashboard', icon: 'home', label: '홈' },
       { to: '/installed-apps', icon: 'apps', label: '앱' },
       { to: '/marketplace', icon: 'storefront', label: '탐색' },
+      { to: '/util', icon: 'construction', label: '유틸' },
       ...(isAdmin ? [{ to: '/users', icon: 'group', label: '관리' }] : []),
       { to: '/settings', icon: isAdmin ? 'settings' : 'person', label: isAdmin ? '설정' : '내정보' },
     ]
@@ -70,7 +71,7 @@ export default function AppLayout() {
                 className="h-9 w-9 inline-flex items-center justify-center rounded-full text-primary hover:bg-primary/10"
                 aria-label="앱 등록"
               >
-                <Icon name="inventory_2" className="text-[20px]" />
+                <Icon name="inventory_2" className="text-[16px]" />
               </button>
             )}
             {isAdmin && (
@@ -80,7 +81,7 @@ export default function AppLayout() {
                 className="h-9 w-9 inline-flex items-center justify-center rounded-full text-primary hover:bg-primary/10"
                 aria-label="환경 설정"
               >
-                <Icon name="tune" className="text-[20px]" />
+                <Icon name="tune" className="text-[16px]" />
               </button>
             )}
             <AdminIoLogButton compact />
@@ -91,7 +92,7 @@ export default function AppLayout() {
               aria-label="로그인 아이디·비밀번호"
               title="로그인 아이디·비밀번호"
             >
-              <Icon name="key" className="text-[20px]" />
+              <Icon name="key" className="text-[16px]" />
             </button>
             <AccountAvatar key={session?.userId || session?.email} account={session?.userId || session?.email || "anonymous"} editable={!isAdmin} />
             <button
@@ -103,7 +104,7 @@ export default function AppLayout() {
               className="h-9 w-9 inline-flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-high"
               aria-label="로그아웃"
             >
-              <Icon name="logout" className="text-[20px]" />
+              <Icon name="logout" className="text-[16px]" />
             </button>
           </div>
         </header>
@@ -120,12 +121,12 @@ export default function AppLayout() {
                 to={tab.to}
                 className={({ isActive }) =>
                   [
-                    'flex flex-col items-center justify-center gap-0.5 text-[11px] font-medium',
+                    'flex flex-col items-center justify-center gap-0.5 text-[8.8px] font-medium',
                     isActive ? 'text-primary' : 'text-on-surface-variant',
                   ].join(' ')
                 }
               >
-                <Icon name={tab.icon} className="text-[22px]" />
+                <Icon name={tab.icon} className="text-[17.6px]" />
                 <span>{tab.label}</span>
               </NavLink>
             ))}
@@ -152,6 +153,7 @@ export default function AppLayout() {
             <NavLink to="/marketplace" className={({ isActive }) => topNavClass(isActive)}>
               Marketplace
             </NavLink>
+            <NavLink to="/util" className={({ isActive }) => topNavClass(isActive)}>Utilities</NavLink>
           </div>
         </div>
         <div className="flex items-center gap-2 sm:gap-2">
@@ -163,7 +165,7 @@ export default function AppLayout() {
                   : 'bg-surface-container-high text-on-surface-variant border-outline-variant'
               }`}
             >
-              <Icon name={isAdmin ? 'admin_panel_settings' : 'person'} className="text-[16px]" />
+              <Icon name={isAdmin ? 'admin_panel_settings' : 'person'} className="text-[12.8px]" />
               {isAdmin ? '관리자' : '사용자'}
             </span>
             {session && (
@@ -191,7 +193,7 @@ export default function AppLayout() {
               className="flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/5 px-2.5 py-1.5 font-label text-label text-primary hover:bg-primary/10 transition-colors"
               aria-label="환경 정보 설정"
             >
-              <Icon name="tune" className="text-[18px]" />
+              <Icon name="tune" className="text-[14.4px]" />
               <span className="hidden md:inline">환경</span>
             </button>
           )}
@@ -227,7 +229,7 @@ export default function AppLayout() {
             }}
             className="hidden sm:inline-flex items-center gap-1 font-caption text-caption text-on-surface-variant hover:text-primary px-2 py-1 rounded-lg hover:bg-surface-container-high"
           >
-            <Icon name="logout" className="text-[18px]" />
+            <Icon name="logout" className="text-[14.4px]" />
             로그아웃
           </button>
           <AccountAvatar key={session?.userId || session?.email} account={session?.userId || session?.email || "anonymous"} editable={!isAdmin} />
@@ -248,6 +250,9 @@ export default function AppLayout() {
             <Icon name="storefront" />
             <span>Marketplace</span>
           </NavLink>
+          <NavLink to="/util" className={({ isActive }) => navClass(isActive)}>
+            <Icon name="construction" /><span>유틸리티</span>
+          </NavLink>
           {isAdmin ? (
             <NavLink to="/users" className={({ isActive }) => navClass(isActive)}>
               <Icon name="group" />
@@ -260,7 +265,7 @@ export default function AppLayout() {
             >
               <Icon name="group" />
               <span>Users</span>
-              <Icon name="lock" className="text-[16px] ml-auto opacity-60" />
+              <Icon name="lock" className="text-[12.8px] ml-auto opacity-60" />
             </div>
           )}
           {isAdmin && (
@@ -268,7 +273,7 @@ export default function AppLayout() {
               <div className="relative">
                 <Icon name="notifications" />
                 {pendingCount > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-error px-1 text-[9px] font-bold text-white leading-none">
+                  <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-error px-1 text-[7.2px] font-bold text-white leading-none">
                     {pendingCount > 99 ? '99+' : pendingCount}
                   </span>
                 )}
@@ -294,7 +299,7 @@ export default function AppLayout() {
               onClick={() => navigate('/app-registry')}
               className="w-full bg-primary-container text-on-primary-container font-h3 text-h3 py-2.5 rounded-lg flex items-center justify-center gap-2 shadow-sm hover:opacity-90 transition-all active:scale-95"
             >
-              <Icon name="rocket_launch" className="text-[18px]" />
+              <Icon name="rocket_launch" className="text-[14.4px]" />
               앱 등록
             </button>
           </div>

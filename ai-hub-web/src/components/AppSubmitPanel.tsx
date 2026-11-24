@@ -31,7 +31,7 @@ function StatusChip({ status }: { status?: RemoteAppStatus }) {
     : status === 'suspended' ? 'bg-error/10 text-error'
     : 'bg-surface-container-high text-on-surface-variant'
   return (
-    <span className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] ${tone}`}>
+    <span className={`shrink-0 rounded px-1.5 py-0.5 text-[8.8px] ${tone}`}>
       {STATUS_LABELS[status]}
     </span>
   )
@@ -144,38 +144,38 @@ export default function AppSubmitPanel() {
   return (
     <section className="mt-8 rounded-xl border border-outline-variant bg-surface-container-low p-4">
       <div className="mb-3 flex items-center gap-2">
-        <Icon name="upload_file" className="text-[20px] text-primary" />
+        <Icon name="upload_file" className="text-[16px] text-primary" />
         <div className="min-w-0 flex-1">
           <h2 className="font-body-sm text-body-sm font-semibold text-on-surface">내 앱 제출</h2>
           <p className="text-caption text-on-surface-variant">
             직접 만든 앱을 마켓플레이스에 낼 수 있습니다. 관리자 승인 후 다른 사람도 쓰게 됩니다.
-            만드는 방법은 <code className="rounded bg-surface-container-high px-1">doc/REMOTE_APPS.md</code> 를 보세요.
+            <a className="ml-1 font-medium text-primary underline" href={`${import.meta.env.BASE_URL}developer-kit/`}>개발 가이드와 스타터 킷</a>을 이용하세요.
           </p>
         </div>
         <label className="shrink-0 cursor-pointer rounded-lg border border-outline-variant px-3 py-1.5 text-label text-on-surface-variant hover:bg-surface-container-high"
           title="제출하지 않고 내 화면에서만 띄워 봅니다">
-          <Icon name="visibility" className="mr-1 text-[16px]" />
+          <Icon name="visibility" className="mr-1 text-[12.8px]" />
           로컬 미리보기
           <input type="file" accept=".json,.aihubapp.json,.js,.mjs" className="hidden"
             onChange={(e) => { const f = e.target.files?.[0] ?? null; e.target.value = ''; void preview(f) }} />
         </label>
         <button type="button" onClick={() => setOpen((v) => !v)}
           className="shrink-0 rounded-lg bg-primary px-3 py-1.5 text-label text-on-primary hover:bg-primary/90">
-          <Icon name={open ? 'close' : 'add'} className="mr-1 text-[16px]" />
+          <Icon name={open ? 'close' : 'add'} className="mr-1 text-[12.8px]" />
           {open ? '닫기' : '앱 제출'}
         </button>
       </div>
 
       {previewApp?.plugin && (
         <div className="mb-3 flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
-          <Icon name="visibility" className="shrink-0 text-[18px] text-primary" />
+          <Icon name="visibility" className="shrink-0 text-[14.4px] text-primary" />
           <p className="min-w-0 flex-1 truncate text-caption text-on-surface">
             미리보기 중: <span className="font-medium">{previewApp.meta.name}</span>
             <span className="text-on-surface-variant"> — 나만 보이며 서버에 올라가지 않았습니다.</span>
           </p>
           <button type="button" onClick={() => setPreviewApp(null)}
             className="shrink-0 rounded p-1 text-on-surface-variant hover:bg-error/10 hover:text-error">
-            <Icon name="close" className="text-[16px]" />
+            <Icon name="close" className="text-[12.8px]" />
           </button>
         </div>
       )}
@@ -189,7 +189,7 @@ export default function AppSubmitPanel() {
       {open && (
         <div className="mb-4 space-y-3 rounded-lg border border-primary/25 bg-primary/5 p-3">
           <label className="flex cursor-pointer items-center gap-2 rounded-lg border-2 border-dashed border-outline-variant px-3 py-3 hover:border-primary/50">
-            <Icon name="code" className="text-[20px] text-on-surface-variant" />
+            <Icon name="code" className="text-[16px] text-on-surface-variant" />
             <span className="min-w-0 flex-1 truncate text-body-sm text-on-surface">
               {bundle
                 ? `${bundle.name} · ${(bundle.size / 1024).toFixed(0)} KB`
@@ -267,14 +267,14 @@ export default function AppSubmitPanel() {
           </label>
 
           {fromPackage && (
-            <p className="flex items-start gap-1.5 rounded-lg bg-success/10 px-2.5 py-1.5 text-[11px] leading-relaxed text-success">
-              <Icon name="task_alt" className="mt-0.5 shrink-0 text-[13px]" />
+            <p className="flex items-start gap-1.5 rounded-lg bg-success/10 px-2.5 py-1.5 text-[8.8px] leading-relaxed text-success">
+              <Icon name="task_alt" className="mt-0.5 shrink-0 text-[10.4px]" />
               제출용 파일에서 정보를 읽었습니다. 그대로 «심사 요청»을 누르시면 됩니다.
             </p>
           )}
 
-          <p className="flex items-start gap-1.5 text-[11px] leading-relaxed text-on-surface-variant">
-            <Icon name="info" className="mt-0.5 shrink-0 text-[13px]" />
+          <p className="flex items-start gap-1.5 text-[8.8px] leading-relaxed text-on-surface-variant">
+            <Icon name="info" className="mt-0.5 shrink-0 text-[10.4px]" />
             제출한 코드는 관리자가 전부 읽습니다. 승인되면 마켓플레이스에 등록되어
             다른 사용자가 설치할 수 있게 됩니다.
           </p>
@@ -295,7 +295,7 @@ export default function AppSubmitPanel() {
             {mine.map((r) => (
               <div key={r.versionId} className="rounded-lg border border-outline-variant bg-surface px-3 py-2">
                 <div className="flex items-center gap-2">
-                  <Icon name={r.icon || 'extension'} className="shrink-0 text-[18px] text-on-surface-variant" />
+                  <Icon name={r.icon || 'extension'} className="shrink-0 text-[14.4px] text-on-surface-variant" />
                   <p className="min-w-0 flex-1 truncate text-body-sm text-on-surface">
                     {r.name} <span className="text-caption text-on-surface-variant">v{r.version}</span>
                   </p>

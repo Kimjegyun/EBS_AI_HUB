@@ -20,6 +20,7 @@ import {
   setPortalScopedSessionItem,
 } from '../lib/portalStorage'
 import { withTimeout } from '../lib/withTimeout'
+import { disableAdminWebPush } from '../lib/adminWebPush'
 
 const SUPABASE_INIT_TIMEOUT_MS = 12_000
 
@@ -67,6 +68,7 @@ function readSession(): AuthSession | null {
       organization: data.organization ?? null,
       department: data.department,
       contactPhone: data.contactPhone,
+      needsGoogleProfile: data.needsGoogleProfile,
     }
     return cachedSession
   } catch {
@@ -172,7 +174,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     writeSession(null)
     removePortalScopedSessionItem('api-admin-token')
     removePortalScopedItem('api-admin-token')
-    void supabase?.auth.signOut()
+    void disableAdminWebPush().catch(() => undefined).finally(() => supabase?.auth.signOut())
   }, [])
 
   const value = useMemo<AuthContextValue>(

@@ -1,6 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { createApprovalToken } from '../_shared/approvalToken.ts'
+import { sendAdminSignupPush } from '../_shared/adminWebPush.ts'
 import { corsHeaders, escapeHtml, json } from '../_shared/http.ts'
+import { sendAdminNotification } from '../_shared/adminNotifications.ts'
 
 type SignupNotificationPayload = {
   user_id?: string
@@ -21,56 +23,63 @@ Deno.serve(async (req) => {
     return json({ error: 'Method not allowed.' }, 405)
   }
 
-  const adminEmail = Deno.env.get('ADMIN_NOTIFICATION_EMAIL')
-  const resendApiKey = Deno.env.get('RESEND_API_KEY')
-  const fromEmail = Deno.env.get('FROM_EMAIL') ?? 'AI HUB <onboarding@resend.dev>'
   const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
   const authHeader = req.headers.get('Authorization') ?? ''
 
-  if (!adminEmail) {
-    return json({ sent: false, reason: 'ADMIN_NOTIFICATION_EMAIL is not configured.' })
-  }
-  if (!resendApiKey) {
-    return json({ sent: false, reason: 'RESEND_API_KEY is not configured.' })
-  }
-  if (!supabaseUrl || !supabaseServiceKey || !authHeader.startsWith('Bearer ')) {
-    return json({ error: 'Unauthorized' }, 401)
-  }
-
-  const token = authHeader.slice('Bearer '.length).trim()
   const supabase = createClient(supabaseUrl, supabaseServiceKey)
-  const { data: userData, error: userError } = await supabase.auth.getUser(token)
-  if (userError || !userData.user) {
-    return json({ error: 'Unauthorized' }, 401)
+  const payload = (await req.json()) as SignupNotificationPayload
+  if (!payload.user_id) return json({ error: 'Missing user_id.' }, 400)
+
+  const { data: accountData, error: accountError } = await supabase.auth.admin.getUserById(payload.user_id)
+  if (accountError || !accountData.user) return json({ error: 'User not found.' }, 404)
+  const account = accountData.user
+
+  // Authenticated pending users may request a reminder. During email confirmation,
+  // the client has no session, so permit only a newly created pending account.
+  if (authHeader.startsWith('Bearer ')) {
+    const { data: callerData, error: callerError } = await supabase.auth.getUser(authHeader.slice(7).trim())
+    if (!callerError && callerData.user && callerData.user.id !== account.id) return json({ error: 'Unauthorized' }, 401)
+    if (callerError || !callerData.user) {
+      const createdAt = Date.parse(account.created_at ?? '')
+      if (!Number.isFinite(createdAt) || Date.now() - createdAt > 24 * 60 * 60 * 1000) {
+        return json({ error: 'A recent signup is required.' }, 401)
+      }
+    }
+  } else {
+    const createdAt = Date.parse(account.created_at ?? '')
+    if (!Number.isFinite(createdAt) || Date.now() - createdAt > 24 * 60 * 60 * 1000) {
+      return json({ error: 'A recent signup is required.' }, 401)
+    }
   }
 
-  const payload = (await req.json()) as SignupNotificationPayload
-  if (payload.user_id !== userData.user.id) {
-    return json({ error: 'Unauthorized' }, 401)
-  }
-  if (payload.status !== 'pending') {
+  const { data: project } = await supabase.schema('core').from('projects')
+    .select('id').eq('slug', 'ai_hub').maybeSingle()
+  const { data: member, error: memberError } = await supabase
+    .schema('core').from('project_memberships').select('status, role')
+    .eq('user_id', account.id).eq('project_id', project?.id ?? '').maybeSingle()
+  if (memberError || !member || member.status !== 'pending') {
     return json({ sent: false, reason: 'No approval is required.' })
   }
-
   let approveToken: string
   let rejectToken: string
   try {
-    approveToken = await createApprovalToken(payload.user_id, 'approve')
-    rejectToken = await createApprovalToken(payload.user_id, 'reject')
+    approveToken = await createApprovalToken(account.id, 'approve')
+    rejectToken = await createApprovalToken(account.id, 'reject')
   } catch {
     return json({ sent: false, reason: 'APPROVAL_TOKEN_SECRET is not configured.' }, 500)
   }
-
   const baseUrl = supabaseUrl.replace('/rest/v1', '')
-  const approveUrl = `${baseUrl}/functions/v1/approve-user?user_id=${encodeURIComponent(payload.user_id)}&action=approve&token=${encodeURIComponent(approveToken)}`
-  const rejectUrl = `${baseUrl}/functions/v1/approve-user?user_id=${encodeURIComponent(payload.user_id)}&action=reject&token=${encodeURIComponent(rejectToken)}`
+  const approveUrl = `${baseUrl}/functions/v1/approve-user?user_id=${encodeURIComponent(account.id)}&action=approve&token=${encodeURIComponent(approveToken)}`
+  const rejectUrl = `${baseUrl}/functions/v1/approve-user?user_id=${encodeURIComponent(account.id)}&action=reject&token=${encodeURIComponent(rejectToken)}`
 
-  const email = escapeHtml(payload.email ?? '-')
-  const displayName = escapeHtml(payload.display_name ?? '-')
-  const role = escapeHtml(payload.role ?? '-')
-  const organization = escapeHtml(payload.organization ?? '-')
-  const subject = `[AI HUB] 신규 사용자 승인 요청: ${payload.email ?? 'unknown'}`
+  const { data: profile } = await supabase.schema('core').from('profiles')
+    .select('email, display_name').eq('user_id', account.id).maybeSingle()
+  const email = escapeHtml(profile?.email ?? account.email ?? '-')
+  const displayName = escapeHtml(profile?.display_name ?? String(account.user_metadata?.display_name ?? '-'))
+  const role = escapeHtml(member.role ?? 'user')
+  const organization = escapeHtml(String(account.user_metadata?.headquarters ?? '-'))
+  const subject = `[AI HUB] 가입 승인 대기: ${profile?.email ?? account.email ?? 'unknown'}`
   const htmlBody = `
     <!DOCTYPE html>
     <html>
@@ -97,7 +106,7 @@ Deno.serve(async (req) => {
           <h2 style="margin: 0;">AI HUB 신규 사용자 승인 요청</h2>
         </div>
         <div class="content">
-          <p>이메일 확인을 완료한 사용자가 승인을 기다리고 있습니다.</p>
+          <p>가입 신청한 사용자가 이메일 인증과 관리자 승인을 기다리고 있습니다.</p>
           <table class="info-table">
             <tr><td>이메일</td><td>${email}</td></tr>
             <tr><td>이름</td><td>${displayName}</td></tr>
@@ -120,23 +129,23 @@ Deno.serve(async (req) => {
     </html>
   `
 
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${resendApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from: fromEmail,
-      to: adminEmail,
+  let delivery: { sent: number; skipped: number } = { sent: 0, skipped: 0 }
+  let emailError = ''
+  try {
+    delivery = await sendAdminNotification(supabase, {
+      eventKey: `signup-pending:${account.id}`,
       subject,
       html: htmlBody,
-    }),
-  })
-
-  if (!res.ok) {
-    return json({ sent: false, error: await res.text() }, 502)
+    })
+  } catch (error) {
+    emailError = error instanceof Error ? error.message : 'Admin notification failed.'
   }
-
-  return json({ sent: true })
+  let push: { sent: number; skipped: number; failed: number; configured: boolean } = { sent: 0, skipped: 0, failed: 0, configured: false }
+  try {
+    push = await sendAdminSignupPush(supabase, account.id)
+  } catch (error) {
+    console.error('Admin Web Push delivery failed:', error instanceof Error ? error.message : 'unknown error')
+  }
+  if (emailError) return json({ sent: false, error: emailError, push }, 502)
+  return json({ sent: true, ...delivery, push })
 })

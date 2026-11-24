@@ -15,6 +15,7 @@ import InventoryBuildStatus from './InventoryBuildStatus'
 import InventoryInstallBanner from './InventoryInstallBanner'
 import { getDistributedOrgs } from './datasetService'
 import { applyInventoryApiOriginFromUrl } from './inventoryApiClient'
+import { useAuth } from '../../auth/AuthContext'
 
 const PROFILE_KEY = 'inventory-user-profile'
 
@@ -109,7 +110,7 @@ function OnboardingScreen({ onDone }: { onDone: (p: UserProfile) => void }) {
       {/* 앱 아이콘 + 타이틀 */}
       <div className="text-center mb-8">
         <div className="w-20 h-20 rounded-3xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
-          <Icon name="inventory_2" className="text-primary text-[40px]" />
+          <Icon name="inventory_2" className="text-primary text-[32px]" />
         </div>
         <h1 className="text-h1 font-bold text-on-surface">재물조사</h1>
         <p className="text-body-sm text-on-surface-variant mt-1">
@@ -149,9 +150,9 @@ function OnboardingScreen({ onDone }: { onDone: (p: UserProfile) => void }) {
                   <button
                     type="button"
                     onClick={() => { setOrgsLoading(true); void loadOrgs() }}
-                    className="flex items-center gap-1 text-[11px] text-on-surface-variant hover:text-primary transition-colors"
+                    className="flex items-center gap-1 text-[8.8px] text-on-surface-variant hover:text-primary transition-colors"
                   >
-                    <Icon name="refresh" className="text-[13px]" />
+                    <Icon name="refresh" className="text-[10.4px]" />
                     목록 새로고침
                   </button>
                 )}
@@ -159,7 +160,7 @@ function OnboardingScreen({ onDone }: { onDone: (p: UserProfile) => void }) {
 
               {orgsLoading ? (
                 <div className="mt-1 flex items-center gap-2 rounded-xl border border-outline-variant bg-surface px-3 py-3 text-caption text-on-surface-variant">
-                  <Icon name="progress_activity" className="animate-spin text-[16px]" />
+                  <Icon name="progress_activity" className="animate-spin text-[12.8px]" />
                   배부된 본부 목록을 불러오는 중…
                 </div>
               ) : orgs.length > 0 ? (
@@ -176,14 +177,14 @@ function OnboardingScreen({ onDone }: { onDone: (p: UserProfile) => void }) {
                     {orgs.map((o) => <option key={o} value={o}>{o}</option>)}
                   </select>
                   {orgsFromCache && (
-                    <p className="mt-1.5 flex items-center gap-1 text-[11px] text-on-surface-variant">
-                      <Icon name="wifi_off" className="text-[13px]" />
+                    <p className="mt-1.5 flex items-center gap-1 text-[8.8px] text-on-surface-variant">
+                      <Icon name="wifi_off" className="text-[10.4px]" />
                       오프라인 — 마지막으로 받은 배부 목록입니다
                     </p>
                   )}
                 </>
               ) : (
-                <p className="mt-1.5 text-[11px] text-on-surface-variant leading-relaxed">
+                <p className="mt-1.5 text-[8.8px] text-on-surface-variant leading-relaxed">
                   선택할 엑셀 탭이 없습니다. 관리자가 Settings에서 전사 엑셀파일을 등록한 뒤 목록을 새로고침하세요.
                 </p>
               )}
@@ -229,7 +230,7 @@ function OnboardingScreen({ onDone }: { onDone: (p: UserProfile) => void }) {
 
         {error && (
           <div className="flex items-center gap-2 rounded-xl bg-error/10 border border-error/30 px-3 py-2 text-caption text-error">
-            <Icon name="error" className="text-[16px] shrink-0" />
+            <Icon name="error" className="text-[12.8px] shrink-0" />
             {error}
           </div>
         )}
@@ -240,7 +241,7 @@ function OnboardingScreen({ onDone }: { onDone: (p: UserProfile) => void }) {
           disabled={orgsLoading || !orgs.includes(org)}
           className="w-full rounded-xl bg-primary text-on-primary py-3 text-body font-semibold hover:bg-primary/90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <Icon name="arrow_forward" className="text-[20px]" />
+          <Icon name="arrow_forward" className="text-[16px]" />
           재물조사 시작
         </button>
       </div>
@@ -263,13 +264,13 @@ function ProfileBar({
     <div className="flex items-center justify-between px-3 py-2 bg-surface-container border-b border-outline-variant/50">
       <div className="flex items-center gap-2 min-w-0">
         <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
-          <Icon name="person" className="text-primary text-[16px]" />
+          <Icon name="person" className="text-primary text-[12.8px]" />
         </div>
         <div className="min-w-0">
           <p className="text-body-sm font-semibold text-on-surface truncate leading-tight">
             {profile.name}
           </p>
-          <p className="text-[10px] text-on-surface-variant truncate leading-tight">
+          <p className="text-[8px] text-on-surface-variant truncate leading-tight">
             {profile.org}{profile.dept ? ` · ${profile.dept}` : ''}
           </p>
         </div>
@@ -277,7 +278,7 @@ function ProfileBar({
       <button
         type="button"
         onClick={onEdit}
-        className="shrink-0 text-[11px] text-on-surface-variant border border-outline-variant rounded-lg px-2 py-1 hover:bg-surface-container-high"
+        className="shrink-0 text-[8.8px] text-on-surface-variant border border-outline-variant rounded-lg px-2 py-1 hover:bg-surface-container-high"
       >
         변경
       </button>
@@ -303,8 +304,8 @@ function OfflineBanner() {
 
   if (!offline) return null
   return (
-    <div className="flex items-center justify-center gap-2 bg-warning/15 border-b border-warning/30 px-3 py-1.5 text-[11px] text-warning font-medium">
-      <Icon name="wifi_off" className="text-[14px]" />
+    <div className="flex items-center justify-center gap-2 bg-warning/15 border-b border-warning/30 px-3 py-1.5 text-[8.8px] text-warning font-medium">
+      <Icon name="wifi_off" className="text-[11.2px]" />
       오프라인 — 조사 결과는 로컬에 저장되며, 연결 복구 시 자동 동기화됩니다
     </div>
   )
@@ -313,24 +314,33 @@ function OfflineBanner() {
 /* ── 메인 컴포넌트 ──────────────────────────────────────── */
 
 export default function InventoryStandaloneApp() {
+  const { session } = useAuth()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   // ready는 localStorage 읽기 완료 여부 — 동기 작업이라 즉시 완료됨
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
     applyInventoryApiOriginFromUrl()
+    if (!session || (session.status && session.status !== 'approved')) return
     let active = true
     const saved = loadProfile()
     void getDistributedOrgs().then(({ orgs }) => {
       if (active) setProfile(saved && orgs.includes(saved.org) ? saved : null)
     }).finally(() => { if (active) setReady(true) })
     return () => { active = false }
-  }, [])
+  }, [session])
 
+  if (!session || (session.status && session.status !== 'approved')) {
+    return <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-6 text-center bg-background">
+      <h1 className="text-xl font-bold">재물조사 로그인</h1>
+      <p>승인된 AI Hub 계정으로 로그인하면 기존 조사와 저장한 결과를 이어서 사용할 수 있습니다.</p>
+      <a className="rounded-lg bg-primary px-5 py-3 text-white" href="/user/login?returnTo=%2Finventory.html">AI Hub 로그인</a>
+    </div>
+  }
   if (!ready) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <Icon name="progress_activity" className="animate-spin text-primary text-[32px]" />
+        <Icon name="progress_activity" className="animate-spin text-primary text-[25.6px]" />
       </div>
     )
   }

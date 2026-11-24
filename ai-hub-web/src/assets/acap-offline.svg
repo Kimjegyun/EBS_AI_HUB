@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 300" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">오프라인 서비스 안내</title>
+  <desc id="desc">구름 아래 연결이 끊긴 링크와 종료된 서비스를 표현한 그림</desc>
+  <defs>
+    <linearGradient id="sky" x1="88" y1="28" x2="424" y2="274" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#EEF2FF"/>
+      <stop offset="1" stop-color="#F5F3FF"/>
+    </linearGradient>
+    <linearGradient id="cloud" x1="180" y1="75" x2="338" y2="193" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff"/>
+      <stop offset="1" stop-color="#E8EDFF"/>
+    </linearGradient>
+  </defs>
+  <rect x="1" y="1" width="518" height="298" rx="30" fill="url(#sky)"/>
+  <circle cx="92" cy="82" r="5" fill="#A5B4FC"/>
+  <circle cx="426" cy="91" r="7" fill="#C4B5FD"/>
+  <circle cx="393" cy="226" r="4" fill="#818CF8"/>
+  <path d="M96 237h328" stroke="#C7D2FE" stroke-width="3" stroke-linecap="round"/>
+  <path d="M164 131c0-24 19-43 43-43 7 0 14 2 20 5 11-22 34-37 61-37 37 0 67 30 67 67v8h7c24 0 43 19 43 43s-19 43-43 43H174c-24 0-43-19-43-43 0-21 15-39 35-42l-2-1Z" fill="url(#cloud)" stroke="#A5B4FC" stroke-width="4" stroke-linejoin="round"/>
+  <path d="m221 143 27 27m0-27-27 27" stroke="#6366F1" stroke-width="8" stroke-linecap="round"/>
+  <path d="M279 155h20" stroke="#A5B4FC" stroke-width="5" stroke-linecap="round" stroke-dasharray="3 9"/>
+  <path d="m322 143-27 27m0-27 27 27" stroke="#6366F1" stroke-width="8" stroke-linecap="round"/>
+  <rect x="204" y="218" width="112" height="7" rx="3.5" fill="#C7D2FE"/>
+</svg>

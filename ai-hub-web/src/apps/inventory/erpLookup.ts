@@ -54,7 +54,7 @@ export async function loadErpIndex(): Promise<ErpStore | null> {
 /** ERP 엑셀 파일을 파싱해 저장하고 색인을 갱신합니다. */
 export async function importErpFile(file: File, serverFileId?: string): Promise<ErpStore> {
   const buffer = await file.arrayBuffer()
-  const { assets, sheetName } = parseErpFile(buffer)
+  const { assets, sheetName } = await parseErpFile(buffer)
   if (!assets.length) throw new Error('자산 행을 찾지 못했습니다.')
   const store: ErpStore = {
     id: ERP_KEY,

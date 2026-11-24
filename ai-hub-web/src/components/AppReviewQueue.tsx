@@ -1,7 +1,7 @@
 // 앱 심사 대기열 — 사용자가 제출한 앱을 관리자가 읽고 승인하거나 반려한다. (관리자 전용)
 //
-// 원격 앱 코드는 허브와 같은 권한으로 브라우저에서 실행된다. 격리(샌드박스)가 없으므로
-// 여기서 코드를 실제로 읽는 것이 유일한 방어선이다. 승인 버튼을 누르기 전에 코드를 펼쳐 보라.
+// 원격 앱은 별도 sandbox iframe에서 실행된다. 격리와 함께 코드 심사를 유지한다.
+// 승인 버튼을 누르기 전에 선언된 접근 권한과 코드를 확인한다.
 //
 // 자세한 흐름은 doc/REMOTE_APPS.md 참고.
 
@@ -32,7 +32,7 @@ function StatusChip({ status }: { status?: RemoteAppStatus }) {
     : status === 'suspended' ? 'bg-error/10 text-error'
     : 'bg-surface-container-high text-on-surface-variant'
   return (
-    <span className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] ${tone}`}>
+    <span className={`shrink-0 rounded px-1.5 py-0.5 text-[8.8px] ${tone}`}>
       {STATUS_LABELS[status]}
     </span>
   )
@@ -115,12 +115,12 @@ export default function AppReviewQueue() {
   return (
     <section className="mt-8 rounded-xl border border-outline-variant bg-surface-container-low p-4">
       <div className="mb-3 flex items-center gap-2">
-        <Icon name="rate_review" className="text-[20px] text-primary" />
+        <Icon name="rate_review" className="text-[16px] text-primary" />
         <div className="min-w-0 flex-1">
           <h2 className="font-body-sm text-body-sm font-semibold text-on-surface">
             앱 심사
             {pendingCount > 0 && (
-              <span className="ml-2 rounded-full bg-warning/15 px-2 py-0.5 text-[11px] text-warning">
+              <span className="ml-2 rounded-full bg-warning/15 px-2 py-0.5 text-[8.8px] text-warning">
                 대기 {pendingCount}
               </span>
             )}
@@ -133,7 +133,7 @@ export default function AppReviewQueue() {
         <button type="button" onClick={() => void load()} disabled={loading}
           className="shrink-0 rounded-lg border border-outline-variant px-2.5 py-1.5 text-label hover:bg-surface-container-high disabled:opacity-50">
           <Icon name={loading ? 'progress_activity' : 'refresh'}
-            className={`text-[16px] ${loading ? 'animate-spin' : ''}`} />
+            className={`text-[12.8px] ${loading ? 'animate-spin' : ''}`} />
         </button>
       </div>
 
@@ -165,7 +165,7 @@ export default function AppReviewQueue() {
           {rows.map((r) => (
             <div key={r.versionId} className="rounded-lg border border-outline-variant bg-surface">
               <div className="flex items-center gap-2 px-3 py-2">
-                <Icon name={r.icon || 'extension'} className="shrink-0 text-[20px] text-primary" />
+                <Icon name={r.icon || 'extension'} className="shrink-0 text-[16px] text-primary" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-body-sm font-medium text-on-surface">
                     {r.name} <span className="text-caption text-on-surface-variant">v{r.version}</span>
@@ -178,7 +178,7 @@ export default function AppReviewQueue() {
                 <StatusChip status={r.status} />
                 <button type="button" onClick={() => void openDetail(r.versionId!)}
                   className="shrink-0 rounded-lg border border-outline-variant px-2.5 py-1 text-label text-on-surface-variant hover:bg-surface-container-high">
-                  <Icon name={openId === r.versionId ? 'expand_less' : 'code'} className="mr-1 text-[15px]" />
+                  <Icon name={openId === r.versionId ? 'expand_less' : 'code'} className="mr-1 text-[12px]" />
                   {openId === r.versionId ? '닫기' : '코드 보기'}
                 </button>
               </div>
@@ -206,7 +206,7 @@ export default function AppReviewQueue() {
                         {detail.version.permissions?.length ? (
                           <div className="flex flex-wrap gap-1">
                             {detail.version.permissions.map((p) => (
-                              <span key={p} className="rounded bg-primary/10 px-2 py-0.5 text-[11px] text-primary">
+                              <span key={p} className="rounded bg-primary/10 px-2 py-0.5 text-[8.8px] text-primary">
                                 {PERMISSION_LABELS[p]}
                               </span>
                             ))}
@@ -219,13 +219,13 @@ export default function AppReviewQueue() {
                       {detail.flags.length > 0 && (
                         <div className="rounded-lg border border-warning/40 bg-warning/5 px-3 py-2">
                           <p className="mb-1 flex items-center gap-1 text-caption font-medium text-warning">
-                            <Icon name="warning" className="text-[14px]" />
+                            <Icon name="warning" className="text-[11.2px]" />
                             확인이 필요한 지점
                           </p>
                           <ul className="ml-4 list-disc text-caption text-on-surface-variant">
                             {detail.flags.map((f) => <li key={f}>{f}</li>)}
                           </ul>
-                          <p className="mt-1 text-[11px] text-on-surface-variant/70">
+                          <p className="mt-1 text-[8.8px] text-on-surface-variant/70">
                             자동 검사는 우회하기 쉽습니다. 아래 코드를 직접 확인하세요.
                           </p>
                         </div>
@@ -234,12 +234,12 @@ export default function AppReviewQueue() {
                       <div>
                         <div className="mb-1 flex items-center justify-between">
                           <p className="text-caption font-medium text-on-surface">번들 코드</p>
-                          <span className="font-mono text-[10px] text-on-surface-variant/60"
+                          <span className="font-mono text-[8px] text-on-surface-variant/60"
                             title={`SHA-256 ${detail.version.sha256}`}>
                             {detail.version.sha256.slice(0, 12)}
                           </span>
                         </div>
-                        <pre className="max-h-96 overflow-auto rounded-lg bg-surface-container-high p-3 font-mono text-[11px] leading-relaxed text-on-surface">
+                        <pre className="max-h-96 overflow-auto rounded-lg bg-surface-container-high p-3 font-mono text-[8.8px] leading-relaxed text-on-surface">
                           {detail.code}
                         </pre>
                       </div>

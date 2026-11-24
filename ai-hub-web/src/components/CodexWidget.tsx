@@ -71,7 +71,7 @@ export default function CodexWidget() {
     return (
       <div className="h-full flex flex-col items-center justify-center text-center gap-3 px-4">
         <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-          <Icon name="key" className="text-[26px]" />
+          <Icon name="key" className="text-[20.8px]" />
         </div>
         <p className="text-body-sm text-on-surface-variant max-w-[260px]">
           Codex를 사용하려면 OpenAI API 키가 필요합니다. 설정에서 키를 입력해 연동하세요.
@@ -80,7 +80,7 @@ export default function CodexWidget() {
           to={`/settings?app=${APP_ID}`}
           className="no-drag inline-flex items-center gap-1.5 rounded-lg bg-primary text-on-primary px-4 py-2 font-label text-label hover:bg-primary/90 transition-colors"
         >
-          <Icon name="settings" className="text-[18px]" />
+          <Icon name="settings" className="text-[14.4px]" />
           설정에서 API 키 입력
         </Link>
       </div>
@@ -92,7 +92,7 @@ export default function CodexWidget() {
       <div ref={scrollRef} className="flex-1 min-h-0 overflow-auto space-y-3 pr-1">
         {messages.length === 0 && !loading && (
           <div className="h-full flex flex-col items-center justify-center text-center gap-2 text-on-surface-variant">
-            <Icon name="smart_toy" className="text-[28px] text-primary" />
+            <Icon name="smart_toy" className="text-[22.4px] text-primary" />
             <p className="text-body-sm">코드, 버그, 설계에 대해 무엇이든 물어보세요.</p>
             <p className="text-caption">모델: {model}</p>
           </div>
@@ -113,7 +113,7 @@ export default function CodexWidget() {
         {loading && (
           <div className="flex justify-start">
             <div className="rounded-lg px-3 py-2 bg-surface-container-high border border-outline-variant text-on-surface-variant text-body-sm inline-flex items-center gap-2">
-              <Icon name="progress_activity" className="text-[16px] animate-spin" />
+              <Icon name="progress_activity" className="text-[12.8px] animate-spin" />
               생각 중...
             </div>
           </div>
@@ -122,7 +122,7 @@ export default function CodexWidget() {
 
       {error && (
         <div className="mt-2 flex items-start gap-2 rounded-lg border border-error/30 bg-error/5 px-3 py-2 text-caption text-error">
-          <Icon name="error" className="text-[16px] shrink-0 mt-0.5" />
+          <Icon name="error" className="text-[12.8px] shrink-0 mt-0.5" />
           <span className="min-w-0 break-words">{error}</span>
         </div>
       )}
@@ -143,7 +143,7 @@ export default function CodexWidget() {
           className="no-drag shrink-0 w-10 h-10 flex items-center justify-center rounded-lg bg-primary text-on-primary hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           aria-label="전송"
         >
-          <Icon name="send" className="text-[18px]" />
+          <Icon name="send" className="text-[14.4px]" />
         </button>
       </div>
     </div>

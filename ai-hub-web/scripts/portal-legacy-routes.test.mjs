@@ -8,6 +8,9 @@ import {isPortalPagePath} from '../src/lib/portalRoutes.mjs';
 test('every declared portal route is reserved from external-app redirects',()=>{
   const app=fs.readFileSync(new URL('../src/App.tsx',import.meta.url),'utf8');
   for(const [,route] of app.matchAll(/<Route\s+path="([^"*]+)"/g)) {
+    // ACAP is a deliberately retired route rendered as ServiceUnavailablePage;
+    // it must stay outside the legacy portal redirect allowlist.
+    if(route==='/ACAP') { assert.equal(isPortalPagePath(route),false); continue; }
     if(route!=='/')assert.ok(isPortalPagePath(route), 'Unreserved portal route '+route);
   }
   for(const page of ['/another-studio/dashboard','/external-studio/','/dashboard-other','/api/auth/login','/ACAP/'])assert.equal(isPortalPagePath(page),false);

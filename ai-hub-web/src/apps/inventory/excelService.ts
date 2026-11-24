@@ -9,14 +9,15 @@ import { formatSurveyDateTime } from '../../../server/src/services/surveyDateTim
 //             (관리자가 최종 제출용)
 
 import * as XLSX from 'xlsx'
+import { readWorkbookByPolicy } from '../../lib/resourceExecution'
 import type { Asset, ErpAsset } from './types'
 import type { SurveySession, SurveyResult } from './types'
 
 // ── ERP 파일 파싱 (사용자 로컬 업로드) ───────────────────────────────────────
 
 /** ERP 자산현황 xlsx → ErpAsset[] (헤더행 자동 탐색, 컬럼명 유연 매핑) */
-export function parseErpFile(buffer: ArrayBuffer): { assets: ErpAsset[]; sheetName: string } {
-  const wb = XLSX.read(new Uint8Array(buffer), { type: 'array' })
+export async function parseErpFile(buffer: ArrayBuffer): Promise<{ assets: ErpAsset[]; sheetName: string }> {
+  const wb = await readWorkbookByPolicy(buffer)
   const sheetName = wb.SheetNames[0]
   const ws = wb.Sheets[sheetName]
   const range = XLSX.utils.decode_range(ws['!ref'] ?? 'A1')

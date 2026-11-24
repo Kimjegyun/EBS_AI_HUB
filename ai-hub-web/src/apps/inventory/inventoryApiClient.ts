@@ -25,7 +25,8 @@ function storedInventoryApiOrigin(): string {
   if (typeof localStorage === 'undefined') return ''
   const saved = (localStorage.getItem(INVENTORY_API_URL_KEY) ?? '').trim().replace(/\/$/, '')
   if (saved === BUILD_ENV.VITE_INVENTORY_PREVIOUS_API_ORIGIN) return ''
-  return saved === RETIRED_INVENTORY_API_ORIGIN ? '' : saved
+  const trusted = typeof window !== 'undefined' ? window.location.origin : ''
+  return saved === RETIRED_INVENTORY_API_ORIGIN || ![trusted, CONFIGURED_INVENTORY_API_ORIGIN].includes(saved) ? '' : saved
 }
 
 let activeInventoryApiOrigin = storedInventoryApiOrigin() || DEFAULT_INVENTORY_API_ORIGIN
@@ -41,6 +42,9 @@ export function setInventoryApiOrigin(value: string): string {
     .replace(/\/$/, '')
   if (!/^https:\/\/[a-z0-9.-]+(?::\d+)?$/i.test(normalized)) {
     throw new Error('https://로 시작하는 외부 서버 주소를 입력하세요.')
+  }
+  if (![window.location.origin, CONFIGURED_INVENTORY_API_ORIGIN].includes(normalized)) {
+    throw new Error('로그인 정보를 보호하기 위해 운영자가 지정한 서버에만 연결할 수 있습니다.')
   }
   activeInventoryApiOrigin = normalized
   if (typeof localStorage !== 'undefined') localStorage.setItem(INVENTORY_API_URL_KEY, normalized)
@@ -88,6 +92,7 @@ async function apiFetch(path: string, init: RequestInit = {}): Promise<Response>
 
   const res = await fetch(inventoryUrl(path), {
     ...init,
+    redirect: 'error',
     signal: init.signal || AbortSignal.timeout(60_000),
     headers: {
       'Content-Type': 'application/json',

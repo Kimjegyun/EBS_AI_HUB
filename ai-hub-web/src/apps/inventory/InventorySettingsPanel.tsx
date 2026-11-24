@@ -67,22 +67,22 @@ function DropZone({
         onChange={(e) => { const f = e.target.files?.[0] ?? null; e.target.value = ''; onChange(f) }} />
       {file ? (
         <div className="flex items-center justify-center gap-2">
-          <Icon name="check_circle" className="text-success text-[20px]" />
+          <Icon name="check_circle" className="text-success text-[16px]" />
           <div className="text-left min-w-0">
             <p className="text-body-sm font-medium text-on-surface truncate max-w-[240px]">{file.name}</p>
             <p className="text-caption text-on-surface-variant">{(file.size / 1024).toFixed(0)} KB</p>
           </div>
           <button type="button" onClick={(e) => { e.stopPropagation(); onChange(null) }}
             className="ml-auto shrink-0 p-1 rounded-full text-on-surface-variant hover:bg-error/10 hover:text-error">
-            <Icon name="close" className="text-[16px]" />
+            <Icon name="close" className="text-[12.8px]" />
           </button>
         </div>
       ) : (
         <div className="py-1">
-          <Icon name={icon ?? 'upload_file'} className="text-[28px] text-on-surface-variant/40 mb-1" />
+          <Icon name={icon ?? 'upload_file'} className="text-[22.4px] text-on-surface-variant/40 mb-1" />
           <p className="text-body-sm font-medium text-on-surface">{label}</p>
           {hint && <p className="text-caption text-on-surface-variant/70 mt-0.5">{hint}</p>}
-          <p className="text-[10px] text-on-surface-variant/50 mt-1">클릭하거나 드래그하세요</p>
+          <p className="text-[8px] text-on-surface-variant/50 mt-1">클릭하거나 드래그하세요</p>
         </div>
       )}
     </div>
@@ -106,23 +106,23 @@ function NgrokTokenSection() {
   return (
     <div className="rounded-xl border border-outline-variant bg-surface-container-lowest overflow-hidden">
       <div className="flex items-center gap-2 px-3 py-2.5 bg-surface-container-low border-b border-outline-variant">
-        <Icon name="vpn_key" className="text-primary text-[16px]" />
+        <Icon name="vpn_key" className="text-primary text-[12.8px]" />
         <span className="text-body-sm font-semibold text-on-surface flex-1">ngrok 터널 인증 토큰</span>
         <a
           href="https://dashboard.ngrok.com/get-started/your-authtoken"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-[11px] text-primary hover:underline flex items-center gap-0.5"
+          className="text-[8.8px] text-primary hover:underline flex items-center gap-0.5"
         >
           토큰 발급
-          <Icon name="open_in_new" className="text-[11px]" />
+          <Icon name="open_in_new" className="text-[8.8px]" />
         </a>
       </div>
       <div className="px-3 py-3 space-y-2">
         <p className="text-caption text-on-surface-variant">
           <a href="https://ngrok.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">ngrok.com</a> 무료 계정 가입 후
           발급받은 authtoken을 입력하면 서버에 등록됩니다.
-          이후 <code className="bg-surface-container-high px-1 rounded text-[11px]">start-ngrok-tunnel.ps1</code>을 실행하면 외부 URL이 자동 생성됩니다.
+          이후 <code className="bg-surface-container-high px-1 rounded text-[8.8px]">start-ngrok-tunnel.ps1</code>을 실행하면 외부 URL이 자동 생성됩니다.
         </p>
         <div className="flex gap-2">
           <input
@@ -140,19 +140,19 @@ function NgrokTokenSection() {
             className="h-8 shrink-0 rounded-md bg-primary text-on-primary px-3 text-caption font-medium flex items-center gap-1 hover:bg-primary/90 disabled:opacity-50"
           >
             {status === 'saving'
-              ? <><Icon name="progress_activity" className="animate-spin text-[13px]" />저장 중</>
-              : <><Icon name="save" className="text-[13px]" />저장</>
+              ? <><Icon name="progress_activity" className="animate-spin text-[10.4px]" />저장 중</>
+              : <><Icon name="save" className="text-[10.4px]" />저장</>
             }
           </button>
         </div>
         {status === 'ok' && (
           <p className="text-caption text-success flex items-center gap-1">
-            <Icon name="check_circle" className="text-[13px]" />토큰이 서버에 등록되었습니다.
+            <Icon name="check_circle" className="text-[10.4px]" />토큰이 서버에 등록되었습니다.
           </p>
         )}
         {status === 'error' && errorMsg && (
           <p className="text-caption text-error flex items-center gap-1">
-            <Icon name="error" className="text-[13px]" />{errorMsg}
+            <Icon name="error" className="text-[10.4px]" />{errorMsg}
           </p>
         )}
       </div>
@@ -166,18 +166,18 @@ function MdmCertificateSection() {
   return (
     <div className="overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
       <div className="flex items-center gap-2 border-b border-outline-variant bg-surface-container-low px-3 py-2.5">
-        <Icon name="admin_panel_settings" className="text-[16px] text-primary" />
+        <Icon name="admin_panel_settings" className="text-[12.8px] text-primary" />
         <span className="flex-1 text-body-sm font-semibold text-on-surface">기관 단말 MDM 인증서 배포</span>
-        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">관리자용</span>
+        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[8px] font-medium text-primary">관리자용</span>
       </div>
       <div className="space-y-3 px-3 py-3">
         <p className="text-caption leading-relaxed text-on-surface-variant">
           MDM 콘솔에 운영체제별 파일을 등록한 뒤 <b>필수 설치</b> 정책으로 배포하세요. 단말 사용자가 직접 CA 인증서를 설치할 필요가 없습니다.
         </p>
         <div className="grid gap-2 sm:grid-cols-3">
-          <a href={`${baseUrl}/rootCA.cer`} className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-outline-variant bg-white px-3 text-caption font-medium text-primary"><Icon name="android" className="text-[15px]" />Android DER</a>
-          <a href={`${baseUrl}/rootCA.mobileconfig`} className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-outline-variant bg-white px-3 text-caption font-medium text-primary"><Icon name="phone_iphone" className="text-[15px]" />iOS 프로파일</a>
-          <a href={`${baseUrl}/mdm-ca-manifest.json`} target="_blank" rel="noreferrer" className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-outline-variant bg-white px-3 text-caption font-medium text-primary"><Icon name="fingerprint" className="text-[15px]" />인증서 지문</a>
+          <a href={`${baseUrl}/rootCA.cer`} className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-outline-variant bg-white px-3 text-caption font-medium text-primary"><Icon name="android" className="text-[12px]" />Android DER</a>
+          <a href={`${baseUrl}/rootCA.mobileconfig`} className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-outline-variant bg-white px-3 text-caption font-medium text-primary"><Icon name="phone_iphone" className="text-[12px]" />iOS 프로파일</a>
+          <a href={`${baseUrl}/mdm-ca-manifest.json`} target="_blank" rel="noreferrer" className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-outline-variant bg-white px-3 text-caption font-medium text-primary"><Icon name="fingerprint" className="text-[12px]" />인증서 지문</a>
         </div>
         <ol className="list-decimal space-y-1 pl-5 text-caption text-on-surface-variant">
           <li>Android는 신뢰할 수 있는 CA 인증서 정책에 DER 파일을 등록합니다.</li>
@@ -230,9 +230,9 @@ function CloudflareTunnelSection() {
   return (
     <div className="overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
       <div className="flex items-center gap-2 border-b border-outline-variant bg-surface-container-low px-3 py-2.5">
-        <Icon name="cloud_sync" className="text-[16px] text-primary" />
+        <Icon name="cloud_sync" className="text-[12.8px] text-primary" />
         <span className="flex-1 text-body-sm font-semibold text-on-surface">외부 재물조사 서버</span>
-        <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${state === 'online' ? 'bg-success/10 text-success' : state === 'checking' ? 'bg-primary/10 text-primary' : 'bg-error/10 text-error'}`}>
+        <span className={`rounded-full px-2 py-0.5 text-[8px] font-medium ${state === 'online' ? 'bg-success/10 text-success' : state === 'checking' ? 'bg-primary/10 text-primary' : 'bg-error/10 text-error'}`}>
           {state === 'online' ? '연결됨' : state === 'checking' ? '확인 중' : '연결 안 됨'}
         </span>
       </div>
@@ -246,7 +246,7 @@ function CloudflareTunnelSection() {
               value={draftUrl}
               onChange={(event) => setDraftUrl(event.target.value)}
               placeholder="https://새주소.trycloudflare.com"
-              className="min-w-0 flex-1 rounded-lg border border-outline-variant bg-surface px-3 py-2 font-mono text-[11px] outline-none focus:border-primary"
+              className="min-w-0 flex-1 rounded-lg border border-outline-variant bg-surface px-3 py-2 font-mono text-[8.8px] outline-none focus:border-primary"
             />
             <button type="button" onClick={() => void saveAndTest()}
               className="rounded-lg bg-primary px-3 py-2 font-medium text-on-primary hover:bg-primary/90">
@@ -261,7 +261,7 @@ function CloudflareTunnelSection() {
         {message && (
           <p className={state === 'offline' ? 'text-error' : 'text-success'}>{message}</p>
         )}
-        <div className="rounded-lg bg-surface-container px-3 py-2 text-[11px] leading-relaxed">
+        <div className="rounded-lg bg-surface-container px-3 py-2 text-[8.8px] leading-relaxed">
           재부팅 후 주소가 바뀌면 기관 PC의 <code className="font-mono">.runtime/current-tunnel-url.txt</code>에 적힌 주소를 위에 붙여 넣으세요.
         </div>
         {state === 'offline' && (
@@ -269,7 +269,7 @@ function CloudflareTunnelSection() {
         )}
         {state === 'online' && (
           <p className="flex items-center gap-1 text-success">
-            <Icon name="autorenew" className="text-[13px]" />Windows 로그인 시 서버·터널 자동 실행 및 30초 간격 복구
+            <Icon name="autorenew" className="text-[10.4px]" />Windows 로그인 시 서버·터널 자동 실행 및 30초 간격 복구
           </p>
         )}
       </div>
@@ -422,7 +422,7 @@ export default function InventorySettingsPanel({ showExport = true }: { showExpo
   if (loading) {
     return (
       <div className="flex items-center justify-center gap-2 py-10 text-body-sm text-on-surface-variant">
-        <Icon name="progress_activity" className="animate-spin text-[18px]" />불러오는 중...
+        <Icon name="progress_activity" className="animate-spin text-[14.4px]" />불러오는 중...
       </div>
     )
   }
@@ -457,7 +457,7 @@ export default function InventorySettingsPanel({ showExport = true }: { showExpo
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-2">
           <p className="font-semibold text-body-sm">자산파일 관리 ({adminAuthNeeded ? '관리자 인증 필요' : `${masterFiles.length}개`})</p>
-          <label className={`rounded-lg bg-blue-600 text-white px-3 py-2 text-caption ${uploading || deleting ? 'opacity-50' : 'cursor-pointer hover:bg-blue-700'}`}>
+          <label className={`rounded-lg bg-primary text-on-primary px-3 py-2 text-caption ${uploading || deleting ? 'opacity-50' : 'cursor-pointer hover:bg-primary-dark'}`}>
             + 자산파일 추가
             <input type="file" aria-label="자산파일 추가" accept=".xlsx" className="hidden" disabled={uploading || deleting} onChange={e => { const file = e.target.files?.[0] || null; e.target.value = ''; void handleFormUpload(file) }} />
           </label>
@@ -484,7 +484,7 @@ export default function InventorySettingsPanel({ showExport = true }: { showExpo
 
         {form ? (
           <div className="flex items-center gap-2 rounded-lg border border-success/40 bg-success/5 px-3 py-2.5">
-            <Icon name="check_circle" className="text-success text-[18px] shrink-0" />
+            <Icon name="check_circle" className="text-success text-[14.4px] shrink-0" />
             <div className="min-w-0 flex-1">
               <p className="text-body-sm font-medium text-on-surface truncate">{form.fileName}</p>
               <p className="text-caption text-on-surface-variant">
@@ -500,7 +500,7 @@ export default function InventorySettingsPanel({ showExport = true }: { showExpo
 
         {uploading && (
           <div className="flex items-center gap-2 text-body-sm text-on-surface-variant">
-            <Icon name="progress_activity" className="animate-spin text-[16px]" />업로드 · 시트 분석 중...
+            <Icon name="progress_activity" className="animate-spin text-[12.8px]" />업로드 · 시트 분석 중...
           </div>
         )}
         <div className="space-y-1">
@@ -533,7 +533,7 @@ export default function InventorySettingsPanel({ showExport = true }: { showExpo
               <td>{dataset.source?.startsWith(`survey-form:${form?.id}|`) ? '현재' : '이전 / 별도'}</td>
               <td>{dataset.assetCount.toLocaleString()}건</td><td className="font-semibold text-success">{confirmedCounts[dataset.id] === undefined ? '조회 필요' : `${confirmedCounts[dataset.id].toLocaleString()}건`}</td><td>{dataset.sessionCount === undefined ? '조회 필요' : `${dataset.sessionCount}개`}</td>
               <td>{dataset.uploadedAt.slice(0, 16).replace('T', ' ')}</td>
-              <td className="pr-3 text-right"><button type="button" disabled={dataset.sessionCount !== 0 || deleting || uploading} onClick={() => void deleteDatabases([dataset.id])} className="rounded bg-red-50 text-red-700 border border-red-200 px-2 py-1 disabled:opacity-40">{dataset.sessionCount ? '조사 연결됨' : '삭제'}</button></td>
+              <td className="pr-3 text-right"><button type="button" disabled={dataset.sessionCount !== 0 || deleting || uploading} onClick={() => void deleteDatabases([dataset.id])} className="rounded bg-error/10 text-error border border-error/30 px-2 py-1 disabled:opacity-40">{dataset.sessionCount ? '조사 연결됨' : '삭제'}</button></td>
             </tr>)}</tbody>
           </table>
           {!datasets.length && <p className="p-3 text-caption text-on-surface-variant">등록된 자산 DB가 없습니다.</p>}
@@ -542,7 +542,7 @@ export default function InventorySettingsPanel({ showExport = true }: { showExpo
       <div className="flex items-center justify-end pt-1 border-t border-outline-variant">
         <button type="button" onClick={() => void reload()}
           className="text-caption text-primary hover:underline flex items-center gap-1">
-          <Icon name="refresh" className="text-[13px]" />서버 상태 새로고침
+          <Icon name="refresh" className="text-[10.4px]" />서버 상태 새로고침
         </button>
       </div>
 

@@ -86,7 +86,7 @@ export default function SupabaseConnectionGuide({ supabaseReady, onGoToEdit }: P
               만듭니다. (상위 워크스페이스 루트에만 두면 Vite가 읽지 못합니다.)
             </p>
             <div className="relative rounded-lg border border-outline-variant bg-inverse-surface/5">
-              <pre className="max-h-40 overflow-auto p-3 font-mono text-[11px] leading-relaxed text-on-surface sm:text-body-sm">
+              <pre className="max-h-40 overflow-auto p-3 font-mono text-[8.8px] leading-relaxed text-on-surface sm:text-body-sm">
                 {ENV_DOTENV_TEMPLATE.trim()}
               </pre>
               <button
@@ -94,7 +94,7 @@ export default function SupabaseConnectionGuide({ supabaseReady, onGoToEdit }: P
                 onClick={() => void copy('env', ENV_DOTENV_TEMPLATE.trim())}
                 className="absolute right-2 top-2 flex items-center gap-1 rounded-md border border-outline-variant bg-surface-container px-2 py-1 font-caption text-caption text-on-surface hover:bg-surface-container-high"
               >
-                <Icon name="content_copy" className="text-[16px]" />
+                <Icon name="content_copy" className="text-[12.8px]" />
                 {copied === 'env' ? '복사됨' : '복사'}
               </button>
             </div>
@@ -113,7 +113,7 @@ export default function SupabaseConnectionGuide({ supabaseReady, onGoToEdit }: P
               테이블과 RLS 정책이 생성됩니다.
             </p>
             <div className="relative rounded-lg border border-outline-variant bg-inverse-surface/5">
-              <pre className="max-h-52 overflow-auto p-3 font-mono text-[10px] leading-relaxed text-on-surface sm:text-[11px]">
+              <pre className="max-h-52 overflow-auto p-3 font-mono text-[8px] leading-relaxed text-on-surface sm:text-[8.8px]">
                 {migrationSql.trim()}
               </pre>
               <button
@@ -121,7 +121,7 @@ export default function SupabaseConnectionGuide({ supabaseReady, onGoToEdit }: P
                 onClick={() => void copy('sql', migrationSql.trim())}
                 className="absolute right-2 top-2 flex items-center gap-1 rounded-md border border-outline-variant bg-surface-container px-2 py-1 font-caption text-caption text-on-surface hover:bg-surface-container-high"
               >
-                <Icon name="content_copy" className="text-[16px]" />
+                <Icon name="content_copy" className="text-[12.8px]" />
                 {copied === 'sql' ? '복사됨' : '복사'}
               </button>
             </div>
@@ -166,7 +166,7 @@ export default function SupabaseConnectionGuide({ supabaseReady, onGoToEdit }: P
                 className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 font-h3 text-h3 text-on-primary hover:opacity-90"
               >
                 환경 편집 탭으로 이동
-                <Icon name="arrow_forward" className="text-[18px]" />
+                <Icon name="arrow_forward" className="text-[14.4px]" />
               </button>
             ) : (
               <p className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 font-caption text-on-surface">

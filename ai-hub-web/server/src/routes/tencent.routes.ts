@@ -3,6 +3,7 @@ import { writeEnvironmentData } from '../lib/environmentStore'
 import { createAigcApiToken, parseSubAppId } from '../lib/tencentCloudApi'
 import { tencentKeyShape } from '../lib/tencentApiKey'
 import { appendServerIoLog } from '../lib/ioLogStore'
+import { authenticate, authorize } from '../middleware/auth'
 
 const router = Router()
 
@@ -21,7 +22,7 @@ function asSecretKey(value: unknown): string {
   return value.trim()
 }
 
-router.post('/create-token', async (req, res, next) => {
+router.post('/create-token', authenticate, authorize('admin'), async (req, res, next) => {
   const secretId = asSecretId(req.body?.secretId)
   const secretKey = asSecretKey(req.body?.secretKey)
   const subAppId = parseSubAppId(req.body?.subAppId)

@@ -11,7 +11,7 @@ function canAccessUser(req: AuthRequest, id: string): boolean {
 export class UserController {
   async getUsers(req: AuthRequest, res: Response) {
     try {
-      const users = userService.getUsers();
+      const users = await userService.getUsers();
       res.json(users);
     } catch {
       res.status(500).json({ error: 'Internal Server Error' });
@@ -45,7 +45,7 @@ export class UserController {
 
   async deleteUser(req: AuthRequest, res: Response) {
     try {
-      const result = userService.deleteUser(req.params.id);
+      const result = await userService.deleteUser(req.params.id);
       res.json(result);
     } catch {
       res.status(500).json({ error: 'Internal Server Error' });
@@ -54,7 +54,7 @@ export class UserController {
 
   async approveUser(req: AuthRequest, res: Response) {
     try {
-      const user = userService.approveUser(req.params.id);
+      const user = await userService.approveUser(req.params.id);
       res.json(user);
     } catch {
       res.status(500).json({ error: 'Internal Server Error' });
@@ -63,7 +63,7 @@ export class UserController {
 
   async rejectUser(req: AuthRequest, res: Response) {
     try {
-      const user = userService.rejectUser(req.params.id);
+      const user = await userService.rejectUser(req.params.id);
       res.json(user);
     } catch {
       res.status(500).json({ error: 'Internal Server Error' });

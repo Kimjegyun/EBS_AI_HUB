@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Icon } from '../components/Icon'
 import { useAppCatalog } from '../context/AppCatalogContext'
 import { APP_REGISTRY } from '../apps/registry'
 import AppReviewQueue from '../components/AppReviewQueue'
 import RemoteAppManager from '../components/RemoteAppManager'
+import ImportProgramPanel from '../components/ImportProgramPanel'
 import type { AppCategory } from '../apps/types'
 
 export default function AppRegistryPage() {
@@ -19,6 +20,8 @@ export default function AppRegistryPage() {
   } = useAppCatalog()
   const [busyId, setBusyId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [reviewRevision, setReviewRevision] = useState(0)
+  const handleImported = useCallback(() => setReviewRevision((value) => value + 1), [])
 
   const handlePublish = async (appId: string, published: boolean) => {
     setBusyId(appId)
@@ -63,6 +66,8 @@ export default function AppRegistryPage() {
             {actionError ?? error}
           </p>
         )}
+
+        <ImportProgramPanel onSubmitted={handleImported} />
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {APP_REGISTRY.map((app) => {
@@ -113,12 +118,12 @@ export default function AppRegistryPage() {
           })}
         </div>
 
-        <AppReviewQueue />
+        <AppReviewQueue key={reviewRevision} />
 
         <RemoteAppManager />
 
         <div className="mt-8 flex items-center gap-3 rounded-xl border border-outline-variant bg-surface-container px-4 py-3">
-          <Icon name="info" className="shrink-0 text-[20px] text-primary" />
+          <Icon name="info" className="shrink-0 text-[16px] text-primary" />
           <p className="text-caption text-on-surface-variant">
             등록된 앱은 사용자 마켓플레이스에 표시됩니다. 사용 여부는 각 사용자가
             <Link to="/marketplace" className="mx-1 font-medium text-primary hover:underline">마켓플레이스</Link>

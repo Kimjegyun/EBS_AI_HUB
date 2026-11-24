@@ -36,6 +36,8 @@ export default function MarketplacePage() {
   const { catalog, publishedIds, installedIds, selectApp, loading, refresh, error, remoteLoading, reloadRemoteApps } = useAppCatalog()
   const [active, setActive] = useState<string>('전체')
   const [query, setQuery] = useState('')
+  const developerKitPage = `${import.meta.env.BASE_URL}developer-kit/`
+  const developerKitDownload = `${import.meta.env.BASE_URL}downloads/ebs-ai-hub-app-developer-kit-v1.0.0.zip`
   const userCatalog = useMemo(() => catalog.filter(app => publishedIds.includes(app.id)), [catalog, publishedIds])
 
   useEffect(() => {
@@ -71,7 +73,7 @@ export default function MarketplacePage() {
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <button type="button" disabled={loading || remoteLoading} onClick={() => { void refresh(); void reloadRemoteApps() }} className="inline-flex items-center gap-1.5 rounded-lg border border-outline-variant px-3 py-1.5 disabled:opacity-50">
-                <Icon name="refresh" className="text-[16px]" />목록 새로고침
+                <Icon name="refresh" className="text-[12.8px]" />목록 새로고침
               </button>
               <div className="flex flex-wrap rounded-xl border border-outline-variant bg-surface-container-highest p-1">
                 {categories.map((f) => (
@@ -94,7 +96,7 @@ export default function MarketplacePage() {
                   to="/app-registry"
                   className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/5 px-3 py-1.5 font-label text-label text-primary hover:bg-primary/10"
                 >
-                  <Icon name="inventory_2" className="text-[16px]" />
+                  <Icon name="inventory_2" className="text-[12.8px]" />
                   앱 등록
                 </Link>
               )}
@@ -102,15 +104,34 @@ export default function MarketplacePage() {
                 to="/installed-apps"
                 className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/5 px-3 py-1.5 font-label text-label text-primary hover:bg-primary/10"
               >
-                <Icon name="apps" className="text-[16px]" />
+                <Icon name="apps" className="text-[12.8px]" />
                 내 앱
               </Link>
             </div>
           </div>
         </div>
 
+        <section className="mb-5 flex flex-col gap-4 rounded-xl border border-primary/20 bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+          <div className="flex items-start gap-3">
+            <Icon name="terminal" className="mt-0.5 text-2xl text-primary" />
+            <div>
+              <p className="font-label text-label font-semibold text-primary">외부 개발자 자료</p>
+              <h2 className="mt-1 font-h2 text-h2 text-on-surface">EBS AI Hub 앱 개발자 킷</h2>
+              <p className="mt-1 max-w-3xl text-body-sm leading-relaxed text-on-surface-variant">개발 가이드와 시작 프로젝트를 확인하고, 호환 앱을 만들어 로컬 미리보기와 심사를 요청하세요.</p>
+            </div>
+          </div>
+          <div className="flex shrink-0 flex-wrap gap-2 pl-9 sm:pl-0">
+            <a href={developerKitPage} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-outline-variant bg-white px-4 py-2 font-label text-label text-primary hover:bg-primary/5">
+              <Icon name="menu_book" className="text-lg" />가이드와 문서
+            </a>
+            <a href={developerKitDownload} download className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-primary px-4 py-2 font-label text-label text-white hover:bg-primary/90">
+              <Icon name="download" className="text-lg" />킷 다운로드
+            </a>
+          </div>
+        </section>
+
         <label className="mb-5 flex items-center gap-2 rounded-xl border border-outline-variant bg-white px-4 py-2.5 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10">
-          <Icon name="search" className="shrink-0 text-[21px] text-on-surface-variant" />
+          <Icon name="search" className="shrink-0 text-[16.8px] text-on-surface-variant" />
           <input
             type="search"
             value={query}
@@ -120,7 +141,7 @@ export default function MarketplacePage() {
           />
           {query && (
             <button type="button" onClick={() => setQuery('')} aria-label="검색어 지우기" className="rounded-full p-1 text-on-surface-variant hover:bg-surface-container">
-              <Icon name="close" className="text-[18px]" />
+              <Icon name="close" className="text-[14.4px]" />
             </button>
           )}
         </label>
@@ -130,7 +151,7 @@ export default function MarketplacePage() {
           <p className="text-body-sm text-on-surface-variant">등록된 앱을 불러오는 중입니다.</p>
         ) : visible.length === 0 ? (
           <section className="rounded-xl border border-dashed border-outline-variant bg-surface-container px-6 py-12 text-center">
-            <Icon name="storefront" className="mb-2 text-[36px] text-on-surface-variant" />
+            <Icon name="storefront" className="mb-2 text-[28.8px] text-on-surface-variant" />
             <p className="text-body text-on-surface-variant">
               {userCatalog.length === 0
                 ? error ? '목록 새로고침으로 다시 시도해 주세요.' : '아직 등록된 앱이 없습니다. 관리자가 앱을 테스트한 뒤 등록하면 여기에 표시됩니다.'
@@ -169,8 +190,8 @@ export default function MarketplacePage() {
                       aria-label={`${app.name} ${selected ? '제거' : '설치'}`}
                       className={`ml-auto shrink-0 rounded-md px-2 py-1 text-xs font-semibold min-h-8 max-md:min-h-11 transition-colors ${
                         selected
-                          ? 'bg-red-600 text-white hover:bg-red-700 focus-visible:outline-red-600'
-                          : 'bg-blue-600 text-white hover:bg-blue-700 focus-visible:outline-blue-600'
+                          ? 'bg-error text-on-error hover:bg-error/90 focus-visible:outline-error'
+                          : 'bg-primary text-on-primary hover:bg-primary-dark focus-visible:outline-primary'
                       }`}
                     >
                       {selected ? '제거' : '설치'}

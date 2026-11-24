@@ -33,36 +33,36 @@ export default function IoLogPage() {
   }
 
   return (
-    <div className="flex h-[100svh] flex-col bg-[#0f1419] text-[#d7e0ea]">
-      <header className="flex shrink-0 items-center gap-2 border-b border-white/10 px-4 py-2.5">
-        <Icon name="terminal" className="text-[20px] text-emerald-300" />
+    <div className="flex h-[100svh] flex-col bg-background text-on-surface">
+      <header className="flex shrink-0 items-center gap-2 border-b border-outline-variant px-4 py-2.5">
+        <Icon name="terminal" className="text-[16px] text-primary-light" />
         <div className="min-w-0">
-          <h1 className="font-h3 text-h3 text-white">명령 로그</h1>
-          <p className="text-caption text-white/50">
+          <h1 className="font-h3 text-h3 text-on-surface">명령 로그</h1>
+          <p className="text-caption text-on-surface-variant">
             프로그램 입출력을 명령·요청·응답 단위로 분석합니다. 로그인 화면이 아닙니다.
           </p>
         </div>
-        <span className="ml-auto text-caption text-white/45">{entries.length}건</span>
+        <span className="ml-auto text-caption text-on-surface-variant">{entries.length}건</span>
         <button
           type="button"
           onClick={() => void copyAll()}
-          className="inline-flex h-8 items-center gap-1 rounded-md border border-white/15 px-2 text-caption text-white/80 hover:bg-white/10"
+          className="inline-flex h-8 items-center gap-1 rounded-md border border-outline-variant px-2 text-caption text-on-surface-variant hover:bg-surface-container-high"
         >
-          <Icon name={copied ? 'check' : 'content_copy'} className="text-[16px]" />
+          <Icon name={copied ? 'check' : 'content_copy'} className="text-[12.8px]" />
           {copied ? '복사됨' : '복사'}
         </button>
         <button
           type="button"
           onClick={() => void clearIoLog()}
-          className="inline-flex h-8 items-center gap-1 rounded-md border border-white/15 px-2 text-caption text-white/80 hover:bg-white/10"
+          className="inline-flex h-8 items-center gap-1 rounded-md border border-outline-variant px-2 text-caption text-on-surface-variant hover:bg-surface-container-high"
         >
-          <Icon name="delete" className="text-[16px]" />
+          <Icon name="delete" className="text-[12.8px]" />
           지우기
         </button>
       </header>
       <pre
         ref={scrollerRef}
-        className="custom-scrollbar min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words px-4 py-3 font-mono text-[12px] leading-5 text-[#c8d6e5]"
+        className="custom-scrollbar min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words px-4 py-3 font-mono text-[9.600000000000001px] leading-5 text-on-surface-variant"
       >
         {text}
       </pre>

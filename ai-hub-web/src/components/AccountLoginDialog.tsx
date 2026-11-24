@@ -130,7 +130,7 @@ export default function AccountLoginDialog({ onClose }: { onClose: () => void })
               )}
               <label className="block">로그인 아이디
                 <input value={loginId} onChange={(e) => setLoginId(e.target.value)} maxLength={32} placeholder="user01" autoComplete="username" className={inputClass} disabled={saving} />
-                <span className="mt-1 block text-[11px]">
+                <span className="mt-1 block text-[8.8px]">
                   {currentLoginId ? `현재 아이디: ${currentLoginId}` : '아직 아이디가 없습니다.'} 영문 소문자, 숫자, 점, 밑줄, 하이픈 3~32자.
                 </span>
               </label>

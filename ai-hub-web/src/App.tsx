@@ -18,10 +18,13 @@ import PlaceholderPage from './pages/PlaceholderPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import SettingsPage from './pages/SettingsPage'
 import UsersPage from './pages/UsersPage'
+import AdminApprovalAppPage from './pages/AdminApprovalAppPage'
 import NotificationsPage from './pages/NotificationsPage'
+import UtilitiesPage from './pages/UtilitiesPage'
 import PairPage from './apps/inventory/PairPage'
 import AssetQrPage from './apps/inventory/AssetQrPage'
 import InventoryStandaloneApp from './apps/inventory/InventoryStandaloneApp'
+import ServiceUnavailablePage from './pages/ServiceUnavailablePage'
 
 // Wrapper: extract :assetNo param and pass as prop
 function AssetQrRoute() {
@@ -52,13 +55,28 @@ export default function App() {
 
   return (
     <AuthProvider>
-      <BrowserRouter basename={import.meta.env.BASE_URL}>
+      <BrowserRouter basename={/^\/util(?:\/|$)/.test(window.location.pathname) ? '/' : import.meta.env.BASE_URL}>
         <EnvironmentConfigProvider>
           <AppCatalogProvider>
             <Routes>
+              <Route path="/ACAP" element={<ServiceUnavailablePage />} />
+              <Route path="/ACAP/*" element={<ServiceUnavailablePage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/signup/google" element={<GoogleSignupPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/approvals" element={<Navigate to="/approvals/app.html" replace />} />
+              <Route
+                path="/approvals/app.html"
+                element={
+                  <RequireAuth>
+                    <RequireAdmin>
+                      <AdminApprovalAppPage />
+                    </RequireAdmin>
+                  </RequireAuth>
+                }
+              />
+              <Route path="/util" element={<UtilitiesPage />} />
+              <Route path="/util/:slug" element={<UtilitiesPage />} />
               <Route
                 path="/io-log"
                 element={

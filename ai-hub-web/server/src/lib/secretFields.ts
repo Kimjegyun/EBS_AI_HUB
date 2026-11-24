@@ -16,6 +16,27 @@ export const SECRET_CLEAR_FLAGS = {
 
 export const APP_AI_SETTINGS_KEY = 'ai_app_settings'
 
+const PUBLIC_ENVIRONMENT_KEYS = new Set([
+  'service_display_name',
+  'ai_openai_api_key_configured',
+  'ai_openai_model',
+  'ai_openai_base_url',
+  'ai_fal_api_key_configured',
+  'ai_fal_base_url',
+  'ai_fal_models',
+  'ai_fal_claude_model',
+  'ai_fal_grok_model',
+  'ai_fal_perplexity_model',
+  'ai_tencent_api_key_configured',
+  'ai_tencent_base_url',
+  'ai_tencent_models',
+  'ai_together_api_key_configured',
+  'ai_together_base_url',
+  'ai_together_stt_model',
+  'ai_together_summary_model',
+  APP_AI_SETTINGS_KEY,
+])
+
 type EnvRecord = Record<string, unknown>
 
 function isRecord(value: unknown): value is EnvRecord {
@@ -44,16 +65,27 @@ function publicizeProviderFields(source: EnvRecord): EnvRecord {
 export function publicEnvironmentData(data: unknown): EnvRecord {
   const source = isRecord(data) ? { ...data } : {}
   const publicized = publicizeProviderFields(source)
+  const safeData = Object.fromEntries(
+    Object.entries(publicized).filter(([key]) => PUBLIC_ENVIRONMENT_KEYS.has(key)),
+  )
   const appSettings = source[APP_AI_SETTINGS_KEY]
   if (isRecord(appSettings)) {
-    publicized[APP_AI_SETTINGS_KEY] = Object.fromEntries(
+    safeData[APP_AI_SETTINGS_KEY] = Object.fromEntries(
       Object.entries(appSettings).map(([appId, value]) => [
         appId,
-        publicizeProviderFields(isRecord(value) ? value : {}),
+        Object.fromEntries(
+          Object.entries(publicizeProviderFields(isRecord(value) ? value : {}))
+            .filter(([key]) => PUBLIC_ENVIRONMENT_KEYS.has(key)),
+        ),
       ]),
     )
   }
-  return publicized
+  return safeData
+}
+
+/** Only settings needed by approved members' apps; omits admin notes, webhooks, and unknown fields. */
+export function publicMemberEnvironmentData(data: unknown): EnvRecord {
+  return publicEnvironmentData(data)
 }
 
 function mergeProviderSecrets(current: EnvRecord, next: EnvRecord): EnvRecord {

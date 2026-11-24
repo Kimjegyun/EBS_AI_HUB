@@ -1,4 +1,4 @@
-import { defineConfig, type Plugin } from 'vite'
+import { build as buildRuntime, defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import mkcert from 'vite-plugin-mkcert'
 import fs from 'fs'
@@ -8,6 +8,34 @@ import path from 'path'
 // from `${BASE_URL}tesseract/eng.traineddata.gz`. Serve/emit it straight from
 // node_modules so the 2.9MB model is self-hosted without being committed.
 const OCR_MODEL = path.resolve(__dirname, 'node_modules/@tesseract.js-data/eng/4.0.0_best_int/eng.traineddata.gz')
+function remoteAppRuntime(): Plugin {
+  return {
+    name: 'remote-app-sandbox-runtime',
+    async generateBundle() {
+      const result = await buildRuntime({ configFile: false, envDir: false, publicDir: false, logLevel: 'error',
+        define: { 'process.env.NODE_ENV': JSON.stringify('production') },
+        build: { write: false, minify: true, lib: { entry: path.resolve(__dirname, 'src/apps/remoteAppRuntime.js'), formats: ['iife'], name: 'AiHubSandbox' } },
+      })
+      const output = (Array.isArray(result) ? result : [result])[0]
+      if ('output' in output) {
+        const chunk = output.output.find((file) => file.type === 'chunk')
+        if (chunk?.type === 'chunk') this.emitFile({ type: 'asset', fileName: 'remote-app-runtime.js', source: chunk.code })
+      }
+    },
+    configureServer(server) {
+      server.middlewares.use('/remote-app-runtime.js', async (_req, res, next) => {
+        try {
+          const result = await buildRuntime({ configFile: false, envDir: false, publicDir: false, logLevel: 'error',
+            define: { 'process.env.NODE_ENV': JSON.stringify('production') },
+            build: { write: false, minify: true, lib: { entry: path.resolve(__dirname, 'src/apps/remoteAppRuntime.js'), formats: ['iife'], name: 'AiHubSandbox' } } })
+          const output = (Array.isArray(result) ? result : [result])[0]
+          if ('output' in output) { const chunk = output.output.find((file) => file.type === 'chunk'); if (chunk?.type === 'chunk') { res.setHeader('Content-Type', 'text/javascript'); res.end(chunk.code); return } }
+          next()
+        } catch (e) { next(e) }
+      })
+    },
+  }
+}
 function ocrModel(): Plugin {
   return {
     name: 'ocr-model',
@@ -32,7 +60,7 @@ export default defineConfig({
   // Trusted local HTTPS via mkcert (installs a local CA into the OS trust store).
   // HTTPS is required so phones on the LAN can use the camera (getUserMedia / QR
   // scan) and install the PWA — browsers block those APIs on non-secure origins.
-  plugins: [react(), mkcert(), ocrModel()],
+  plugins: [react(), mkcert(), ocrModel(), remoteAppRuntime()],
   // Multi-page: inventory.html is a standalone PWA entry separate from index.html.
   // Dev server serves both; production build emits both HTML files.
   build: {
@@ -55,7 +83,7 @@ export default defineConfig({
   // host:true exposes the dev server on the LAN so a phone can connect to
   // https://<PC-IP>:5173 and develop/test live (HMR included).
   server: {
-    host: true,
+    host: '127.0.0.1',
     port: 5173,
     strictPort: false,
     proxy: {
@@ -73,6 +101,10 @@ export default defineConfig({
         secure: false,
         timeout: 120_000,
         proxyTimeout: 120_000,
+      },
+      '/files/util': {
+        target: 'http://127.0.0.1:3002',
+        changeOrigin: true,
       },
     },
   },
@@ -95,6 +127,10 @@ export default defineConfig({
         secure: false,
         timeout: 120_000,
         proxyTimeout: 120_000,
+      },
+      '/files/util': {
+        target: 'http://127.0.0.1:3002',
+        changeOrigin: true,
       },
     },
   },

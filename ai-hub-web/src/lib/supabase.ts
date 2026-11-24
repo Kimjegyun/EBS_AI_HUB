@@ -57,3 +57,8 @@ export function isSupabaseConfigured(): boolean {
 export const supabase: SupabaseClient | null = isSupabaseConfigured()
   ? createClient(url, anonKey)
   : null
+
+// Keep the SDK's current access token in memory; never embed shared credentials.
+let apiAccessToken = ''
+export const getSupabaseApiToken = () => apiAccessToken
+supabase?.auth.onAuthStateChange((_event, session) => { apiAccessToken = session?.access_token || '' })

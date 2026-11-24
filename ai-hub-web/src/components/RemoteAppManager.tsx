@@ -126,7 +126,7 @@ export default function RemoteAppManager() {
   return (
     <section className="mt-8 rounded-xl border border-outline-variant bg-surface-container-low p-4">
       <div className="mb-3 flex items-center gap-2">
-        <Icon name="cloud_upload" className="text-[20px] text-primary" />
+        <Icon name="cloud_upload" className="text-[16px] text-primary" />
         <div className="min-w-0 flex-1">
           <h2 className="font-body-sm text-body-sm font-semibold text-on-surface">원격 앱 (공동 마켓플레이스)</h2>
           <p className="text-caption text-on-surface-variant">
@@ -137,18 +137,18 @@ export default function RemoteAppManager() {
         </div>
         <button type="button" onClick={() => void reloadRemoteApps()} disabled={remoteLoading}
           className="shrink-0 rounded-lg border border-outline-variant px-2.5 py-1.5 text-label hover:bg-surface-container-high disabled:opacity-50">
-          <Icon name={remoteLoading ? 'progress_activity' : 'refresh'} className={`text-[16px] ${remoteLoading ? 'animate-spin' : ''}`} />
+          <Icon name={remoteLoading ? 'progress_activity' : 'refresh'} className={`text-[12.8px] ${remoteLoading ? 'animate-spin' : ''}`} />
         </button>
         <label className="shrink-0 cursor-pointer rounded-lg border border-outline-variant px-3 py-1.5 text-label text-on-surface-variant hover:bg-surface-container-high"
           title="다른 허브에서 내보낸 앱 파일(.aihubapp.json)을 가져옵니다">
-          <Icon name="download" className="mr-1 text-[16px]" />
+          <Icon name="download" className="mr-1 text-[12.8px]" />
           가져오기
           <input type="file" accept=".json,.aihubapp.json" className="hidden" disabled={busy}
             onChange={(e) => { const f = e.target.files?.[0] ?? null; e.target.value = ''; void importApp(f) }} />
         </label>
         <button type="button" onClick={() => setOpen((v) => !v)}
           className="shrink-0 rounded-lg bg-primary px-3 py-1.5 text-label text-on-primary hover:bg-primary/90">
-          <Icon name={open ? 'close' : 'add'} className="mr-1 text-[16px]" />
+          <Icon name={open ? 'close' : 'add'} className="mr-1 text-[12.8px]" />
           {open ? '닫기' : '앱 올리기'}
         </button>
       </div>
@@ -162,7 +162,7 @@ export default function RemoteAppManager() {
       {open && (
         <div className="mb-4 space-y-3 rounded-lg border border-primary/25 bg-primary/5 p-3">
           <label className="flex cursor-pointer items-center gap-2 rounded-lg border-2 border-dashed border-outline-variant px-3 py-3 hover:border-primary/50">
-            <Icon name="code" className="text-[20px] text-on-surface-variant" />
+            <Icon name="code" className="text-[16px] text-on-surface-variant" />
             <span className="min-w-0 flex-1 truncate text-body-sm text-on-surface">
               {bundle ? `${bundle.name} · ${(bundle.size / 1024).toFixed(0)} KB` : '앱 번들 파일 선택 (.js)'}
             </span>
@@ -211,8 +211,8 @@ export default function RemoteAppManager() {
             </label>
           </div>
 
-          <p className="flex items-start gap-1.5 text-[11px] leading-relaxed text-warning">
-            <Icon name="warning" className="mt-0.5 shrink-0 text-[13px]" />
+          <p className="flex items-start gap-1.5 text-[8.8px] leading-relaxed text-warning">
+            <Icon name="warning" className="mt-0.5 shrink-0 text-[10.4px]" />
             원격 앱 코드는 허브와 같은 권한으로 브라우저에서 실행됩니다.
             소스를 확인한 앱만 올리세요.
           </p>
@@ -233,7 +233,7 @@ export default function RemoteAppManager() {
           {remoteApps.map(({ meta, plugin, error }) => (
             <div key={meta.id} className="flex items-center gap-2 rounded-lg border border-outline-variant bg-surface px-3 py-2">
               <Icon name={plugin ? meta.icon || 'extension' : 'error'}
-                className={`shrink-0 text-[20px] ${plugin ? 'text-primary' : 'text-error'}`} />
+                className={`shrink-0 text-[16px] ${plugin ? 'text-primary' : 'text-error'}`} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-body-sm font-medium text-on-surface">
                   {meta.name} <span className="text-caption text-on-surface-variant">v{meta.version}</span>
@@ -245,23 +245,23 @@ export default function RemoteAppManager() {
                 </p>
                 {error && <p className="mt-0.5 text-caption text-error">불러오기 실패: {error}</p>}
               </div>
-              <span className="shrink-0 font-mono text-[10px] text-on-surface-variant/60" title={`SHA-256 ${meta.sha256}`}>
+              <span className="shrink-0 font-mono text-[8px] text-on-surface-variant/60" title={`SHA-256 ${meta.sha256}`}>
                 {meta.sha256.slice(0, 8)}
               </span>
               <button type="button" onClick={() => void suspend(meta.id, meta.name)} disabled={busy}
                 title="배포 정지 — 삭제하지 않고 사용자 화면에서만 내립니다"
                 className="shrink-0 rounded p-1 text-on-surface-variant hover:bg-warning/10 hover:text-warning disabled:opacity-50">
-                <Icon name="pause_circle" className="text-[18px]" />
+                <Icon name="pause_circle" className="text-[14.4px]" />
               </button>
               <button type="button" onClick={() => void exportApp(meta.id, meta.name)} disabled={busy}
                 title="앱 파일로 내보내기 — 다른 허브에 그대로 붙일 수 있습니다"
                 className="shrink-0 rounded p-1 text-on-surface-variant hover:bg-primary/10 hover:text-primary disabled:opacity-50">
-                <Icon name="ios_share" className="text-[18px]" />
+                <Icon name="ios_share" className="text-[14.4px]" />
               </button>
               <button type="button" onClick={() => void remove(meta.id, meta.name)} disabled={busy}
                 title="마켓플레이스에서 삭제"
                 className="shrink-0 rounded p-1 text-on-surface-variant hover:bg-error/10 hover:text-error disabled:opacity-50">
-                <Icon name="delete" className="text-[18px]" />
+                <Icon name="delete" className="text-[14.4px]" />
               </button>
             </div>
           ))}

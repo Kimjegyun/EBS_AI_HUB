@@ -87,16 +87,16 @@ const T = {
 const MAX_CHAT_SLOTS = 20
 
 const ENGINE_ACCENTS: Record<string, string> = {
-  chatgpt: 'border-emerald-300 bg-emerald-50 text-emerald-900',
-  openai: 'border-emerald-300 bg-emerald-50 text-emerald-900',
-  claude: 'border-amber-300 bg-amber-50 text-amber-900',
-  gemini: 'border-sky-300 bg-sky-50 text-sky-900',
-  grok: 'border-rose-300 bg-rose-50 text-rose-900',
-  deepseek: 'border-cyan-300 bg-cyan-50 text-cyan-900',
-  glm: 'border-orange-300 bg-orange-50 text-orange-900',
-  kimi: 'border-violet-300 bg-violet-50 text-violet-900',
-  minimax: 'border-fuchsia-300 bg-fuchsia-50 text-fuchsia-900',
-  perplexity: 'border-violet-300 bg-violet-50 text-violet-900',
+  chatgpt: 'border-primary/40 bg-primary/10 text-primary-light',
+  openai: 'border-primary/40 bg-primary/10 text-primary-light',
+  claude: 'border-primary/40 bg-primary/10 text-primary-light',
+  gemini: 'border-primary/40 bg-primary/10 text-primary-light',
+  grok: 'border-primary/40 bg-primary/10 text-primary-light',
+  deepseek: 'border-primary/40 bg-primary/10 text-primary-light',
+  glm: 'border-primary/40 bg-primary/10 text-primary-light',
+  kimi: 'border-primary/40 bg-primary/10 text-primary-light',
+  minimax: 'border-primary/40 bg-primary/10 text-primary-light',
+  perplexity: 'border-primary/40 bg-primary/10 text-primary-light',
 }
 
 const ENGINES: Engine[] = TENCENT_PROVIDERS.map((provider) => ({
@@ -158,7 +158,7 @@ function TurnExhaustedModal({
       <div className="mx-4 w-full max-w-sm rounded-2xl bg-surface border border-outline-variant shadow-xl p-6">
         <div className="flex items-center gap-3 mb-4">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-error/10">
-            <Icon name="block" className="text-error text-[22px]" />
+            <Icon name="block" className="text-error text-[17.6px]" />
           </div>
           <h2 className="font-h2 text-h2 text-on-surface">턴 소진</h2>
         </div>
@@ -180,7 +180,7 @@ function TurnExhaustedModal({
             onClick={onRequest}
             className="flex-1 rounded-lg bg-primary px-4 py-2.5 font-label text-label text-on-primary hover:bg-primary/90 transition-colors flex items-center justify-center gap-1.5"
           >
-            <Icon name="send" className="text-[16px]" />
+            <Icon name="send" className="text-[12.8px]" />
             관리자에게 요청
           </button>
         </div>
@@ -224,7 +224,7 @@ function RequestTurnsModal({
           <>
             <div className="flex flex-col items-center gap-3 py-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-success/10">
-                <Icon name="check_circle" className="text-success text-[28px]" />
+                <Icon name="check_circle" className="text-success text-[22.4px]" />
               </div>
               <p className="font-h3 text-h3 text-on-surface">요청이 전송되었습니다</p>
               <p className="text-body-sm text-on-surface-variant text-center">
@@ -243,7 +243,7 @@ function RequestTurnsModal({
           <>
             <div className="flex items-center gap-3 mb-4">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                <Icon name="token" className="text-primary text-[22px]" />
+                <Icon name="token" className="text-primary text-[17.6px]" />
               </div>
               <h2 className="font-h2 text-h2 text-on-surface">관리자에게 턴 요청</h2>
             </div>
@@ -281,7 +281,7 @@ function RequestTurnsModal({
                 onClick={handleSend}
                 className="flex-1 rounded-lg bg-primary px-4 py-2.5 font-label text-label text-on-primary hover:bg-primary/90 transition-colors flex items-center justify-center gap-1.5"
               >
-                <Icon name="send" className="text-[16px]" />
+                <Icon name="send" className="text-[12.8px]" />
                 요청 전송
               </button>
             </div>
@@ -326,54 +326,54 @@ function DocViewerModal({
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── 타이틀 바 (Word 스타일) ── */}
-        <div style={{ background: '#1e3a5f', color: '#fff', padding: '8px 14px' }}
+        <div style={{ background: '#394a3e', color: '#fff', padding: '8px 14px' }}
           className="shrink-0 flex items-center gap-3">
-          <Icon name="description" className="text-[18px] text-blue-200" />
+          <Icon name="description" className="text-[14.4px] text-primary-light" />
           <span className="text-body-sm font-semibold truncate flex-1">{docTitle}</span>
-          <span className="text-caption text-blue-200 hidden sm:block shrink-0">DOCX</span>
+          <span className="text-caption text-primary-light hidden sm:block shrink-0">DOCX</span>
           {/* 다운로드 버튼들 */}
           <div className="flex items-center gap-1 shrink-0">
             <button
               type="button"
               onClick={() => void exportToDocx(content, makeResponseFilename(content))}
-              className="h-7 w-7 rounded flex items-center justify-center text-blue-200 hover:bg-white/20 hover:text-white transition-colors"
+              className="h-7 w-7 rounded flex items-center justify-center text-primary-light hover:bg-white/20 hover:text-white transition-colors"
               title=".docx 다운로드"
             >
-              <Icon name="download" className="text-[18px]" />
+              <Icon name="download" className="text-[14.4px]" />
             </button>
             <button
               type="button"
               onClick={() => void exportToPdf(content, makeResponseFilename(content))}
-              className="h-7 w-7 rounded flex items-center justify-center text-blue-200 hover:bg-white/20 hover:text-white transition-colors"
+              className="h-7 w-7 rounded flex items-center justify-center text-primary-light hover:bg-white/20 hover:text-white transition-colors"
               title=".pdf 다운로드"
             >
-              <Icon name="picture_as_pdf" className="text-[17px]" />
+              <Icon name="picture_as_pdf" className="text-[13.6px]" />
             </button>
             <button
               type="button"
               onClick={() => setIsFullscreen(f => !f)}
-              className="h-7 w-7 rounded flex items-center justify-center text-blue-200 hover:bg-white/20 hover:text-white transition-colors"
+              className="h-7 w-7 rounded flex items-center justify-center text-primary-light hover:bg-white/20 hover:text-white transition-colors"
               title={isFullscreen ? '원래 크기' : '전체화면'}
             >
-              <Icon name={isFullscreen ? 'close_fullscreen' : 'open_in_full'} className="text-[17px]" />
+              <Icon name={isFullscreen ? 'close_fullscreen' : 'open_in_full'} className="text-[13.6px]" />
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="h-7 w-7 rounded flex items-center justify-center text-blue-200 hover:bg-red-500 hover:text-white transition-colors"
+              className="h-7 w-7 rounded flex items-center justify-center text-primary-light hover:bg-error hover:text-on-error transition-colors"
               title="닫기"
             >
-              <Icon name="close" className="text-[18px]" />
+              <Icon name="close" className="text-[14.4px]" />
             </button>
           </div>
         </div>
 
         {/* ── 문서 메타 (엔진 + 모델) ── */}
-        <div style={{ background: '#f8f9fa', borderBottom: '1px solid #e5e7eb', padding: '5px 16px' }}
+        <div style={{ background: 'var(--color-surface-container-high)', borderBottom: '1px solid var(--color-outline-variant)', padding: '5px 16px' }}
           className="shrink-0 flex items-center gap-3">
-          <Icon name="smart_toy" className="text-[13px] text-primary" />
-          <span className="text-[11px] text-on-surface-variant">{engineName} · {model}</span>
-          <span className="ml-auto text-[10px] text-on-surface-variant/60">
+          <Icon name="smart_toy" className="text-[10.4px] text-primary" />
+          <span className="text-[8.8px] text-on-surface-variant">{engineName} · {model}</span>
+          <span className="ml-auto text-[8px] text-on-surface-variant/60">
             {new Date().toLocaleString('ko-KR', { dateStyle: 'short', timeStyle: 'short' })}
           </span>
         </div>
@@ -386,7 +386,7 @@ function DocViewerModal({
 
         {/* ── 하단 상태바 ── */}
         <div style={{ background: '#1e3a5f', color: '#93c5fd', padding: '3px 14px' }}
-          className="shrink-0 flex items-center gap-4 text-[11px]">
+          className="shrink-0 flex items-center gap-4 text-[8.8px]">
           <span>EBS AI 허브</span>
           <span className="opacity-60">·</span>
           <span>{content.split('\n').length}줄 · {content.length.toLocaleString()}자</span>
@@ -880,7 +880,7 @@ export function MyLlmBody({ isAdmin }: AppContext) {
                 className="inline-flex h-9 items-center gap-1 rounded-lg border border-outline-variant bg-white px-2.5 text-caption text-on-surface-variant hover:text-error hover:bg-error/5 disabled:cursor-not-allowed disabled:opacity-40"
                 title={T.clearChat}
               >
-                <Icon name="delete_sweep" className="text-[17px]" />
+                <Icon name="delete_sweep" className="text-[13.6px]" />
                 {T.clearChat}
               </button>
             </div>
@@ -893,7 +893,7 @@ export function MyLlmBody({ isAdmin }: AppContext) {
         <div ref={side === 'left' ? leftScrollRef : rightScrollRef} className="custom-scrollbar flex-1 min-h-0 overflow-auto p-3 space-y-3">
           {pane.messages.length === 0 ? (
             <div className="h-full min-h-0 flex flex-col items-center justify-center text-center text-on-surface-variant">
-              <Icon name="forum" className="text-[30px] text-primary mb-2" />
+              <Icon name="forum" className="text-[24px] text-primary mb-2" />
               {modelOptions.length === 0 ? (
                 <>
                   <p className="text-body-sm">활성화된 모델이 없습니다.</p>
@@ -924,9 +924,9 @@ export function MyLlmBody({ isAdmin }: AppContext) {
                     <div>
                       {/* 문서 타이틀 바 */}
                       <div className="flex items-center gap-2 px-3 py-1.5 border-b border-outline-variant/50"
-                        style={{ background: '#f8f9fa' }}>
-                        <Icon name="description" className="text-[13px] text-primary/70" />
-                        <span className="text-[11px] text-on-surface-variant font-medium truncate flex-1">
+                      style={{ background: 'var(--color-surface-container-high)' }}>
+                        <Icon name="description" className="text-[10.4px] text-primary-light/70" />
+                        <span className="text-[8.8px] text-on-surface-variant font-medium truncate flex-1">
                           {message.content.match(/^#\s+(.+)/m)?.[1]?.trim()
                             ?? message.content.split('\n').find(l => l.trim())?.slice(0, 60)
                             ?? 'AI 응답'}
@@ -938,10 +938,10 @@ export function MyLlmBody({ isAdmin }: AppContext) {
                             engineName: getEngine(message.engine ?? pane.engine).name,
                             model: message.model ?? pane.model,
                           })}
-                          className="no-drag h-6 px-2 rounded text-[10px] text-on-surface-variant hover:bg-primary/10 hover:text-primary flex items-center gap-0.5 transition-colors shrink-0"
+                          className="no-drag h-6 px-2 rounded text-[8px] text-on-surface-variant hover:bg-primary/10 hover:text-primary flex items-center gap-0.5 transition-colors shrink-0"
                           title="문서 뷰어로 열기"
                         >
-                          <Icon name="open_in_full" className="text-[12px]" />
+                          <Icon name="open_in_full" className="text-[9.6px]" />
                           문서 보기
                         </button>
                       </div>
@@ -958,8 +958,8 @@ export function MyLlmBody({ isAdmin }: AppContext) {
                     <>
                       {/* 액션 버튼 바 */}
                       <div className="px-3 py-1.5 border-t border-outline-variant/30 flex items-center gap-1 flex-wrap"
-                        style={{ background: '#f8f9fa' }}>
-                        <span className="text-[10px] text-on-surface-variant/60 mr-auto">
+                      style={{ background: 'var(--color-surface-container-high)' }}>
+                        <span className="text-[8px] text-on-surface-variant/60 mr-auto">
                           {getEngine(message.engine ?? pane.engine).name} · {message.model ?? pane.model}
                         </span>
                         {/* 문서 뷰어 */}
@@ -970,46 +970,46 @@ export function MyLlmBody({ isAdmin }: AppContext) {
                             engineName: getEngine(message.engine ?? pane.engine).name,
                             model: message.model ?? pane.model,
                           })}
-                          className="no-drag inline-flex items-center gap-1 rounded border border-outline-variant bg-white px-2 py-0.5 text-[11px] text-on-surface-variant hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-colors"
+                          className="no-drag inline-flex items-center gap-1 rounded border border-outline-variant bg-white px-2 py-0.5 text-[8.8px] text-on-surface-variant hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-colors"
                           title="문서 뷰어로 열기"
                         >
-                          <Icon name="open_in_full" className="text-[12px]" />
+                          <Icon name="open_in_full" className="text-[9.6px]" />
                           문서
                         </button>
                       <button
                         type="button"
                         onClick={() => void exportToDocx(message.content, makeResponseFilename(message.content))}
-                        className="no-drag inline-flex items-center gap-1 rounded-md border border-outline-variant bg-surface px-2 py-0.5 text-[11px] text-on-surface-variant hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-colors"
+                        className="no-drag inline-flex items-center gap-1 rounded-md border border-outline-variant bg-surface px-2 py-0.5 text-[8.8px] text-on-surface-variant hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-colors"
                         title="이 응답을 Word(.docx)로 저장"
                       >
-                        <Icon name="description" className="text-[13px]" />
+                        <Icon name="description" className="text-[10.4px]" />
                         .docx
                       </button>
                       <button
                         type="button"
                         onClick={() => void exportToPdf(message.content, makeResponseFilename(message.content))}
-                        className="no-drag inline-flex items-center gap-1 rounded-md border border-outline-variant bg-surface px-2 py-0.5 text-[11px] text-on-surface-variant hover:text-error/80 hover:border-error/40 hover:bg-error/5 transition-colors"
+                        className="no-drag inline-flex items-center gap-1 rounded-md border border-outline-variant bg-surface px-2 py-0.5 text-[8.8px] text-on-surface-variant hover:text-error/80 hover:border-error/40 hover:bg-error/5 transition-colors"
                         title="이 응답을 PDF로 저장"
                       >
-                        <Icon name="picture_as_pdf" className="text-[13px]" />
+                        <Icon name="picture_as_pdf" className="text-[10.4px]" />
                         .pdf
                       </button>
                       <button
                         type="button"
                         onClick={() => void exportToImage(message.content, makeResponseFilename(message.content))}
-                        className="no-drag inline-flex items-center gap-1 rounded-md border border-outline-variant bg-surface px-2 py-0.5 text-[11px] text-on-surface-variant hover:text-emerald-700 hover:border-emerald-400/40 hover:bg-emerald-50 transition-colors"
+                        className="no-drag inline-flex items-center gap-1 rounded-md border border-outline-variant bg-surface px-2 py-0.5 text-[8.8px] text-on-surface-variant hover:text-primary-light hover:border-primary/40 hover:bg-primary/10 transition-colors"
                         title="이 응답을 이미지(.png)로 저장"
                       >
-                        <Icon name="image" className="text-[13px]" />
+                        <Icon name="image" className="text-[10.4px]" />
                         .png
                       </button>
                       <button
                         type="button"
                         onClick={() => exportToTxt(message.content, makeResponseFilename(message.content))}
-                        className="no-drag inline-flex items-center gap-1 rounded-md border border-outline-variant bg-white px-2 py-0.5 text-[11px] text-on-surface-variant hover:text-on-surface hover:border-outline hover:bg-surface-container-high transition-colors"
+                        className="no-drag inline-flex items-center gap-1 rounded-md border border-outline-variant bg-white px-2 py-0.5 text-[8.8px] text-on-surface-variant hover:text-on-surface hover:border-outline hover:bg-surface-container-high transition-colors"
                         title="이 응답을 텍스트(.txt)로 저장"
                       >
-                        <Icon name="text_snippet" className="text-[13px]" />
+                        <Icon name="text_snippet" className="text-[10.4px]" />
                         .txt
                       </button>
                       </div>
@@ -1018,11 +1018,11 @@ export function MyLlmBody({ isAdmin }: AppContext) {
 
                   {/* ── 인라인 후속 질문 입력창 (AI 응답 하단) ── */}
                   {message.role === 'assistant' && (
-                    <div className="px-3 pb-3 pt-1" style={{ background: '#fafafa' }}>
+                    <div className="px-3 pb-3 pt-1" style={{ background: 'var(--color-surface-container-low)' }}>
                       {/* 마지막 메시지이거나 이미 입력 중이면 바로 표시, 아니면 접혀 있음 */}
                       {(msgIdx === pane.messages.length - 1 || inlineInput[side] !== '') ? (
                         <div className="flex items-center gap-2 rounded-lg border border-outline-variant bg-white px-2.5 py-1.5 shadow-sm">
-                          <Icon name="subdirectory_arrow_right" className="text-[15px] text-on-surface-variant/50 shrink-0" />
+                          <Icon name="subdirectory_arrow_right" className="text-[12px] text-on-surface-variant/50 shrink-0" />
                           <textarea
                             value={inlineInput[side]}
                             onChange={(e) => setInlineInput((p) => ({ ...p, [side]: e.target.value }))}
@@ -1046,7 +1046,7 @@ export function MyLlmBody({ isAdmin }: AppContext) {
                           >
                             <Icon
                               name={inlineSending[side] ? 'progress_activity' : 'send'}
-                              className={`text-[15px] ${inlineSending[side] ? 'animate-spin' : ''}`}
+                              className={`text-[12px] ${inlineSending[side] ? 'animate-spin' : ''}`}
                             />
                           </button>
                         </div>
@@ -1055,9 +1055,9 @@ export function MyLlmBody({ isAdmin }: AppContext) {
                         <button
                           type="button"
                           onClick={() => setInlineInput((p) => ({ ...p, [side]: ' ' }))}
-                          className="no-drag w-full flex items-center justify-center gap-1 rounded-lg border border-dashed border-outline-variant/50 py-1 text-[11px] text-on-surface-variant/40 hover:border-primary/40 hover:text-primary hover:bg-primary/5 transition-colors opacity-0 group-hover:opacity-100"
+                          className="no-drag w-full flex items-center justify-center gap-1 rounded-lg border border-dashed border-outline-variant/50 py-1 text-[8.8px] text-on-surface-variant/40 hover:border-primary/40 hover:text-primary hover:bg-primary/5 transition-colors opacity-0 group-hover:opacity-100"
                         >
-                          <Icon name="add_comment" className="text-[13px]" />
+                          <Icon name="add_comment" className="text-[10.4px]" />
                           이어서 질문
                         </button>
                       )}
@@ -1089,7 +1089,7 @@ export function MyLlmBody({ isAdmin }: AppContext) {
         <div className="flex-1 min-w-0 flex items-center gap-3">
           {/* 레이블 + % */}
           <div className="shrink-0 flex items-center gap-1.5">
-            <Icon name="token" className="text-[14px] text-on-surface-variant" />
+            <Icon name="token" className="text-[11.2px] text-on-surface-variant" />
             <span className="text-caption font-semibold text-on-surface-variant whitespace-nowrap">
               {isAdmin ? T.adminUsage : T.balance}
             </span>
@@ -1115,13 +1115,13 @@ export function MyLlmBody({ isAdmin }: AppContext) {
             { label: T.remaining, value: turnRemaining.toLocaleString() },
           ].map((item) => (
             <div key={item.label} className="shrink-0 rounded-lg bg-surface-container-high px-2.5 py-1 text-center">
-              <div className="text-[10px] text-on-surface-variant leading-none">{item.label}</div>
+              <div className="text-[8px] text-on-surface-variant leading-none">{item.label}</div>
               <div className="text-caption font-semibold text-on-surface leading-snug">{item.value}</div>
             </div>
           ))}
 
           {/* 리셋 안내 */}
-          <span className="shrink-0 text-[10px] text-on-surface-variant/60 hidden lg:block whitespace-nowrap">
+          <span className="shrink-0 text-[8px] text-on-surface-variant/60 hidden lg:block whitespace-nowrap">
             매달 1일 초기화
           </span>
 
@@ -1162,7 +1162,7 @@ export function MyLlmBody({ isAdmin }: AppContext) {
                 onClick={() => setShowRequestModal(true)}
                 className="no-drag shrink-0 h-7 rounded-lg bg-primary/10 border border-primary/30 text-primary text-caption font-medium px-2.5 flex items-center gap-1 hover:bg-primary/20 transition-colors whitespace-nowrap"
               >
-                <Icon name="mail" className="text-[13px]" />
+                <Icon name="mail" className="text-[10.4px]" />
                 {T.requestTurns}
               </button>
             )
@@ -1177,9 +1177,9 @@ export function MyLlmBody({ isAdmin }: AppContext) {
           {/* 사이드바 헤더 */}
           <div className="shrink-0 flex items-center justify-between gap-2 px-3 py-2.5 border-b border-outline-variant">
             <div className="flex items-center gap-1.5">
-              <Icon name="history" className="text-[16px] text-on-surface-variant" />
+              <Icon name="history" className="text-[12.8px] text-on-surface-variant" />
               <span className="font-h3 text-h3 text-on-surface">{T.prevChats}</span>
-              <span className="rounded-full bg-surface-container-highest text-on-surface-variant/70 text-[10px] px-1.5 py-0.5">
+              <span className="rounded-full bg-surface-container-highest text-on-surface-variant/70 text-[8px] px-1.5 py-0.5">
                 {portalState.threads.length}
               </span>
             </div>
@@ -1190,24 +1190,24 @@ export function MyLlmBody({ isAdmin }: AppContext) {
               className="no-drag h-7 w-7 flex items-center justify-center rounded-lg text-on-surface-variant hover:bg-error/10 hover:text-error disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               title={T.resetHistory}
             >
-              <Icon name="delete_sweep" className="text-[17px]" />
+              <Icon name="delete_sweep" className="text-[13.6px]" />
             </button>
           </div>
 
           {/* 맥락 선택 배지 */}
           {selectedThreads.length > 0 && (
             <div className="shrink-0 px-3 py-2 border-b border-outline-variant bg-primary/5">
-              <p className="text-[10px] font-semibold text-primary mb-1.5 uppercase tracking-wide">맥락으로 사용 중</p>
+              <p className="text-[8px] font-semibold text-primary mb-1.5 uppercase tracking-wide">맥락으로 사용 중</p>
               <div className="flex flex-wrap gap-1">
                 {selectedThreads.map((thread) => (
                   <button
                     key={thread.id}
                     type="button"
                     onClick={() => toggleContext(thread.id)}
-                    className="no-drag inline-flex items-center gap-1 rounded-full bg-primary/10 border border-primary/20 px-2 py-0.5 text-[10px] text-primary hover:bg-error/10 hover:text-error hover:border-error/20 transition-colors"
+                    className="no-drag inline-flex items-center gap-1 rounded-full bg-primary/10 border border-primary/20 px-2 py-0.5 text-[8px] text-primary hover:bg-error/10 hover:text-error hover:border-error/20 transition-colors"
                   >
                     {thread.title.slice(0, 14)}{thread.title.length > 14 ? '…' : ''}
-                    <Icon name="close" className="text-[10px]" />
+                    <Icon name="close" className="text-[8px]" />
                   </button>
                 ))}
               </div>
@@ -1218,7 +1218,7 @@ export function MyLlmBody({ isAdmin }: AppContext) {
           <div className="custom-scrollbar min-h-0 flex-1 overflow-auto py-1">
             {portalState.threads.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-2 py-10 text-center text-on-surface-variant px-3">
-                <Icon name="chat_bubble_outline" className="text-[28px] opacity-40" />
+                <Icon name="chat_bubble_outline" className="text-[22.4px] opacity-40" />
                 <p className="text-caption">{T.noChats}</p>
               </div>
             ) : (
@@ -1245,7 +1245,7 @@ export function MyLlmBody({ isAdmin }: AppContext) {
 
                 return groups.map(({ label, threads: groupThreads }) => (
                   <div key={label}>
-                    <div className="px-3 py-1.5 text-[10px] font-semibold text-on-surface-variant/60 uppercase tracking-wider sticky top-0 bg-surface-container">
+                    <div className="px-3 py-1.5 text-[8px] font-semibold text-on-surface-variant/60 uppercase tracking-wider sticky top-0 bg-surface-container">
                       {label}
                     </div>
                     {groupThreads.map((thread) => (
@@ -1270,7 +1270,7 @@ export function MyLlmBody({ isAdmin }: AppContext) {
                         >
                           <Icon
                             name={portalState.selectedContextIds.includes(thread.id) ? 'check_circle' : 'radio_button_unchecked'}
-                            className="text-[14px]"
+                            className="text-[11.2px]"
                           />
                         </button>
 
@@ -1283,13 +1283,13 @@ export function MyLlmBody({ isAdmin }: AppContext) {
                           <div className="truncate text-body-sm leading-snug">
                             {thread.title}
                           </div>
-                          <div className="text-[10px] text-on-surface-variant/50 mt-0.5">
+                          <div className="text-[8px] text-on-surface-variant/50 mt-0.5">
                             {(() => {
                               const d = new Date(thread.updatedAt)
                               return d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
                             })()}
                             {layoutMode === 2 && (
-                              <span className={`ml-1.5 rounded px-1 text-[9px] font-medium ${
+                              <span className={`ml-1.5 rounded px-1 text-[7.2px] font-medium ${
                                 activeThreadId === thread.id ? 'bg-primary/20 text-primary' : 'bg-surface-container-highest text-on-surface-variant/60'
                               }`}>
                                 {effectiveTarget === 'right' ? T.right : T.left}에 열림
@@ -1306,7 +1306,7 @@ export function MyLlmBody({ isAdmin }: AppContext) {
                             className="no-drag shrink-0 h-6 w-6 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 text-on-surface-variant/50 hover:bg-surface-container-highest hover:text-primary transition-all"
                             title={`${T.right}에 열기`}
                           >
-                            <Icon name="arrow_forward" className="text-[13px]" />
+                            <Icon name="arrow_forward" className="text-[10.4px]" />
                           </button>
                         )}
 
@@ -1317,7 +1317,7 @@ export function MyLlmBody({ isAdmin }: AppContext) {
                           className="no-drag shrink-0 h-6 w-6 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 text-on-surface-variant/40 hover:bg-error/10 hover:text-error transition-all"
                           aria-label="delete chat"
                         >
-                          <Icon name="close" className="text-[13px]" />
+                          <Icon name="close" className="text-[10.4px]" />
                         </button>
                       </div>
                     ))}
@@ -1363,7 +1363,7 @@ export function MyLlmBody({ isAdmin }: AppContext) {
             aria-label={T.addFile}
             title={T.addFile}
           >
-            <Icon name="attach_file" className="text-[16px]" />
+            <Icon name="attach_file" className="text-[12.8px]" />
             <span className="text-caption hidden sm:inline">파일</span>
           </button>
 
@@ -1375,16 +1375,16 @@ export function MyLlmBody({ isAdmin }: AppContext) {
                 file.isPdf
                   ? 'border-error/30 bg-error/5 text-error'
                   : file.type.startsWith('image/')
-                    ? 'border-emerald-300 bg-emerald-50 text-emerald-800'
+                    ? 'border-primary/40 bg-primary/10 text-primary-light'
                     : 'border-outline-variant bg-white text-on-surface-variant'
               }`}
             >
               <Icon
                 name={file.isPdf ? 'picture_as_pdf' : file.type.startsWith('image/') ? 'image' : 'attach_file'}
-                className="text-[13px]"
+                className="text-[10.4px]"
               />
               <span className="max-w-[120px] truncate">{file.name}</span>
-              {file.pdfPageCount && <span className="text-[10px] opacity-70">{file.pdfPageCount}p</span>}
+              {file.pdfPageCount && <span className="text-[8px] opacity-70">{file.pdfPageCount}p</span>}
               <button
                 type="button"
                 className="no-drag ml-0.5 text-on-surface-variant hover:text-error"
@@ -1393,7 +1393,7 @@ export function MyLlmBody({ isAdmin }: AppContext) {
                 }
                 aria-label="remove file"
               >
-                <Icon name="close" className="text-[12px]" />
+                <Icon name="close" className="text-[9.6px]" />
               </button>
             </span>
           ))}
@@ -1447,13 +1447,13 @@ export function MyLlmBody({ isAdmin }: AppContext) {
             className="no-drag h-8 shrink-0 rounded-lg border border-outline-variant bg-white text-on-surface-variant hover:text-primary hover:bg-primary/5 flex items-center justify-center gap-1 px-2.5"
             title="AI 문서 생성"
           >
-            <Icon name="auto_awesome" className="text-[16px]" />
+            <Icon name="auto_awesome" className="text-[12.8px]" />
             <span className="text-caption hidden sm:inline">문서</span>
           </button>
 
           {/* 잔여 턴 (오른쪽 정렬) */}
           <span className="ml-auto shrink-0 flex items-center gap-1 text-caption text-on-surface-variant/70 whitespace-nowrap">
-            <Icon name="token" className="text-[13px]" />
+            <Icon name="token" className="text-[10.4px]" />
             {turnRemaining > 0
               ? `${turnRemaining.toLocaleString()}턴 남음`
               : <span className="text-error font-medium">턴 소진</span>}
@@ -1494,7 +1494,7 @@ export function MyLlmBody({ isAdmin }: AppContext) {
           >
             <Icon
               name={sending ? 'progress_activity' : 'send'}
-              className={`text-[20px] ${sending ? 'animate-spin' : ''}`}
+              className={`text-[16px] ${sending ? 'animate-spin' : ''}`}
             />
           </button>
 
@@ -1507,7 +1507,7 @@ export function MyLlmBody({ isAdmin }: AppContext) {
             aria-label={T.clearInput}
             title={T.clearInput}
           >
-            <Icon name="close" className="text-[20px]" />
+            <Icon name="close" className="text-[16px]" />
           </button>
         </div>
       </div>

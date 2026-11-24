@@ -7,7 +7,7 @@ import { isLoginIdAvailable, normalizeLoginId, resolveLoginEmail } from '../auth
 import { authenticateLocal, registerLocalAccount } from '../auth/localAccounts'
 import { canLoginWithRole } from '../auth/loginRolePolicy'
 import { isPasswordChangeRequired, requestPasswordReset } from '../auth/passwordReset'
-import { notifyAdminSignupApprovalNeeded } from '../auth/signupNotifications'
+import { notifyAdminForUnconfirmedSignup, notifyAdminSignupApprovalNeeded } from '../auth/signupNotifications'
 import { getSignupProfileFromUser } from '../auth/signupProfile'
 import { ensureAiHubMembership, getAiHubSession } from '../auth/supabaseMembership'
 import type { UserRole } from '../auth/types'
@@ -365,6 +365,7 @@ export default function LoginPage() {
             setError('이 이메일로 가입을 완료하지 못했습니다. 이미 가입한 이메일이면 기존 아이디·비밀번호 또는 Google로 로그인해 주세요. 비밀번호를 잊었다면 비밀번호 재설정을 이용해 주세요.')
             return
           }
+          await notifyAdminForUnconfirmedSignup(signedUser.id)
           setNotice(
             `가입 요청을 접수했습니다. ${emailTrim} 메일함에서 인증 링크를 확인해 주세요. 이메일 인증과 기존 관리자의 승인이 완료된 뒤 로그인할 수 있습니다. 이미 가입한 이메일이라면 기존 계정으로 로그인하거나 비밀번호를 재설정해 주세요.`,
           )
@@ -486,7 +487,7 @@ export default function LoginPage() {
         className="absolute inset-0 -z-10"
         style={{
           background:
-            'radial-gradient(circle at top left, #f5f3ff 0%, #f8fafc 100%)',
+            'radial-gradient(circle at top left, #303c34 0%, #202622 62%, #191e1b 100%)',
         }}
       />
       <div className="fixed top-0 right-0 -z-10 w-[500px] h-[500px] bg-primary-container/5 blur-[120px] rounded-full translate-x-1/2 -translate-y-1/2" />
@@ -515,7 +516,7 @@ export default function LoginPage() {
           aria-label="환경설정"
           title="환경설정"
         >
-          <Icon name="tune" className="text-[20px]" />
+          <Icon name="tune" className="text-[16px]" />
           <span className="font-h3 text-h3">환경설정</span>
         </button>
       </div>
@@ -546,7 +547,7 @@ export default function LoginPage() {
                 aria-label="닫기"
                 onClick={() => setAdminDrawerOpen(false)}
               >
-                <Icon name="close" className="text-[22px]" />
+                <Icon name="close" className="text-[17.6px]" />
               </button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto p-4">
@@ -608,7 +609,7 @@ export default function LoginPage() {
                     }}
                     className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary font-h3 text-h3 text-on-primary hover:opacity-90 transition-opacity"
                   >
-                    <Icon name="tune" className="text-[18px]" />
+                    <Icon name="tune" className="text-[14.4px]" />
                     API 설정
                   </button>
                   <button
@@ -661,10 +662,10 @@ export default function LoginPage() {
                   className={`flex min-h-[3rem] items-center justify-center gap-2 whitespace-nowrap rounded-lg px-3 py-3 font-h3 text-h3 transition-all ${
                     role === 'user'
                       ? 'border border-outline-variant bg-white text-primary shadow-sm'
-                      : 'text-on-surface-variant hover:bg-white/60 hover:text-on-surface'
+                      : 'text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'
                   }`}
                 >
-                  <Icon name="person" className="shrink-0 text-[20px]" />
+                  <Icon name="person" className="shrink-0 text-[16px]" />
                   일반 사용자
                 </button>
                 {adminUiRevealed && (
@@ -678,10 +679,10 @@ export default function LoginPage() {
                     className={`flex min-h-[3rem] items-center justify-center gap-2 whitespace-nowrap rounded-lg px-3 py-3 font-h3 text-h3 transition-all ${
                       role === 'admin'
                         ? 'border-2 border-primary bg-primary/10 text-primary shadow-sm'
-                        : 'text-on-surface-variant hover:bg-white/60 hover:text-on-surface'
+                        : 'text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'
                     }`}
                   >
-                    <Icon name="admin_panel_settings" className="shrink-0 text-[20px]" />
+                    <Icon name="admin_panel_settings" className="shrink-0 text-[16px]" />
                     관리자
                   </button>
                 )}
@@ -693,7 +694,7 @@ export default function LoginPage() {
                   className="flex min-h-[3rem] w-full items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-outline-variant bg-white px-3 py-3 font-h3 text-h3 text-primary shadow-sm transition-all hover:bg-primary/5"
                   aria-label="공용 환경 설정 (Supabase)"
                 >
-                  <Icon name="tune" className="shrink-0 text-[20px]" />
+                  <Icon name="tune" className="shrink-0 text-[16px]" />
                   환경 설정
                 </button>
               )}
@@ -709,7 +710,7 @@ export default function LoginPage() {
                 className={`flex-1 rounded-lg border py-2.5 font-h3 text-h3 transition-all ${
                   authMode === 'login'
                     ? 'border-outline-variant bg-white text-primary shadow-sm'
-                    : 'border-transparent text-on-surface-variant hover:bg-white/60 hover:text-on-surface'
+                    : 'border-transparent text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'
                 }`}
               >
                 로그인
@@ -724,7 +725,7 @@ export default function LoginPage() {
                 className={`flex-1 rounded-lg border py-2.5 font-h3 text-h3 transition-all ${
                   authMode === 'register'
                     ? 'border-outline-variant bg-white text-primary shadow-sm'
-                    : 'border-transparent text-on-surface-variant hover:bg-white/60 hover:text-on-surface'
+                    : 'border-transparent text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'
                 }`}
               >
                 회원가입
@@ -736,7 +737,7 @@ export default function LoginPage() {
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div className="space-y-1 px-1">
               <p className="font-h3 text-h3 text-on-surface flex items-center gap-2">
-                <Icon name="lock_reset" className="text-[20px] text-primary" />
+                <Icon name="lock_reset" className="text-[16px] text-primary" />
                 비밀번호 찾기
               </p>
               <p className="font-caption text-caption text-on-surface-variant">
@@ -794,7 +795,7 @@ export default function LoginPage() {
             {role === 'admin' && (
               <div className="space-y-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
                 <p className="font-h3 text-h3 text-primary flex items-center gap-2">
-                  <Icon name="business" className="text-[20px]" />
+                  <Icon name="business" className="text-[16px]" />
                   관리자 정보
                 </p>
                 <div className="space-y-2">
@@ -993,7 +994,7 @@ export default function LoginPage() {
               <div className="flex-grow border-t border-outline-variant" />
             </div>
             <button
-              className="w-full h-11 bg-white hover:bg-slate-50 border border-outline-variant text-on-surface font-h3 text-h3 rounded-lg flex items-center justify-center gap-3 transition-all active:scale-[0.98]"
+              className="w-full h-11 bg-surface-container hover:bg-surface-container-high border border-outline-variant text-on-surface font-h3 text-h3 rounded-lg flex items-center justify-center gap-3 transition-all active:scale-[0.98]"
               type="button"
               onClick={() => {
                 try {

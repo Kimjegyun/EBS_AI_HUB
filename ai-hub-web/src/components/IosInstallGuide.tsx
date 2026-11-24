@@ -91,9 +91,9 @@ export default function IosInstallGuide({ appName, onClose }: IosInstallGuidePro
       {/* Points at the browser's share button: bottom toolbar in Safari, address bar in Chrome. */}
       {(browser === 'safari' || browser === 'chrome') && (
         <div aria-hidden="true" className={`pointer-events-none absolute flex flex-col items-center ${browser === 'chrome' ? 'right-6 top-2' : 'bottom-3 left-1/2 -translate-x-1/2'}`}>
-          {browser === 'chrome' && <Icon name="arrow_upward" className="animate-bounce text-[44px]" />}
-          <span className="rounded-full bg-white px-3 py-1 text-caption font-bold text-black">공유 □↑</span>
-          {browser === 'safari' && <Icon name="arrow_downward" className="animate-bounce text-[44px]" />}
+          {browser === 'chrome' && <Icon name="arrow_upward" className="animate-bounce text-[35.2px]" />}
+          <span className="rounded-full bg-surface-container-high px-3 py-1 text-caption font-bold text-on-surface">공유 □↑</span>
+          {browser === 'safari' && <Icon name="arrow_downward" className="animate-bounce text-[35.2px]" />}
         </div>
       )}
     </div>

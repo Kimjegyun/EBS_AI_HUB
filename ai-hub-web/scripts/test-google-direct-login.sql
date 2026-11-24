@@ -20,13 +20,13 @@ begin
     values(u, u::text, 'google', jsonb_build_object('sub', u::text));
   delete from core.project_memberships where user_id = u;
   s := public.ai_hub_google_login();
-  if s->>'role' <> 'user' or s->>'status' <> 'approved' then raise exception 'New user login failed'; end if;
+  if s->>'role' <> 'user' or s->>'status' <> 'pending' then raise exception 'New user must await approval'; end if;
   update core.profiles set display_name = 'Preserved name' where user_id = u;
   foreach r in array array['user','admin','owner'] loop
     foreach st in array array['pending','approved','rejected'] loop
       update core.project_memberships set role = r, status = st where user_id = u and project_id = p;
       s := public.ai_hub_google_login();
-      if s->>'role' <> r or s->>'status' <> (case when r = 'user' and st = 'pending' then 'approved' else st end)
+      if s->>'role' <> r or s->>'status' <> st
         or s->>'display_name' <> 'Preserved name' then
         raise exception 'Role, status or profile changed unexpectedly: %, %', r, st;
       end if;

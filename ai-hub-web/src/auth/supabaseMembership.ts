@@ -1,4 +1,4 @@
-import type { User } from '@supabase/supabase-js'
+﻿import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { withTimeout } from '../lib/withTimeout'
 import type { AuthSession, MembershipStatus, UserRole } from './types'
@@ -7,7 +7,7 @@ import { readGoogleProfile } from './googleProfile'
 const AI_HUB_RPC_TIMEOUT_MS = 15_000
 
 export type AiHubMember = {
-  /** 성명 (Korean full name) kept by admins when the display name is an English short form. */
+  /** ?깅챸 (Korean full name) kept by admins when the display name is an English short form. */
   realName?: string | null
   /** False until the user clicks the email confirmation link (email/ID signups). */
   emailConfirmed?: boolean
@@ -47,10 +47,13 @@ type RpcResult<T> = {
   error: { message: string } | null
 }
 
+type ApprovalRpcResult = { status?: string; changed?: boolean }
+export type MemberApprovalOutcome = 'approved' | 'already-approved' | 'approved-notification-warning' | 'already-approved-notification-warning' | null
+
 function throwRpcSetupError(error: { message: string }) {
   if (error.message.includes('schema cache') || error.message.includes('Could not find the function')) {
     throw new Error(
-      'Supabase AI HUB 인증 RPC가 아직 적용되지 않았습니다. SQL Editor에서 20260605090000_ai_hub_complete_auth_setup.sql을 실행해 주세요.',
+      'Supabase AI HUB ?몄쬆 RPC媛 ?꾩쭅 ?곸슜?섏? ?딆븯?듬땲?? SQL Editor?먯꽌 20260605090000_ai_hub_complete_auth_setup.sql???ㅽ뻾??二쇱꽭??',
     )
   }
   throw new Error(error.message)
@@ -138,19 +141,23 @@ export async function getAiHubSession(): Promise<AuthSession | null> {
   const { data, error } = await withTimeout<RpcResult<unknown>>(
     Promise.resolve(supabase.rpc('ai_hub_get_session_v2') as unknown as RpcResult<unknown>),
     AI_HUB_RPC_TIMEOUT_MS,
-    'AI HUB 세션 조회가 지연되고 있습니다. Supabase RPC 함수와 네트워크 상태를 확인해 주세요.',
+    'AI HUB ?몄뀡 議고쉶媛 吏?곕릺怨??덉뒿?덈떎. Supabase RPC ?⑥닔? ?ㅽ듃?뚰겕 ?곹깭瑜??뺤씤??二쇱꽭??',
   )
   if (error) throwRpcSetupError(error)
   const row = firstRpcObject(data)
   const session = row ? mapSessionRow(row) : null
   if (!session) return null
   const { data: { user }, error: userError } = await supabase.auth.getUser()
-  if (userError || !user) throw new Error('사용자 정보를 확인하지 못했습니다. 다시 로그인해 주세요.')
+  if (userError || !user) throw new Error('?ъ슜???뺣낫瑜??뺤씤?섏? 紐삵뻽?듬땲?? ?ㅼ떆 濡쒓렇?명빐 二쇱꽭??')
   const profile = readGoogleProfile(user.user_metadata ?? {})
   // Membership and approval come from the server. Older accounts may lack
   // Google signup profile fields; that must not turn them into new members.
   return { ...session, organization: profile.headquarters || session.organization,
-    department: profile.department || undefined, contactPhone: profile.phone || undefined }
+    department: profile.department || undefined, contactPhone: profile.phone || undefined,
+    needsGoogleProfile: (user.app_metadata?.provider === 'google' ||
+      (Array.isArray(user.app_metadata?.providers) && user.app_metadata.providers.includes('google')) ||
+      !!user.identities?.some(identity => identity.provider === 'google')) &&
+      ![profile.headquarters, profile.department, profile.phone].every(value => value.trim()) }
 }
 
 export async function loginWithGoogleMembership(): Promise<AuthSession | null> {
@@ -158,11 +165,11 @@ export async function loginWithGoogleMembership(): Promise<AuthSession | null> {
   const { data, error } = await withTimeout<RpcResult<unknown>>(
     Promise.resolve(supabase.rpc('ai_hub_google_login') as unknown as RpcResult<unknown>),
     AI_HUB_RPC_TIMEOUT_MS,
-    'Google 로그인이 지연되고 있습니다. 잠시 후 다시 시도해 주세요.',
+    'Google 濡쒓렇?몄씠 吏?곕릺怨??덉뒿?덈떎. ?좎떆 ???ㅼ떆 ?쒕룄??二쇱꽭??',
   )
   if (error) throw new Error(error.message)
   const row = firstRpcObject(data)
-  return row ? mapSessionRow(row) : null
+  return row ? getAiHubSession() : null
 }
 
 export async function ensureAiHubMembership(params: {
@@ -178,7 +185,7 @@ export async function ensureAiHubMembership(params: {
       p_requested_role: params.requestedRole,
     }) as unknown as RpcResult<unknown>),
     AI_HUB_RPC_TIMEOUT_MS,
-    'AI HUB 멤버십 생성이 지연되고 있습니다. Supabase SQL Editor에서 v2 RPC가 생성됐는지 확인해 주세요.',
+    'AI HUB 硫ㅻ쾭???앹꽦??吏?곕릺怨??덉뒿?덈떎. Supabase SQL Editor?먯꽌 v2 RPC媛 ?앹꽦?먮뒗吏 ?뺤씤??二쇱꽭??',
   )
   if (error) throwRpcSetupError(error)
   const row = firstRpcObject(data)
@@ -190,7 +197,7 @@ export async function listAiHubMembers(): Promise<AiHubMember[]> {
   const { data, error } = await withTimeout<RpcResult<unknown>>(
     Promise.resolve(supabase.rpc('ai_hub_list_members_v3') as unknown as RpcResult<unknown>),
     AI_HUB_RPC_TIMEOUT_MS,
-    'AI HUB 사용자 목록 조회가 지연되고 있습니다. Supabase RPC 함수와 권한 정책을 확인해 주세요.',
+    'AI HUB ?ъ슜??紐⑸줉 議고쉶媛 吏?곕릺怨??덉뒿?덈떎. Supabase RPC ?⑥닔? 沅뚰븳 ?뺤콉???뺤씤??二쇱꽭??',
   )
   if (error) throwRpcSetupError(error)
   return rpcArray(data)
@@ -204,14 +211,14 @@ export async function listAiHubMembers(): Promise<AiHubMember[]> {
  * account itself was deleted.
  */
 export async function deleteAiHubMember(userId: string): Promise<{ accountDeleted: boolean }> {
-  if (!supabase) throw new Error('Supabase 연결 설정이 필요합니다.')
+  if (!supabase) throw new Error('Supabase ?곌껐 ?ㅼ젙???꾩슂?⑸땲??')
   const { data, error } = await withTimeout<RpcResult<unknown>>(
     Promise.resolve(supabase.rpc('ai_hub_delete_member_v1', { p_user_id: userId }) as unknown as RpcResult<unknown>),
     AI_HUB_RPC_TIMEOUT_MS,
-    'AI HUB 사용자 삭제가 지연되고 있습니다. Supabase 연결을 확인해 주세요.',
+    'AI HUB ?ъ슜????젣媛 吏?곕릺怨??덉뒿?덈떎. Supabase ?곌껐???뺤씤??二쇱꽭??',
   )
   if (error && (error.message.includes('schema cache') || error.message.includes('Could not find the function'))) {
-    throw new Error('사용자 삭제 기능이 Supabase에 아직 설치되지 않았습니다. SQL Editor에서 20261008110000_admin_delete_member.sql을 실행해 주세요.')
+    throw new Error('?ъ슜????젣 湲곕뒫??Supabase???꾩쭅 ?ㅼ튂?섏? ?딆븯?듬땲?? SQL Editor?먯꽌 20261008110000_admin_delete_member.sql???ㅽ뻾??二쇱꽭??')
   }
   if (error) throwRpcSetupError(error)
   return { accountDeleted: asObject(data)?.account_deleted === true }
@@ -219,22 +226,22 @@ export async function deleteAiHubMember(userId: string): Promise<{ accountDelete
 
 /** Admin sets a temporary password; the user must change it at next sign-in (ai_hub_admin_reset_member_password_v1). */
 export async function resetAiHubMemberPassword(userId: string, temporaryPassword: string): Promise<void> {
-  if (!supabase) throw new Error('Supabase 연결 설정이 필요합니다.')
+  if (!supabase) throw new Error('Supabase ?곌껐 ?ㅼ젙???꾩슂?⑸땲??')
   const { error } = await withTimeout<RpcResult<unknown>>(
     Promise.resolve(supabase.rpc('ai_hub_admin_reset_member_password_v1', {
       p_user_id: userId,
       p_new_password: temporaryPassword,
     }) as unknown as RpcResult<unknown>),
     AI_HUB_RPC_TIMEOUT_MS,
-    '비밀번호 초기화가 지연되고 있습니다. Supabase 연결을 확인해 주세요.',
+    '鍮꾨?踰덊샇 珥덇린?붽? 吏?곕릺怨??덉뒿?덈떎. Supabase ?곌껐???뺤씤??二쇱꽭??',
   )
   if (error && (error.message.includes('schema cache') || error.message.includes('Could not find the function'))) {
-    throw new Error('비밀번호 초기화 기능이 Supabase에 아직 설치되지 않았습니다. SQL Editor에서 20261014090000_admin_reset_member_password.sql을 실행해 주세요.')
+    throw new Error('鍮꾨?踰덊샇 珥덇린??湲곕뒫??Supabase???꾩쭅 ?ㅼ튂?섏? ?딆븯?듬땲?? SQL Editor?먯꽌 20261014090000_admin_reset_member_password.sql???ㅽ뻾??二쇱꽭??')
   }
   if (error) throwRpcSetupError(error)
 }
 
-/** Admin edit of a member's 이름·성명·소속·부서·연락처·역할·상태 (ai_hub_update_member_profile_v2). */
+/** Admin edit of member profile and access, including atomic approval transitions. */
 export async function updateAiHubMemberProfile(params: {
   userId: string
   displayName: string
@@ -244,10 +251,10 @@ export async function updateAiHubMemberProfile(params: {
   contactPhone: string
   role: 'owner' | 'admin' | 'user'
   status: MembershipStatus
-}): Promise<void> {
-  if (!supabase) throw new Error('Supabase 연결 설정이 필요합니다.')
-  const { error } = await withTimeout<RpcResult<unknown>>(
-    Promise.resolve(supabase.rpc('ai_hub_update_member_profile_v2', {
+}): Promise<MemberApprovalOutcome> {
+  if (!supabase) throw new Error('Supabase ?곌껐 ?ㅼ젙???꾩슂?⑸땲??')
+  const { data, error } = await withTimeout<RpcResult<ApprovalRpcResult>>(
+    Promise.resolve(supabase.rpc('ai_hub_update_member_profile_v3', {
       p_user_id: params.userId,
       p_display_name: params.displayName,
       p_real_name: params.realName,
@@ -256,22 +263,73 @@ export async function updateAiHubMemberProfile(params: {
       p_contact_phone: params.contactPhone,
       p_role: params.role,
       p_status: params.status,
-    }) as unknown as RpcResult<unknown>),
+    }) as unknown as RpcResult<ApprovalRpcResult>),
     AI_HUB_RPC_TIMEOUT_MS,
-    'AI HUB 사용자 정보 저장이 지연되고 있습니다. Supabase 연결을 확인해 주세요.',
+    'AI HUB ?ъ슜???뺣낫 ??μ씠 吏?곕릺怨??덉뒿?덈떎. Supabase ?곌껐???뺤씤??二쇱꽭??',
   )
   if (error && (error.message.includes('schema cache') || error.message.includes('Could not find the function'))) {
-    throw new Error('사용자 정보 수정(성명 포함) 기능이 Supabase에 아직 설치되지 않았습니다. SQL Editor에서 20261008090000_admin_edit_member_profile.sql과 20261008120000_member_real_name.sql을 실행해 주세요.')
+    throw new Error('?ъ슜???뱀씤 ?뚮┝ 湲곕뒫??Supabase???꾩쭅 ?ㅼ튂?섏? ?딆븯?듬땲?? SQL Editor?먯꽌 20261118100000_admin_signup_approval_notifications.sql???ㅽ뻾??二쇱꽭??')
   }
   if (error) throwRpcSetupError(error)
+  if (params.status !== 'approved') return null
+  const transitioned = data?.changed === true
+  const notificationsSent = await notifyApprovalEvents(params.userId, transitioned)
+  if (transitioned) return notificationsSent ? 'approved' : 'approved-notification-warning'
+  if (data?.status === 'approved') return notificationsSent ? 'already-approved' : 'already-approved-notification-warning'
+  return null
+}
+
+async function sendMembershipApprovalEmail(userId: string): Promise<void> {
+  if (!supabase) return
+  const { error } = await supabase.functions.invoke('notify-member-approved', { body: { user_id: userId } })
+  if (error) throw new Error(`?뱀씤? ??ν뻽吏留?媛?낆옄 硫붿씪??蹂대궡吏 紐삵뻽?듬땲?? ${error.message}`)
+}
+
+async function sendAdminApprovalNotification(userId: string): Promise<void> {
+  if (!supabase) return
+  const { data, error } = await supabase.functions.invoke('notify-admin-member-approved', { body: { user_id: userId } })
+  if (error || data?.sent === false) {
+    throw new Error(error?.message ?? data?.error ?? '愿由ъ옄 ?뱀씤 ?꾨즺 ?뚮┝??蹂대궡吏 紐삵뻽?듬땲??')
+  }
+}
+
+async function notifyApprovalEvents(userId: string, sendMemberMail: boolean): Promise<boolean> {
+  const notifications: Array<Promise<void>> = [sendAdminApprovalNotification(userId)]
+  if (sendMemberMail) notifications.push(sendMembershipApprovalEmail(userId))
+  const results = await Promise.allSettled(notifications)
+  const failures = results.flatMap((result) => result.status === 'rejected'
+    ? [result.reason instanceof Error ? result.reason.message : '硫붿씪 諛쒖넚???ㅽ뙣?덉뒿?덈떎.']
+    : [])
+  return failures.length === 0
 }
 
 export async function updateAiHubMember(params: {
   userId: string
   status: MembershipStatus
   role: 'owner' | 'admin' | 'user'
-}): Promise<void> {
-  if (!supabase) return
+}): Promise<MemberApprovalOutcome> {
+  if (!supabase) return null
+  if (params.status === 'approved') {
+    const { data, error } = await withTimeout<RpcResult<ApprovalRpcResult>>(
+      Promise.resolve(supabase.rpc('ai_hub_approve_member_v1', {
+        p_user_id: params.userId,
+        p_role: params.role,
+      }) as unknown as RpcResult<ApprovalRpcResult>),
+      AI_HUB_RPC_TIMEOUT_MS,
+      'AI HUB ?ъ슜???뱀씤 泥섎━媛 吏?곕릺怨??덉뒿?덈떎. ?곌껐???뺤씤??二쇱꽭??',
+    )
+    if (error && (error.message.includes('schema cache') || error.message.includes('Could not find the function'))) {
+      throw new Error('?먯옄???뱀씤 湲곕뒫??Supabase???ㅼ튂?섏? ?딆븯?듬땲?? SQL Editor?먯꽌 20261118100000_admin_signup_approval_notifications.sql???ㅽ뻾??二쇱꽭??')
+    }
+    if (error) throwRpcSetupError(error)
+    const transitioned = data?.changed === true
+    const notificationsSent = data?.status === 'approved'
+      ? await notifyApprovalEvents(params.userId, transitioned)
+      : false
+    if (transitioned) return notificationsSent ? 'approved' : 'approved-notification-warning'
+    if (data?.status === 'approved') return notificationsSent ? 'already-approved' : 'already-approved-notification-warning'
+    return null
+  }
   const { error } = await withTimeout<RpcResult<unknown>>(
     Promise.resolve(supabase.rpc('ai_hub_update_member_v2', {
       p_user_id: params.userId,
@@ -279,13 +337,14 @@ export async function updateAiHubMember(params: {
       p_role: params.role,
     }) as unknown as RpcResult<unknown>),
     AI_HUB_RPC_TIMEOUT_MS,
-    'AI HUB 사용자 상태 변경이 지연되고 있습니다. Supabase RPC 함수와 권한 정책을 확인해 주세요.',
+    'AI HUB ?ъ슜???곹깭 蹂寃쎌씠 吏?곕릺怨??덉뒿?덈떎. Supabase RPC ?⑥닔? 沅뚰븳 ?뺤콉???뺤씤??二쇱꽭??',
   )
   if (error) throwRpcSetupError(error)
+  return null
 }
 
 export async function setAiHubMemberRole(userId: string, role: 'admin' | 'user'): Promise<void> {
-  if (!supabase) throw new Error('Supabase 연결 설정이 필요합니다.')
+  if (!supabase) throw new Error('Supabase ?곌껐 ?ㅼ젙???꾩슂?⑸땲??')
   const { error } = await supabase.rpc('ai_hub_set_member_role_v1', { p_user_id: userId, p_role: role })
   if (error) throw new Error(error.message)
 }

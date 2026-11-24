@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+﻿import { useEffect, useState, type FormEvent } from 'react'
 import { useEnvironmentConfig } from '../context/EnvironmentConfigContext'
 import { saveEnvironmentConfig } from '../lib/environmentConfig'
 import {
@@ -36,17 +36,14 @@ function optionalUrl(s: string): string | undefined {
 }
 
 export default function EnvironmentSettingsDialog({ open, onClose }: Props) {
-  const { config, updatedAt, refetch, supabaseReady, loading, error: loadError } =
+  const { config, refetch, supabaseReady, error: loadError } =
     useEnvironmentConfig()
 
   const [serviceDisplayName, setServiceDisplayName] = useState('')
-  const [supportEmail, setSupportEmail] = useState('')
-  const [publicApiBaseUrl, setPublicApiBaseUrl] = useState('')
-  const [integrationsWebhookUrl, setIntegrationsWebhookUrl] = useState('')
-  const [adminNotes, setAdminNotes] = useState('')
   const [supabaseUrl, setSupabaseUrl] = useState('')
   const [supabaseAnonKey, setSupabaseAnonKey] = useState('')
   const [runtimeOverride, setRuntimeOverride] = useState(false)
+  const [showSupabaseDetails, setShowSupabaseDetails] = useState(false)
   const [needsReload, setNeedsReload] = useState(false)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
@@ -65,13 +62,10 @@ export default function EnvironmentSettingsDialog({ open, onClose }: Props) {
     setSupabaseUrl(runtime.url)
     setSupabaseAnonKey(runtime.anonKey)
     setRuntimeOverride(hasRuntimeSupabaseOverride())
+    setShowSupabaseDetails(!supabaseReady)
     setServiceDisplayName(config.service_display_name ?? '')
-    setSupportEmail(config.support_email ?? '')
-    setPublicApiBaseUrl(config.public_api_base_url ?? '')
-    setIntegrationsWebhookUrl(config.integrations_webhook_url ?? '')
-    setAdminNotes(config.admin_notes ?? '')
     setActivePanel('settings')
-  }, [open, config])
+  }, [open, config, supabaseReady])
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -103,10 +97,6 @@ export default function EnvironmentSettingsDialog({ open, onClose }: Props) {
     try {
       parsed = {
         service_display_name: emptyToUndefined(serviceDisplayName),
-        support_email: emptyToUndefined(supportEmail),
-        public_api_base_url: optionalUrl(publicApiBaseUrl),
-        integrations_webhook_url: optionalUrl(integrationsWebhookUrl),
-        admin_notes: emptyToUndefined(adminNotes),
       }
     } catch (err) {
       setFormError(err instanceof Error ? err.message : '입력값을 확인해 주세요.')
@@ -168,7 +158,7 @@ export default function EnvironmentSettingsDialog({ open, onClose }: Props) {
         <div className="sticky top-0 z-10 border-b border-outline-variant bg-surface-container px-6 py-4">
           <div className="mb-3 flex items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <Icon name="admin_panel_settings" className="text-primary text-[24px]" />
+              <Icon name="admin_panel_settings" className="text-primary text-[19.2px]" />
               <h2 id="admin-settings-title" className="font-h2 text-h2 text-on-surface">
                 관리자 모드 설정
               </h2>
@@ -195,8 +185,8 @@ export default function EnvironmentSettingsDialog({ open, onClose }: Props) {
                   : 'text-on-surface-variant hover:text-on-surface'
               }`}
             >
-              <Icon name="tune" className="text-[18px]" />
-              API 설정
+              <Icon name="tune" className="text-[14.4px]" />
+              일반 설정
             </button>
             <button
               type="button"
@@ -209,7 +199,7 @@ export default function EnvironmentSettingsDialog({ open, onClose }: Props) {
                   : 'text-on-surface-variant hover:text-on-surface'
               }`}
             >
-              <Icon name="menu_book" className="text-[18px]" />
+              <Icon name="menu_book" className="text-[14.4px]" />
               연결 가이드
             </button>
           </div>
@@ -219,7 +209,10 @@ export default function EnvironmentSettingsDialog({ open, onClose }: Props) {
           <div className="max-h-[calc(90vh-8.5rem)] overflow-y-auto">
             <SupabaseConnectionGuide
               supabaseReady={supabaseReady}
-              onGoToEdit={() => setActivePanel('settings')}
+              onGoToEdit={() => {
+                setActivePanel('settings')
+                setShowSupabaseDetails(true)
+              }}
             />
           </div>
         ) : (
@@ -229,7 +222,9 @@ export default function EnvironmentSettingsDialog({ open, onClose }: Props) {
                 <div>
                   <h3 className="font-h3 text-h3 text-on-surface">Supabase 연결</h3>
                   <p className="font-caption text-caption text-on-surface-variant">
-                    Project URL과 anon public key만 저장하세요. service_role key는 브라우저에 저장하면 안 됩니다.
+                    {supabaseReady
+                      ? '연결되어 있습니다. 상세 연결 정보는 기본 화면에서 숨겼습니다.'
+                      : '초기 연결에 필요한 Project URL과 공개 키를 입력하세요. service_role 키는 입력하지 마세요.'}
                   </p>
                 </div>
                 <span className={`shrink-0 rounded-full px-2.5 py-1 font-label text-label ${
@@ -239,76 +234,87 @@ export default function EnvironmentSettingsDialog({ open, onClose }: Props) {
                 </span>
               </div>
 
-              <div className="space-y-2">
-                <label className="font-h3 text-h3 text-on-surface" htmlFor="env-supabase-url">
-                  Supabase Project URL
-                </label>
-                <input
-                  id="env-supabase-url"
-                  className="w-full rounded-lg border border-outline-variant bg-white px-4 py-2.5 font-mono text-body-sm text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  value={supabaseUrl}
-                  onChange={(ev) => setSupabaseUrl(ev.target.value)}
-                  placeholder="https://project-ref.supabase.co"
-                  autoComplete="off"
-                />
-              </div>
+              {supabaseReady && (
+                <button
+                  type="button"
+                  aria-expanded={showSupabaseDetails}
+                  onClick={() => setShowSupabaseDetails((value) => !value)}
+                  className="rounded-lg border border-outline-variant px-3 py-2 font-label text-label text-on-surface hover:bg-surface-container-high"
+                >
+                  {showSupabaseDetails ? '연결 정보 숨기기' : '고급 연결 설정'}
+                </button>
+              )}
 
-              <div className="space-y-2">
-                <label className="font-h3 text-h3 text-on-surface" htmlFor="env-supabase-anon">
-                  Supabase Anon Public Key
-                </label>
-                <textarea
-                  id="env-supabase-anon"
-                  rows={3}
-                  className="w-full rounded-lg border border-outline-variant bg-white px-4 py-2.5 font-mono text-[11px] leading-relaxed text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  value={supabaseAnonKey}
-                  onChange={(ev) => setSupabaseAnonKey(ev.target.value)}
-                  placeholder="eyJhbGciOiJIUzI1NiIs..."
-                  autoComplete="off"
-                />
-              </div>
+              {(!supabaseReady || showSupabaseDetails) && (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="font-h3 text-h3 text-on-surface" htmlFor="env-supabase-url">
+                      Supabase Project URL
+                    </label>
+                    <input
+                      id="env-supabase-url"
+                      className="w-full rounded-lg border border-outline-variant bg-white px-4 py-2.5 font-mono text-body-sm text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      value={supabaseUrl}
+                      onChange={(ev) => setSupabaseUrl(ev.target.value)}
+                      placeholder="https://project-ref.supabase.co"
+                      autoComplete="off"
+                    />
+                  </div>
 
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="font-caption text-caption text-on-surface-variant">
-                  {runtimeOverride ? '브라우저 저장 설정을 사용 중입니다.' : '.env 기본 설정을 사용 중입니다.'}
-                </p>
-                {runtimeOverride && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      clearRuntimeSupabaseConfig()
-                      const fallback = getRuntimeSupabaseConfig()
-                      setSupabaseUrl(fallback.url)
-                      setSupabaseAnonKey(fallback.anonKey)
-                      setRuntimeOverride(false)
-                      setNeedsReload(true)
-                    }}
-                    className="rounded-lg border border-outline-variant px-3 py-2 font-label text-label text-on-surface hover:bg-surface-container-high"
-                  >
-                    로컬 설정 초기화
-                  </button>
-                )}
-              </div>
+                  <div className="space-y-2">
+                    <label className="font-h3 text-h3 text-on-surface" htmlFor="env-supabase-anon">
+                      Supabase 공개 키 (anon/publishable)
+                    </label>
+                    <input
+                      id="env-supabase-anon"
+                      type="password"
+                      className="w-full rounded-lg border border-outline-variant bg-white px-4 py-2.5 font-mono text-body-sm text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      value={supabaseAnonKey}
+                      onChange={(ev) => setSupabaseAnonKey(ev.target.value)}
+                      placeholder="Supabase 공개 키를 입력하세요"
+                      autoComplete="new-password"
+                      spellCheck={false}
+                    />
+                    <p className="font-caption text-caption text-on-surface-variant">
+                      공개 키는 브라우저용 식별자이며 service_role 키와 다릅니다. 입력란은 화면에서 가려 표시합니다.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="font-caption text-caption text-on-surface-variant">
+                      {runtimeOverride ? '이 브라우저에 별도 연결 설정이 저장되어 있습니다.' : '배포 기본 연결 설정을 사용 중입니다.'}
+                    </p>
+                    {runtimeOverride && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          clearRuntimeSupabaseConfig()
+                          const fallback = getRuntimeSupabaseConfig()
+                          setSupabaseUrl(fallback.url)
+                          setSupabaseAnonKey(fallback.anonKey)
+                          setRuntimeOverride(false)
+                          setNeedsReload(true)
+                        }}
+                        className="rounded-lg border border-outline-variant px-3 py-2 font-label text-label text-on-surface hover:bg-surface-container-high"
+                      >
+                        브라우저 설정 초기화
+                      </button>
+                    )}
+                  </div>
+                </div>)}
             </section>
 
             <section className="space-y-4 rounded-xl border border-outline-variant bg-surface-container-low/40 p-4">
               <div>
-                <h3 className="font-h3 text-h3 text-on-surface">API 설정</h3>
+                <h3 className="font-h3 text-h3 text-on-surface">공통 표시 설정</h3>
                 <p className="font-caption text-caption text-on-surface-variant">
-                  이 값은 Supabase의 ai_hub.environment_config에 저장됩니다.
+                  실제 API 키와 모델 연결은 앱별 설정에서 관리합니다.
                 </p>
               </div>
 
               {supabaseReady && loadError && (
                 <p className="rounded-lg border border-error/30 bg-error-container/30 px-3 py-2 font-caption text-error" role="alert">
                   불러오기 실패: {loadError}
-                </p>
-              )}
-
-              {updatedAt && (
-                <p className="font-caption text-on-surface-variant">
-                  마지막 수정: {new Date(updatedAt).toLocaleString('ko-KR')}
-                  {loading ? ' · 동기화 중' : ''}
                 </p>
               )}
 
@@ -325,59 +331,6 @@ export default function EnvironmentSettingsDialog({ open, onClose }: Props) {
                 />
               </div>
 
-              <div className="space-y-2">
-                <label className="font-h3 text-h3 text-on-surface" htmlFor="env-support-email">
-                  지원 이메일
-                </label>
-                <input
-                  id="env-support-email"
-                  type="email"
-                  className="w-full rounded-lg border border-outline-variant bg-white px-4 py-2.5 text-body font-body text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  value={supportEmail}
-                  onChange={(ev) => setSupportEmail(ev.target.value)}
-                  placeholder="support@company.ai"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="font-h3 text-h3 text-on-surface" htmlFor="env-api-url">
-                  공개 API Base URL
-                </label>
-                <input
-                  id="env-api-url"
-                  className="w-full rounded-lg border border-outline-variant bg-white px-4 py-2.5 font-mono text-body-sm text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  value={publicApiBaseUrl}
-                  onChange={(ev) => setPublicApiBaseUrl(ev.target.value)}
-                  placeholder="https://api.example.com"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="font-h3 text-h3 text-on-surface" htmlFor="env-webhook">
-                  통합 Webhook URL
-                </label>
-                <input
-                  id="env-webhook"
-                  className="w-full rounded-lg border border-outline-variant bg-white px-4 py-2.5 font-mono text-body-sm text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  value={integrationsWebhookUrl}
-                  onChange={(ev) => setIntegrationsWebhookUrl(ev.target.value)}
-                  placeholder="https://hooks.example.com/ai-hub"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="font-h3 text-h3 text-on-surface" htmlFor="env-notes">
-                  관리자 메모
-                </label>
-                <textarea
-                  id="env-notes"
-                  rows={3}
-                  className="w-full rounded-lg border border-outline-variant bg-white px-4 py-2.5 text-body-sm text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  value={adminNotes}
-                  onChange={(ev) => setAdminNotes(ev.target.value)}
-                  placeholder="운영 메모, 배포 채널, 연락처 등"
-                />
-              </div>
             </section>
 
             {needsReload && (
@@ -388,7 +341,7 @@ export default function EnvironmentSettingsDialog({ open, onClose }: Props) {
                   onClick={() => window.location.reload()}
                   className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 font-h3 text-h3 text-on-primary hover:opacity-90"
                 >
-                  <Icon name="refresh" className="text-[18px]" />
+                  <Icon name="refresh" className="text-[14.4px]" />
                   지금 새로고침
                 </button>
               </div>

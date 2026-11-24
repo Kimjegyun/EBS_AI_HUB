@@ -1,0 +1,9 @@
+{
+  "name": "ebs-ai-hub-app-starter",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "package": "node scripts/package-app.mjs"
+  }
+}

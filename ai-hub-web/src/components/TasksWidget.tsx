@@ -79,7 +79,7 @@ export default function TasksWidget() {
       <div className="flex-1 min-h-0 overflow-auto space-y-1.5">
         {tasks.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center text-on-surface-variant py-6">
-            <Icon name="task_alt" className="text-[32px] mb-2 opacity-60" />
+            <Icon name="task_alt" className="text-[25.6px] mb-2 opacity-60" />
             <p className="text-body-sm">등록된 할 일이 없습니다.</p>
             <p className="text-caption">위 입력창에 입력하거나 + 버튼으로 추가하세요.</p>
           </div>
@@ -100,7 +100,7 @@ export default function TasksWidget() {
                     task.completed ? 'bg-primary border-primary' : 'border-outline hover:bg-primary/10'
                   }`}
                 >
-                  {task.completed && <Icon name="check" className="text-[14px] text-on-primary" />}
+                  {task.completed && <Icon name="check" className="text-[11.2px] text-on-primary" />}
                 </button>
 
                 <button
@@ -125,7 +125,7 @@ export default function TasksWidget() {
                             : 'text-on-surface-variant'
                       }`}
                     >
-                      <Icon name="event" className="text-[12px] align-middle mr-0.5" />
+                      <Icon name="event" className="text-[9.6px] align-middle mr-0.5" />
                       {due.text}
                     </span>
                   )}
@@ -143,7 +143,7 @@ export default function TasksWidget() {
                   aria-label="삭제"
                   className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full text-on-surface-variant opacity-0 group-hover:opacity-100 hover:bg-error/10 hover:text-error transition-all"
                 >
-                  <Icon name="delete" className="text-[16px]" />
+                  <Icon name="delete" className="text-[12.8px]" />
                 </button>
               </div>
             )

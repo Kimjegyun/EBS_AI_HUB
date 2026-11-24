@@ -1,0 +1,12 @@
+{
+  "id": "hello-world-app",
+  "name": "Hello World",
+  "version": "1.0.0",
+  "category": "생산성",
+  "description": "AI Hub 앱 스타터 예제입니다.",
+  "icon": "waving_hand",
+  "entry": "app.js",
+  "permissions": [],
+  "author": "개발자 이름",
+  "license": "MIT"
+}

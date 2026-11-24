@@ -4,13 +4,16 @@ import { completeWithStoredKeys, summarizeWithTogether, testTogetherConnection, 
 import { pingTencent } from '../services/tencentComplete'
 import { readEnvironmentData } from '../lib/environmentStore'
 import { resolveProviderConfig } from '../lib/appAiConfig'
+import { resourceGuard } from '../lib/resourceExecution'
+import { validatePreparedAudio } from '../lib/resourcePolicy'
 import { authenticate, authorize } from '../middleware/auth'
 
 const router = Router()
 const audioUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024, files: 1 },
+  limits: { fileSize: 50 * 1024 * 1024, files: 1, fields: 2, fieldSize: 128, parts: 3 },
 })
+const preparedAudioUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 4 * 1024 * 1024, files: 1, fields: 2, fieldSize: 128, parts: 3 } })
 
 router.use(authenticate)
 
@@ -90,7 +93,11 @@ router.post('/complete', async (req, res, next) => {
   }
 })
 
-router.post('/transcribe', audioUpload.single('file'), async (req, res, next) => {
+router.post('/transcribe', resourceGuard, (req, res, next) => {
+  const upload = res.locals.resourcePolicy.audioMode === 'user' ? preparedAudioUpload : audioUpload
+  upload.single('file')(req, res, next)
+}, async (req, res, next) => {
+  res.locals.resourceProcessing = true
   try {
     if (!req.file) {
       res.status(400).json({ ok: false, error: '음성 파일을 선택해 주세요.' })
@@ -105,12 +112,17 @@ router.post('/transcribe', audioUpload.single('file'), async (req, res, next) =>
       res.status(415).json({ ok: false, error: '지원하지 않는 파일 형식입니다. 음성 또는 동영상 파일을 선택해 주세요.' })
       return
     }
+    const userMode = res.locals.resourcePolicy.audioMode === 'user'
+    if (userMode && !validatePreparedAudio(req.file.buffer)) {
+      res.status(409).json({ ok: false, error: '사용자 PC 모드에서는 브라우저에서 변환한 음성 구간만 처리합니다. 설정을 새로 불러와 다시 실행하세요.' })
+      return
+    }
     const language = typeof req.body.language === 'string' ? req.body.language.trim() : undefined
     const result = await transcribeWithStoredKey({ file: req.file, language, appId: 'voice-summary' })
     res.status(result.ok ? 200 : 502).json(result)
   } catch (error) {
     next(error)
-  }
+  } finally { res.locals.releaseResource?.() }
 })
 
 router.post('/together-test', authorize('admin'), async (_req, res, next) => {

@@ -24,6 +24,25 @@ function Write-WatchLog([string]$message) {
   Add-Content -LiteralPath $watchLog -Value "$(Get-Date -Format s) $message" -Encoding utf8
 }
 
+function Ensure-PublicPortalsWatchdog {
+  $publicWatchdog = Join-Path $PSScriptRoot 'keep-public-portals-online.ps1'
+  $publicStatus = Join-Path $runtimeDir 'public-portals-status.json'
+  if (-not (Test-Path -LiteralPath $publicWatchdog)) { return }
+  $isFresh = $false
+  try {
+    $snapshot = Get-Content -LiteralPath $publicStatus -Raw | ConvertFrom-Json
+    $checkedAt = [DateTime]::Parse($snapshot.checkedAt).ToUniversalTime()
+    $process = Get-Process -Id ([int]$snapshot.watchdogPid) -ErrorAction SilentlyContinue
+    $isFresh = $process -and $process.ProcessName -eq 'powershell' -and ([DateTime]::UtcNow - $checkedAt).TotalSeconds -lt 90
+  } catch {}
+  if (-not $isFresh) {
+    Start-Process -FilePath 'powershell.exe' `
+      -ArgumentList "-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$publicWatchdog`"" `
+      -WorkingDirectory $webDir -WindowStyle Hidden
+    Write-WatchLog 'Public portal watchdog started or restarted.'
+  }
+}
+
 function Test-InventoryServer {
   try {
     return (Invoke-RestMethod -Uri 'http://127.0.0.1:3001/health' -TimeoutSec 3).status -eq 'ok'
@@ -37,7 +56,16 @@ function Start-InventoryServer {
   if (-not (Test-Path -LiteralPath (Join-Path $serverDir 'dist\index.js'))) {
     throw 'server/dist/index.js가 없습니다. 먼저 npm run server:build를 실행하세요.'
   }
-  Start-Process -FilePath $nodeExe -ArgumentList 'dist/index.js' -WorkingDirectory $serverDir -WindowStyle Hidden
+  $previousNodeEnv = $env:NODE_ENV
+  $previousHost = $env:HOST
+  try {
+    $env:NODE_ENV = 'production'
+    $env:HOST = '127.0.0.1'
+    Start-Process -FilePath $nodeExe -ArgumentList 'dist/index.js' -WorkingDirectory $serverDir -WindowStyle Hidden
+  } finally {
+    $env:NODE_ENV = $previousNodeEnv
+    $env:HOST = $previousHost
+  }
   Write-WatchLog 'Express 서버 시작 요청'
 }
 
@@ -86,6 +114,7 @@ function Update-TunnelUrlFile {
 Write-WatchLog '재물조사 자동 실행 감시 시작'
 while ($true) {
   try {
+    Ensure-PublicPortalsWatchdog
     if (-not (Test-InventoryServer)) {
       Start-InventoryServer
       Start-Sleep -Seconds 5

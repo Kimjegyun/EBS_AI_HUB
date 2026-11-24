@@ -43,9 +43,5 @@ export type AppAiSettings = {
 /** Supabase `environment_config.data` JSON 스키마 */
 export type EnvironmentPublicConfig = AppAiSettings & {
   service_display_name?: string
-  support_email?: string
-  public_api_base_url?: string
-  integrations_webhook_url?: string
-  admin_notes?: string
   ai_app_settings?: Record<string, AppAiSettings>
 }

@@ -1,3 +1,5 @@
+import { getLocalApiToken } from './localApi'
+
 export async function issueTencentApiToken(input: {
   secretId: string
   secretKey: string
@@ -6,7 +8,7 @@ export async function issueTencentApiToken(input: {
   try {
     const res = await fetch('/api/tencent/create-token', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getLocalApiToken()}` },
       body: JSON.stringify({
         secretId: input.secretId.trim(),
         secretKey: input.secretKey.trim(),

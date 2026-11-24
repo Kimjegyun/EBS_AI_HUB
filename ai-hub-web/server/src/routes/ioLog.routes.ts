@@ -6,7 +6,7 @@ const router = Router()
 
 router.use(authenticate)
 
-router.get('/', (_req, res) => {
+router.get('/', authorize('admin'), (_req, res) => {
   res.json({ ok: true, entries: listIoLog() })
 })
 

@@ -1,0 +1,11 @@
+{
+  "slug": "ebs-viewer",
+  "version": "1.0.3",
+  "title": "EBS Viewer",
+  "category": "이미지·영상",
+  "summary": "Windows 정식판과 macOS 미리보기판을 제공하는 이미지·동영상 뷰어입니다. 운영체제별 설치 파일과 설치 방법을 확인하세요.",
+  "features": "Windows 정식판: 사진·동영상 보기, 별점·색상 라벨·태그, IPTC/XMP 메타데이터, 검색, 일괄 이름 변경·형식 변환·날짜 변경, 이미지 편집, AI 이미지 생성, LLM 이미지 보관함을 제공합니다.\n\nmacOS 미리보기판: 사진 보기와 기본 파일 정리 기능을 제공합니다. Apple Silicon은 macOS 14 이상, Intel은 macOS 15 이상을 지원합니다. 앱 번들 서명과 검증된 설치 명령을 제공합니다. Mac판은 동영상을 Quick Look 또는 기본 플레이어로 열며 AI·MCP·자동 업데이트·이미지 편집·일괄 이름 변경은 지원하지 않습니다.",
+  "usage": "다운로드 및 설치 안내: https://ebs-aihub.com/files/util/index.html\n사용 설명서: https://ebs-aihub.com/files/util/manual.html\n\nWindows 10(1809 이상) / Windows 11, 64비트\n설치 파일: https://ebs-aihub.com/files/util/downloads/EBSViewer_Setup_1.0.3.exe\n설치 파일 SHA-256: 5f749f568e8251c1a7da63e5a0d631d736cd361f71c6989788e607acc706fcf1\n설치 파일을 실행해 설치 범위(나만 / 모든 사용자)를 선택합니다. 설치 방법은 다운로드 페이지를 확인하세요.\n\nmacOS 미리보기\nApple Silicon (M1~M4 등), macOS 14 이상: https://ebs-aihub.com/files/util/downloads/EBSViewer_1.0.3_mac_arm64.zip\nIntel, macOS 15 이상: https://ebs-aihub.com/files/util/downloads/EBSViewer_1.0.3_mac_x64.zip\nMac SHA-256: https://ebs-aihub.com/files/util/downloads/SHA256SUMS-mac.txt\n터미널 설치: curl -fsSL https://ebs-aihub.com/files/util/install-mac.sh | sh\n또는 ZIP을 열어 EBS 뷰어.app을 응용 프로그램 폴더로 옮깁니다. 처음 실행 시 보안 안내가 표시되면 다운로드 페이지의 확인 절차를 따르세요.",
+  "changes": "Windows v1.0.3 정식판 게시. macOS v1.0.3 패키지를 Apple Silicon(macOS 14 이상)과 Intel(macOS 15 이상)용으로 갱신하고, 앱 번들 서명 및 검증된 터미널 설치 명령을 추가했습니다.",
+  "launchUrl": "https://ebs-aihub.com/files/util/index.html"
+}

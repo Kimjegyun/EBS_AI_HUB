@@ -22,6 +22,7 @@ import {
   setPortalScopedItem,
 } from '../lib/portalStorage'
 import { useIsMobile } from '../hooks/useIsMobile'
+import { SETTINGS_SYNCED_EVENT } from '../lib/settingsSync'
 
 const LAYOUTS_KEY = 'dashboard-layouts'
 const GRID_HEIGHT_KEY = 'dashboard-grid-height'
@@ -446,9 +447,9 @@ function WidgetFrame({
             aria-label="대시보드에서 제거"
             className="no-drag relative z-40 shrink-0 w-5 h-5 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-error/10 hover:text-error transition-colors"
           >
-            <Icon name="close" className="text-[15px]" />
+            <Icon name="close" className="text-[12px]" />
           </button>
-          <Icon name={icon} className="text-primary shrink-0 text-[16px]" />
+          <Icon name={icon} className="text-primary shrink-0 text-[12.8px]" />
           <h2 className="text-label font-semibold text-on-surface truncate">{title}</h2>
         </div>
         <div className="relative z-40 flex items-center gap-1.5 shrink-0">
@@ -464,13 +465,13 @@ function WidgetFrame({
               aria-label={maximized ? '원래 크기로' : '최대화'}
               className="no-drag shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-highest hover:text-primary transition-colors"
             >
-              <Icon name={maximized ? 'close_fullscreen' : 'open_in_full'} className="text-[16px]" />
+              <Icon name={maximized ? 'close_fullscreen' : 'open_in_full'} className="text-[12.8px]" />
             </button>
           )}
           {!maximized && (
             <Icon
               name="drag_indicator"
-              className="drag-handle cursor-grab active:cursor-grabbing text-on-surface-variant text-[18px]"
+              className="drag-handle cursor-grab active:cursor-grabbing text-on-surface-variant text-[14.4px]"
             />
           )}
         </div>
@@ -491,6 +492,12 @@ export default function DashboardPage() {
   const storageUserKey = session?.userId ?? session?.email ?? 'anonymous'
 
   const [layouts, setLayouts] = useState<Record<string, Layout[]>>(() => loadStoredLayouts())
+  const [settingsRevision, setSettingsRevision] = useState(0)
+  useEffect(() => {
+    const refresh = () => setSettingsRevision(value => value + 1)
+    window.addEventListener(SETTINGS_SYNCED_EVENT, refresh)
+    return () => window.removeEventListener(SETTINGS_SYNCED_EVENT, refresh)
+  }, [])
   const activeWidgets = activeIds
   const [maximizedWidget, setMaximizedWidget] = useState<string | null>(() => loadStoredMaximizedWidget())
   const [activeSnapPreset, setActiveSnapPreset] = useState<SnapPreset | null>(null)
@@ -575,7 +582,7 @@ export default function DashboardPage() {
       ignoreLayoutPersistRef.current = false
     })
     return () => window.cancelAnimationFrame(frame)
-  }, [storageUserKey, catalogLoading])
+  }, [storageUserKey, catalogLoading, settingsRevision])
 
   // Reconcile layout entries whenever the active widget set changes: ensure each
   // active widget has an entry (newly activated ones get appended) and drop
@@ -1069,14 +1076,14 @@ export default function DashboardPage() {
               className="shrink-0 inline-flex h-9 w-9 items-center justify-center rounded-full bg-primary text-on-primary"
               aria-label="앱 관리"
             >
-              <Icon name="apps" className="text-[20px]" />
+              <Icon name="apps" className="text-[16px]" />
             </Link>
           </div>
         </section>
 
         {activeWidgets.length === 0 ? (
           <section className="rounded-xl border border-dashed border-outline-variant bg-surface-container px-4 py-10 text-center">
-            <Icon name="widgets" className="mb-2 text-[34px] text-on-surface-variant" />
+            <Icon name="widgets" className="mb-2 text-[27.200000000000003px] text-on-surface-variant" />
             <p className="mb-3 text-body-sm text-on-surface-variant">
               {isAdmin
                 ? '대시보드에 표시할 앱이 없습니다. 앱 등록에서 테스트하거나 마켓에서 선택하세요.'
@@ -1104,7 +1111,7 @@ export default function DashboardPage() {
                 <section className="min-h-[320px] overflow-hidden rounded-xl border border-outline-variant bg-surface-container shadow-sm">
                   <header className="flex h-11 items-center justify-between gap-2 border-b border-outline-variant px-3">
                     <div className="flex min-w-0 items-center gap-2">
-                      <Icon name={plugin.icon} className="shrink-0 text-[19px] text-primary" />
+                      <Icon name={plugin.icon} className="shrink-0 text-[15.200000000000001px] text-primary" />
                       <h2 className="truncate font-h3 text-h3 text-on-surface">{plugin.name}</h2>
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
@@ -1115,7 +1122,7 @@ export default function DashboardPage() {
                         className="inline-flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-high"
                         aria-label="홈에서 제거"
                       >
-                        <Icon name="close" className="text-[17px]" />
+                        <Icon name="close" className="text-[13.600000000000001px]" />
                       </button>
                     </div>
                   </header>
@@ -1164,7 +1171,7 @@ export default function DashboardPage() {
                 className="px-2.5 py-1.5 bg-primary text-on-primary hover:bg-primary/90 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm"
                 title="설치된 앱 관리"
               >
-                <Icon name="apps" className="text-[18px]" />
+                <Icon name="apps" className="text-[14.4px]" />
                 <span className="text-caption font-medium">설치된 앱</span>
               </Link>
               <button
@@ -1172,11 +1179,11 @@ export default function DashboardPage() {
                 className="px-2.5 py-1.5 bg-surface-container hover:bg-surface-container-high rounded-lg border border-outline-variant transition-colors flex items-center gap-1.5"
                 title="레이아웃 초기화"
               >
-                <Icon name="refresh" className="text-on-surface-variant text-[18px]" />
+                <Icon name="refresh" className="text-on-surface-variant text-[14.4px]" />
                 <span className="text-caption text-on-surface-variant">레이아웃 초기화</span>
               </button>
               <div className="flex items-center gap-1.5 bg-surface-container px-3 py-1.5 rounded-full border border-outline-variant shadow-sm">
-                <Icon name="cloud_done" className="text-success text-[18px]" />
+                <Icon name="cloud_done" className="text-success text-[14.4px]" />
                 <span className="font-label text-label text-on-surface-variant">시스템 상태: 정상</span>
               </div>
             </div>
@@ -1206,7 +1213,7 @@ export default function DashboardPage() {
         )}
         {activeWidgets.length === 0 ? (
           <div className="rounded-xl border border-dashed border-outline-variant bg-surface-container p-12 text-center">
-            <Icon name="widgets" className="text-[40px] text-on-surface-variant mb-3" />
+            <Icon name="widgets" className="text-[32px] text-on-surface-variant mb-3" />
             <p className="mb-4 text-body text-on-surface-variant">
               {isAdmin
                 ? '대시보드에 표시할 앱이 없습니다. 앱을 테스트·등록한 뒤 사용자가 선택할 수 있습니다.'

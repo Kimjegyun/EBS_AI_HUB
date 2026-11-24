@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="EBS AI Hub 마켓플레이스 앱을 만들고 제출하는 개발자 가이드와 스타터 프로젝트를 다운로드하세요.">
+    <title>EBS AI Hub 앱 개발자 자료실</title>
+    <style>
+      :root { color-scheme: light; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #18212f; background: #f5f7fb; }
+      body { margin: 0; }
+      main { max-width: 820px; margin: 0 auto; padding: 48px 20px 72px; }
+      .card { background: white; border: 1px solid #d9e0eb; border-radius: 18px; padding: 28px; box-shadow: 0 8px 28px #16233a0b; }
+      h1 { margin: 0 0 12px; font-size: clamp(1.8rem, 5vw, 2.6rem); }
+      h2 { margin-top: 30px; font-size: 1.2rem; }
+      p, li { line-height: 1.7; color: #475467; }
+      .actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 24px 0; }
+      a.button { display: inline-block; border-radius: 10px; padding: 12px 17px; background: #2458c6; color: white; font-weight: 650; text-decoration: none; }
+      a.secondary { background: #edf2ff; color: #214da8; }
+      code { background: #eef1f6; padding: 2px 6px; border-radius: 5px; }
+      footer { margin-top: 20px; font-size: .9rem; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <article class="card">
+        <p><a href="/util">← AI Hub 자료실</a></p>
+        <h1>EBS AI Hub 앱 개발자 자료실</h1>
+        <p>마켓플레이스에 호환되는 브라우저 앱을 만드는 가이드와 시작 프로젝트입니다. ZIP을 내려받아 압축을 풀고 <code>starter/README.md</code>부터 따라 하세요.</p>
+        <div class="actions">
+          <a class="button" href="/user/downloads/ebs-ai-hub-app-developer-kit-v1.0.0.zip" download>개발자 킷 다운로드 (v1.0.0)</a>
+          <a class="button secondary" href="/user/developer-kit/guide/">온라인 가이드 읽기</a>
+        </div>
+        <h2>빠른 시작</h2>
+        <ol>
+          <li>ZIP을 풀고 <code>starter/</code>에서 앱 매니페스트와 코드를 수정합니다.</li>
+          <li>Node.js 18 이상에서 <code>npm run package</code>를 실행합니다.</li>
+          <li>Hub의 앱 제출 패널에서 생성된 <code>.aihubapp.json</code>을 로컬 미리보기로 확인합니다.</li>
+          <li>같은 파일을 앱 제출에 올려 관리자 심사를 요청합니다. 승인 후 마켓플레이스에 공개됩니다.</li>
+        </ol>
+        <p>현재 킷은 React 기반 단일 파일 브라우저 앱용입니다. 서버 앱과 Hub 인증 API 연동은 별도 계약이 필요합니다. 가이드에서 권한과 실행 제한을 확인하세요.</p>
+        <footer><a href="/user/">AI Hub 홈</a> · <a href="/util">유틸리티 자료실</a></footer>
+      </article>
+    </main>
+  </body>
+</html>

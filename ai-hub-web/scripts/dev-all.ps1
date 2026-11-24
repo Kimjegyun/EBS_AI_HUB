@@ -5,9 +5,9 @@ $server = Join-Path $root "server"
 Start-Process powershell -ArgumentList '-NoExit', '-Command', "cd '$server'; npm run dev"
 
 # 각 모드별 dev 서버를 별도 PowerShell 창으로 실행
-Start-Process powershell -ArgumentList '-NoExit', '-Command', "cd '$root'; npx vite --mode user --host 0.0.0.0 --port 5173 --strictPort"
-Start-Process powershell -ArgumentList '-NoExit', '-Command', "cd '$root'; npx vite --mode admin --host 0.0.0.0 --port 5174 --strictPort"
-Start-Process powershell -ArgumentList '-NoExit', '-Command', "cd '$root'; npx vite --mode log --host 0.0.0.0 --port 5175 --strictPort"
+Start-Process powershell -ArgumentList '-NoExit', '-Command', "cd '$root'; npx vite --mode user --host 127.0.0.1 --port 5173 --strictPort"
+Start-Process powershell -ArgumentList '-NoExit', '-Command', "cd '$root'; npx vite --mode admin --host 127.0.0.1 --port 5174 --strictPort"
+Start-Process powershell -ArgumentList '-NoExit', '-Command', "cd '$root'; npx vite --mode log --host 127.0.0.1 --port 5175 --strictPort"
 
 # 서버가 뜰 때까지 잠시 대기
 Write-Host "Dev servers starting... waiting 5 seconds"

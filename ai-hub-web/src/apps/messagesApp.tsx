@@ -48,7 +48,7 @@ function MessagesBody() {
 
 function MessagesHeaderExtra() {
   return (
-    <span className="bg-primary-container text-on-primary-container px-2 py-0.5 rounded-full text-[10px] font-bold">
+    <span className="bg-primary-container text-on-primary-container px-2 py-0.5 rounded-full text-[8px] font-bold">
       2 NEW
     </span>
   )

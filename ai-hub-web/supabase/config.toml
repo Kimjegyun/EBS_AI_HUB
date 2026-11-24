@@ -7,6 +7,18 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.notify-admin-signup]
+verify_jwt = false
+
+[functions.notify-member-approved]
+verify_jwt = true
+
+[functions.notify-admin-member-approved]
+verify_jwt = true
+
+[functions.register-admin-web-push]
+verify_jwt = true
+
+[functions.remove-admin-web-push]
 verify_jwt = true
 
 [functions.ai-proxy]
